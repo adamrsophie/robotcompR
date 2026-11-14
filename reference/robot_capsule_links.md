@@ -1,8 +1,14 @@
-# Collision geometry for planar DH arms
+# Capsule collision geometry for DH arms
 
-Adds a capsule along every link of a serial DH model whose links lie
-along their x axes (as in the planar examples), from the parent frame
-origin to the link frame origin.
+Adds a capsule along every DH link, with its core segment joining the
+origins of consecutive DH frames, so offsets along both \\a\\ and \\d\\
+are covered (for example the PUMA 560 forearm). For the standard
+convention the segment is fixed in the child link frame and is attached
+there; for the modified convention it is fixed in the parent frame and
+is attached to the parent link (the base for the first joint). Segments
+of zero length are skipped. Prismatic joints change the segment length
+with the joint value, so they get no capsule and a warning names them:
+attach geometry to those links yourself.
 
 ## Usage
 

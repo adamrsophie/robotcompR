@@ -91,7 +91,8 @@ planning for abstract point robots without a <code>robot_model</code>.</p>
 <span>  resolution <span class="op">=</span> <span class="fl">0.02</span>,</span>
 <span>  rewire_factor <span class="op">=</span> <span class="fl">2</span>,</span>
 <span>  prm_nodes <span class="op">=</span> <span class="fl">200</span>,</span>
-<span>  prm_neighbors <span class="op">=</span> <span class="fl">8</span></span>
+<span>  prm_neighbors <span class="op">=</span> <span class="fl">8</span>,</span>
+<span>  time_limit <span class="op">=</span> <span class="cn">Inf</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -117,8 +118,7 @@ planning for abstract point robots without a <code>robot_model</code>.</p>
 
 <dt id="arg-bounds">bounds<a class="anchor" aria-label="anchor" href="#arg-bounds"></a></dt>
 <dd><p>Matrix of <code>c(lower, upper)</code> rows; defaults to the robot's
-sampling bounds (limits, with unbounded joints sampled in
-\([-\pi, \pi]\) or \([-1, 1]\) m).</p></dd>
+sampling bounds (see <code><a href="robot_configurations.html">robot_random_configuration()</a></code>).</p></dd>
 
 
 <dt id="arg-self">self<a class="anchor" aria-label="anchor" href="#arg-self"></a></dt>
@@ -152,6 +152,11 @@ sampling bounds (limits, with unbounded joints sampled in
 
 <dt id="arg-prm-nodes-prm-neighbors">prm_nodes, prm_neighbors<a class="anchor" aria-label="anchor" href="#arg-prm-nodes-prm-neighbors"></a></dt>
 <dd><p>Roadmap size and connectivity.</p></dd>
+
+
+<dt id="arg-time-limit">time_limit<a class="anchor" aria-label="anchor" href="#arg-time-limit"></a></dt>
+<dd><p>Wall-clock budget in seconds for each call to
+<code><a href="robot_plan.html">robot_plan()</a></code>; planning stops with <code>success = FALSE</code> once it is spent.</p></dd>
 
 </dl></div>
     <div class="section level2">

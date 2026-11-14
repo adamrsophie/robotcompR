@@ -1,10 +1,13 @@
-# Exact unicycle motion
+# Closed-form unicycle motion
 
 Integrates the unicycle model \\\dot x = v\cos\theta\\, \\\dot y =
-v\sin\theta\\, \\\dot\theta = \omega\\ exactly for constant body
-velocities over `dt`: along a circular arc of radius \\v/\omega\\, or a
-straight line when \\\|\omega\| \< 10^{-12}\\. Equivalently the new pose
-is \\X \exp(\widehat{(v, 0, \omega)}\\dt)\\ on SE(2).
+v\sin\theta\\, \\\dot\theta = \omega\\ in closed form for constant body
+velocities over `dt`: along a circular arc of radius \\v/\omega\\,
+written in the chord form \\\Delta p = v\\dt\\\mathrm{sinc}(\omega
+dt/2)(\cos(\theta + \omega dt/2), \sin(\theta + \omega dt/2))\\, which
+stays accurate as \\\omega \to 0\\ (a straight line in the limit).
+Equivalently the new pose is \\X \exp(\widehat{(v, 0, \omega)}\\dt)\\ on
+SE(2).
 
 ## Usage
 

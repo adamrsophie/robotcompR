@@ -220,7 +220,7 @@ origin.</p>
 <h2 id="simulation">Simulation<a class="anchor" aria-label="anchor" href="#simulation"></a>
 </h2>
 <p><code><a href="../reference/robot_simulate.html">robot_simulate()</a></code> integrates <span class="math inline">\ddot q = \text{ABA}(q, \dot q, \tau)</span> with
-‘deSolve’. The torque can be a constant vector or a function
+‘deSolve’. The torque can be a constant numeric vector or a function
 <code>function(t, q, qd)</code>, which makes closed-loop control
 straightforward.</p>
 <p>An unforced pendulum swing conserves energy, which is a direct check

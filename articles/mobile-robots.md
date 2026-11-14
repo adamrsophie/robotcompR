@@ -21,9 +21,17 @@ x' = x + \frac{v}{\omega}\left(\sin(\theta + \omega\Delta t) -
 \omega\Delta t) - \cos\theta\right).
 
 [`unicycle_step()`](https://adamrsophie.github.io/robotcompR/reference/unicycle_step.md)
-uses this closed form (a straight line when \omega \approx 0), which
-equals X \exp(\widehat{(v, 0, \omega)}\Delta t) on SE(2). There is no
-Euler integration error.
+evaluates this arc in the equivalent chord form
+
+\begin{pmatrix} x' \\ y' \end{pmatrix} = \begin{pmatrix} x \\ y
+\end{pmatrix} + v\Delta t \\
+\operatorname{sinc}\\\left(\tfrac{\omega\Delta t}{2}\right)
+\begin{pmatrix} \cos(\theta + \omega\Delta t / 2) \\ \sin(\theta +
+\omega\Delta t / 2) \end{pmatrix},
+
+which equals X \exp(\widehat{(v, 0, \omega)}\Delta t) on SE(2) and,
+unlike the v/\omega form, stays accurate as \omega \to 0. There is no
+time discretization error for piecewise constant controls.
 
 ``` r
 
@@ -89,9 +97,11 @@ try(mobile_simulate(car, c(0, 0, 0), cbind(1, 0.8), 1))
 
 ## Pure pursuit
 
-Pure pursuit steers toward a lookahead point a distance L_d ahead along
-the path. With the lookahead point at lateral offset y_L in the body
-frame, the commanded curvature is \kappa = 2 y_L / L_d^2.
+Pure pursuit steers toward a lookahead point an arclength L_d ahead
+along the path. With that point at (x_L, y_L) in the body frame, the
+commanded curvature is the circle through the robot and the point,
+\kappa = 2 y_L / (x_L^2 + y_L^2); on the path the denominator is close
+to L_d^2.
 
 ``` r
 
@@ -176,8 +186,8 @@ legend("bottomleft", c("truth", "dead reckoning", "EKF"),
 ``` r
 
 f
-#> <robot_ekf> mean: 0.041139, 7.7132, 3.0884 
-#> std devs: 0.06808, 0.04205, 0.02355
+#> <robot_ekf> mean: 0.12193, 7.6401, -3.1401 
+#> std devs: 0.06725, 0.04176, 0.02353
 ```
 
 ## Particle filter
@@ -200,11 +210,11 @@ for (k in 1:40) {
 }
 est <- pf_estimate(pf)
 rbind(truth = truth, estimate = est$mean)
-#>                 x        y     theta
-#> truth    3.365884 1.838791 1.0000000
-#> estimate 3.297681 1.818802 0.9931689
+#>                 x        y    theta
+#> truth    3.365884 1.838791 1.000000
+#> estimate 3.406496 1.884010 1.006056
 est$ess
-#> [1] 500
+#> [1] 343.2952
 plot(pf$particles[, 1:2], pch = 16, cex = 0.4, col = grDevices::adjustcolor("steelblue", 0.4),
      asp = 1, xlab = "x (m)", ylab = "y (m)")
 points(truth[1], truth[2], pch = 4, cex = 2, lwd = 2)

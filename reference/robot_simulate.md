@@ -41,8 +41,8 @@ robot_simulate(
 
 - torque:
 
-  A function `function(t, q, qd)` returning joint efforts, or `NULL` for
-  zero torque.
+  A function `function(t, q, qd)` returning joint efforts, a constant
+  numeric vector of efforts (one per joint), or `NULL` for zero torque.
 
 - gravity:
 

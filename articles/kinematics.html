@@ -172,17 +172,20 @@ does, which is why the geometric Jacobian is preferred for control.</p>
 <h2 id="manipulability-and-singularities">Manipulability and singularities<a class="anchor" aria-label="anchor" href="#manipulability-and-singularities"></a>
 </h2>
 <p>Yoshikawa’s measure <span class="math inline">w = \sqrt{\det(J
-J^\top)}</span> is zero at singularities. The condition number of the
-translational block measures isotropy.</p>
+J^\top)}</span> is zero at singularities. robotcompR reports the product
+of the singular values of the selected rows, which equals <span class="math inline">w</span> when there are no more rows than joints. A
+planar arm has an identically zero <span class="math inline">z</span>
+row, so select <code>rows = 1:2</code> for the classical value. The
+condition number of the translational block measures isotropy.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span>, rows <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">m</span><span class="op">$</span><span class="va">yoshikawa</span></span>
 <span><span class="co">#&gt; [1] 0.8912074</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="va">q</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span>  <span class="co"># closed form for unit links</span></span>
 <span><span class="co">#&gt; [1] 0.8912074</span></span>
 <span><span class="va">m</span><span class="op">$</span><span class="va">condition</span></span>
 <span><span class="co">#&gt; [1] 4.142772</span></span>
-<span><span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">condition</span></span>
+<span><span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0</span><span class="op">)</span>, rows <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">)</span><span class="op">$</span><span class="va">condition</span></span>
 <span><span class="co">#&gt; [1] Inf</span></span>
 <span><span class="fu"><a href="../reference/robot_is_singular.html">robot_is_singular</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
@@ -192,17 +195,18 @@ translational block measures isotropy.</p>
 <span><span class="co">#&gt; rank 1, Yoshikawa 2.37933e-16, condition Inf, SINGULAR</span></span></code></pre></div>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">elbow</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="op">-</span><span class="va">pi</span>, <span class="va">pi</span>, length.out <span class="op">=</span> <span class="fl">181</span><span class="op">)</span></span>
-<span><span class="va">w</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">elbow</span>, <span class="kw">function</span><span class="op">(</span><span class="va">t</span><span class="op">)</span> <span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">t</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">yoshikawa</span><span class="op">)</span></span>
+<span><span class="va">w</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">elbow</span>, <span class="kw">function</span><span class="op">(</span><span class="va">t</span><span class="op">)</span> <span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="va">t</span><span class="op">)</span>, rows <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">)</span><span class="op">$</span><span class="va">yoshikawa</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">elbow</span>, <span class="va">w</span>, type <span class="op">=</span> <span class="st">"l"</span>, xlab <span class="op">=</span> <span class="st">"elbow angle (rad)"</span>, ylab <span class="op">=</span> <span class="st">"manipulability"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="kinematics_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="inverse-kinematics">Inverse kinematics<a class="anchor" aria-label="anchor" href="#inverse-kinematics"></a>
 </h2>
-<p><code><a href="../reference/robot_ik.html">robot_ik()</a></code> solves <span class="math inline">\min_q \|W
-e(q)\|^2</span> where <span class="math inline">e</span> stacks the
-position error and the rotation-vector orientation error. Three methods
-are available:</p>
+<p><code><a href="../reference/robot_ik.html">robot_ik()</a></code> solves <span class="math inline">\min_q
+e(q)^\top W e(q) = \|W^{1/2} e(q)\|^2</span>, where <span class="math inline">e</span> stacks the position error and the
+rotation-vector orientation error and <span class="math inline">W =
+\operatorname{diag}(\text{weights})</span>. Three methods are
+available:</p>
 <ul>
 <li>
 <code>"levenberg_marquardt"</code> (default): damping scaled by the
@@ -213,9 +217,13 @@ adapted after each accepted or rejected step.</li>
 <li>
 <code>"pseudoinverse"</code>: Gauss-Newton with backtracking.</li>
 </ul>
-<p>Steps are limited to <code>max_step</code> radians or meters, joint
-limits are enforced by projection, and <code>restarts</code> adds random
-initial guesses (reproducible with <code>seed</code>).</p>
+<p>Steps are limited to <code>max_step</code> radians or meters. Joint
+limits are enforced by projection, and joints pushed against a limit are
+frozen for that step (an active set) so the others keep moving. When a
+run does not converge, up to <code>restarts</code> (default 5) further
+runs start from random configurations drawn with a fixed
+<code>seed</code>, so results are reproducible and the global random
+state is untouched.</p>
 <div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_fk.html">robot_fk</a></span><span class="op">(</span><span class="va">puma</span>, <span class="va">qp</span><span class="op">)</span></span>
 <span><span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_ik.html">robot_ik</a></span><span class="op">(</span><span class="va">puma</span>, <span class="va">target</span>, initial <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">6</span><span class="op">)</span><span class="op">)</span></span>

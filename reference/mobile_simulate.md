@@ -1,10 +1,11 @@
 # Simulate a mobile robot
 
-Applies piecewise-constant controls exactly. For unicycles and
-differential drives the controls are `c(v, omega)` per row; for bicycles
-`c(v, steer)`, converted to \\\omega = v\tan\delta/L\\. Controls outside
-the model limits are an error unless `saturate = TRUE`, in which case
-they are clipped.
+Applies piecewise-constant controls with the closed-form arc of
+[`unicycle_step()`](https://adamrsophie.github.io/robotcompR/reference/unicycle_step.md).
+For unicycles and differential drives the controls are `c(v, omega)` per
+row; for bicycles `c(v, steer)`, converted to \\\omega =
+v\tan\delta/L\\. Controls outside the model limits are an error unless
+`saturate = TRUE`, in which case they are clipped.
 
 ## Usage
 

@@ -1,7 +1,10 @@
 # Inflate obstacles
 
-Marks every cell within `radius` of an occupied cell as occupied, for
-planning a disc-shaped robot as a point.
+Marks every cell whose center lies closer than `radius` to an occupied
+cell (treated as a solid square, not a point) as occupied, so a
+disc-shaped robot of that radius placed at any remaining free cell
+center does not overlap an occupied cell. Plan the robot as a point on
+the result.
 
 ## Usage
 

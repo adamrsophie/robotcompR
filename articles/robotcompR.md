@@ -89,7 +89,7 @@ round(J, 4)
 #> wx  0.0000 0.0000
 #> wy  0.0000 0.0000
 #> wz  1.0000 1.0000
-robot_manipulability(arm, q)$yoshikawa
+robot_manipulability(arm, q, rows = 1:2)$yoshikawa
 #> [1] 0.8660254
 robot_is_singular(arm, c(0.3, 0))
 #> [1] TRUE
@@ -149,7 +149,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
 plan
 #> <robot_plan> rrt_connect: success
 #> path found (shortcut smoothed) 
-#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.393 s
+#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.269 s
 #> seed: 1
 traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
 robot_traj_check(robot, traj)$ok

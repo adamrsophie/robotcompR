@@ -223,7 +223,7 @@ its quantities have closed forms.</p>
 <span><span class="co">#&gt; wx  0.0000 0.0000</span></span>
 <span><span class="co">#&gt; wy  0.0000 0.0000</span></span>
 <span><span class="co">#&gt; wz  1.0000 1.0000</span></span>
-<span><span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span><span class="op">)</span><span class="op">$</span><span class="va">yoshikawa</span></span>
+<span><span class="fu"><a href="../reference/robot_manipulability.html">robot_manipulability</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span>, rows <span class="op">=</span> <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">)</span><span class="op">$</span><span class="va">yoshikawa</span></span>
 <span><span class="co">#&gt; [1] 0.8660254</span></span>
 <span><span class="fu"><a href="../reference/robot_is_singular.html">robot_is_singular</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
@@ -277,7 +277,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">plan</span></span>
 <span><span class="co">#&gt; &lt;robot_plan&gt; rrt_connect: success</span></span>
 <span><span class="co">#&gt; path found (shortcut smoothed) </span></span>
-<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.393 s</span></span>
+<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.269 s</span></span>
 <span><span class="co">#&gt; seed: 1</span></span>
 <span><span class="va">traj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_path.html">robot_traj_path</a></span><span class="op">(</span><span class="va">plan</span>, vmax <span class="op">=</span> <span class="fl">1</span>, amax <span class="op">=</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_traj_check.html">robot_traj_check</a></span><span class="op">(</span><span class="va">robot</span>, <span class="va">traj</span><span class="op">)</span><span class="op">$</span><span class="va">ok</span></span>

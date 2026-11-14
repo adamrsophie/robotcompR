@@ -110,10 +110,19 @@ x' = x + \frac{v}{\omega}\left(\sin(\theta + \omega\Delta t) -
 y' = y - \frac{v}{\omega}\left(\cos(\theta + \omega\Delta t) -
 \cos\theta\right).
 </span></p>
-<p><code><a href="../reference/unicycle_step.html">unicycle_step()</a></code> uses this closed form (a straight line
-when <span class="math inline">\omega \approx 0</span>), which equals
-<span class="math inline">X \exp(\widehat{(v, 0, \omega)}\Delta
-t)</span> on SE(2). There is no Euler integration error.</p>
+<p><code><a href="../reference/unicycle_step.html">unicycle_step()</a></code> evaluates this arc in the equivalent
+chord form</p>
+<p><span class="math display">
+\begin{pmatrix} x' \\ y' \end{pmatrix} = \begin{pmatrix} x \\ y
+\end{pmatrix}
++ v\Delta t \, \operatorname{sinc}\!\left(\tfrac{\omega\Delta
+t}{2}\right)
+\begin{pmatrix} \cos(\theta + \omega\Delta t / 2) \\ \sin(\theta +
+\omega\Delta t / 2) \end{pmatrix},
+</span></p>
+<p>which equals <span class="math inline">X \exp(\widehat{(v, 0,
+\omega)}\Delta t)</span> on SE(2) and, unlike the <span class="math inline">v/\omega</span> form, stays accurate as <span class="math inline">\omega \to 0</span>. There is no time discretization
+error for piecewise constant controls.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/unicycle_step.html">unicycle_step</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, v <span class="op">=</span> <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span>, omega <span class="op">=</span> <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="co">#&gt;        x        y    theta </span></span>
@@ -168,10 +177,10 @@ error unless <code>saturate = TRUE</code>.</p>
 <div class="section level2">
 <h2 id="pure-pursuit">Pure pursuit<a class="anchor" aria-label="anchor" href="#pure-pursuit"></a>
 </h2>
-<p>Pure pursuit steers toward a lookahead point a distance <span class="math inline">L_d</span> ahead along the path. With the lookahead
-point at lateral offset <span class="math inline">y_L</span> in the body
-frame, the commanded curvature is <span class="math inline">\kappa = 2
-y_L / L_d^2</span>.</p>
+<p>Pure pursuit steers toward a lookahead point an arclength <span class="math inline">L_d</span> ahead along the path. With that point at
+<span class="math inline">(x_L, y_L)</span> in the body frame, the
+commanded curvature is the circle through the robot and the point, <span class="math inline">\kappa = 2 y_L / (x_L^2 + y_L^2)</span>; on the path
+the denominator is close to <span class="math inline">L_d^2</span>.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span>, length.out <span class="op">=</span> <span class="fl">80</span><span class="op">)</span></span>
 <span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">3</span> <span class="op">*</span> <span class="va">s</span>, <span class="fl">2</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="va">s</span><span class="op">)</span><span class="op">)</span></span>
@@ -244,8 +253,8 @@ KRK^\top</span>, which stays symmetric positive semidefinite.</p>
 <p><img src="mobile-robots_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="576"></p>
 <div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">f</span></span>
-<span><span class="co">#&gt; &lt;robot_ekf&gt; mean: 0.041139, 7.7132, 3.0884 </span></span>
-<span><span class="co">#&gt; std devs: 0.06808, 0.04205, 0.02355</span></span></code></pre></div>
+<span><span class="co">#&gt; &lt;robot_ekf&gt; mean: 0.12193, 7.6401, -3.1401 </span></span>
+<span><span class="co">#&gt; std devs: 0.06725, 0.04176, 0.02353</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="particle-filter">Particle filter<a class="anchor" aria-label="anchor" href="#particle-filter"></a>
@@ -266,11 +275,11 @@ mean.</p>
 <span><span class="op">}</span></span>
 <span><span class="va">est</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_particle_filter.html">pf_estimate</a></span><span class="op">(</span><span class="va">pf</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>truth <span class="op">=</span> <span class="va">truth</span>, estimate <span class="op">=</span> <span class="va">est</span><span class="op">$</span><span class="va">mean</span><span class="op">)</span></span>
-<span><span class="co">#&gt;                 x        y     theta</span></span>
-<span><span class="co">#&gt; truth    3.365884 1.838791 1.0000000</span></span>
-<span><span class="co">#&gt; estimate 3.297681 1.818802 0.9931689</span></span>
+<span><span class="co">#&gt;                 x        y    theta</span></span>
+<span><span class="co">#&gt; truth    3.365884 1.838791 1.000000</span></span>
+<span><span class="co">#&gt; estimate 3.406496 1.884010 1.006056</span></span>
 <span><span class="va">est</span><span class="op">$</span><span class="va">ess</span></span>
-<span><span class="co">#&gt; [1] 500</span></span>
+<span><span class="co">#&gt; [1] 343.2952</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">pf</span><span class="op">$</span><span class="va">particles</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>, pch <span class="op">=</span> <span class="fl">16</span>, cex <span class="op">=</span> <span class="fl">0.4</span>, col <span class="op">=</span> <span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/adjustcolor.html" class="external-link">adjustcolor</a></span><span class="op">(</span><span class="st">"steelblue"</span>, <span class="fl">0.4</span><span class="op">)</span>,</span>
 <span>     asp <span class="op">=</span> <span class="fl">1</span>, xlab <span class="op">=</span> <span class="st">"x (m)"</span>, ylab <span class="op">=</span> <span class="st">"y (m)"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/points.html" class="external-link">points</a></span><span class="op">(</span><span class="va">truth</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, <span class="va">truth</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span>, pch <span class="op">=</span> <span class="fl">4</span>, cex <span class="op">=</span> <span class="fl">2</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>

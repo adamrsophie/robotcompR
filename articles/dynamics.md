@@ -109,8 +109,8 @@ robot_inverse_dynamics(lift, c(0.1, 0.2), f_ext = list(link2 = c(0, 0, 3 * 9.81,
 
 [`robot_simulate()`](https://adamrsophie.github.io/robotcompR/reference/robot_simulate.md)
 integrates \ddot q = \text{ABA}(q, \dot q, \tau) with ‘deSolve’. The
-torque can be a constant vector or a function `function(t, q, qd)`,
-which makes closed-loop control straightforward.
+torque can be a constant numeric vector or a function
+`function(t, q, qd)`, which makes closed-loop control straightforward.
 
 An unforced pendulum swing conserves energy, which is a direct check of
 the integrator tolerance and the dynamics:

@@ -1,11 +1,13 @@
 # Pure pursuit path following
 
 Computes a unicycle command that steers toward the lookahead point: the
-first point of the polyline `path` at distance `lookahead` beyond the
-closest point to the robot. The commanded curvature is \\\kappa = 2 y_L
-/ L_d^2\\, where \\y_L\\ is the lateral offset of the lookahead point in
-the body frame (Coulter, 1992). Near the end of the path the last point
-is used as the goal.
+point of the polyline `path` an arclength `lookahead` beyond the closest
+point to the robot. The commanded curvature is \\\kappa = 2 y_L /
+\ell^2\\, the circle through the robot and the target, where \\(x_L,
+y_L)\\ is the target in the body frame and \\\ell^2 = x_L^2 + y_L^2\\
+its squared distance (Coulter, 1992). On a straight path \\\ell\\ is
+close to `lookahead`, but it is shorter when the robot is off the path.
+Near the end of the path the last point is used as the goal.
 
 ## Usage
 

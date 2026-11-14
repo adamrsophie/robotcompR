@@ -4,18 +4,28 @@ of it). Translational and rotational blocks have consistent units;
 the &quot;full&quot; 6-row Jacobian mixes meters and radians, so measures
 computed from it depend on the length unit and should be interpreted
 only with an explicit scaling convention. The Yoshikawa measure is
-\(w = \sqrt{\det(J J^\top)} = \prod_i \sigma_i\), using the
-\(\min(m, n)\) singular values of the selected block, and is zero at
-singular configurations. The condition number is
+reported as \(w = \prod_i \sigma_i\) over the \(\min(m, n)\)
+singular values of the selected \(m \times n\) block. When
+\(m \le n\) this equals \(\sqrt{\det(J J^\top)}\); for a tall block
+(more task rows than joints, such as the 3 translational rows of a planar
+arm) \(\det(J J^\top)\) is always zero, and the product of singular
+values measures the volume of the reachable velocity set within the
+column space instead. Select the meaningful rows with rows (for a
+planar arm, rows = 1:2) to get the classical value. The condition number is
 \(\sigma_{max} / \sigma_{min}\) (Inf when the rank is deficient). The rank is
 the number of singular values above tol * sigma_max."><meta property="og:description" content="Computes SVD-based diagnostics of the world-frame Jacobian (or a block
 of it). Translational and rotational blocks have consistent units;
 the &quot;full&quot; 6-row Jacobian mixes meters and radians, so measures
 computed from it depend on the length unit and should be interpreted
 only with an explicit scaling convention. The Yoshikawa measure is
-\(w = \sqrt{\det(J J^\top)} = \prod_i \sigma_i\), using the
-\(\min(m, n)\) singular values of the selected block, and is zero at
-singular configurations. The condition number is
+reported as \(w = \prod_i \sigma_i\) over the \(\min(m, n)\)
+singular values of the selected \(m \times n\) block. When
+\(m \le n\) this equals \(\sqrt{\det(J J^\top)}\); for a tall block
+(more task rows than joints, such as the 3 translational rows of a planar
+arm) \(\det(J J^\top)\) is always zero, and the product of singular
+values measures the volume of the reachable velocity set within the
+column space instead. Select the meaningful rows with rows (for a
+planar arm, rows = 1:2) to get the classical value. The condition number is
 \(\sigma_{max} / \sigma_{min}\) (Inf when the rank is deficient). The rank is
 the number of singular values above tol * sigma_max."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
@@ -80,9 +90,14 @@ of it). Translational and rotational blocks have consistent units;
 the <code>"full"</code> 6-row Jacobian mixes meters and radians, so measures
 computed from it depend on the length unit and should be interpreted
 only with an explicit scaling convention. The Yoshikawa measure is
-\(w = \sqrt{\det(J J^\top)} = \prod_i \sigma_i\), using the
-\(\min(m, n)\) singular values of the selected block, and is zero at
-singular configurations. The condition number is
+reported as \(w = \prod_i \sigma_i\) over the \(\min(m, n)\)
+singular values of the selected \(m \times n\) block. When
+\(m \le n\) this equals \(\sqrt{\det(J J^\top)}\); for a tall block
+(more task rows than joints, such as the 3 translational rows of a planar
+arm) \(\det(J J^\top)\) is always zero, and the product of singular
+values measures the volume of the reachable velocity set within the
+column space instead. Select the meaningful rows with <code>rows</code> (for a
+planar arm, <code>rows = 1:2</code>) to get the classical value. The condition number is
 \(\sigma_{max} / \sigma_{min}\) (<code>Inf</code> when the rank is deficient). The rank is
 the number of singular values above <code>tol * sigma_max</code>.</p>
     </div>

@@ -1,10 +1,12 @@
 # Random and home configurations
 
 `robot_random_configuration()` samples uniformly within the position
-limits; unbounded joints are sampled in \\\[-\pi, \pi)\\ (revolute and
-continuous) or \\\[-1, 1\]\\ meters (prismatic). The caller's random
-number state is left unchanged when `seed` is supplied. `robot_home()`
-returns zeros projected onto the limits.
+limits; joints unbounded on both sides are sampled in \\\[-\pi, \pi)\\
+(revolute and continuous) or \\\[-1, 1\]\\ meters (prismatic), and a
+joint bounded on one side only is sampled over a span of \\2\pi\\ rad or
+2 m from its finite limit. The caller's random number state is left
+unchanged when `seed` is supplied. `robot_home()` returns zeros
+projected onto the limits.
 
 ## Usage
 

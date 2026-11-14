@@ -202,7 +202,7 @@
 - [`robot_attach_geometry()`](https://adamrsophie.github.io/robotcompR/reference/robot_attach_geometry.md)
   : Attach collision geometry to a link
 - [`robot_capsule_links()`](https://adamrsophie.github.io/robotcompR/reference/robot_capsule_links.md)
-  : Collision geometry for planar DH arms
+  : Capsule collision geometry for DH arms
 - [`robot_environment()`](https://adamrsophie.github.io/robotcompR/reference/robot_environment.md)
   : Static environments
 - [`robot_check_collision()`](https://adamrsophie.github.io/robotcompR/reference/robot_check_collision.md)
@@ -226,7 +226,7 @@
   [`robot_bicycle()`](https://adamrsophie.github.io/robotcompR/reference/mobile_models.md)
   : Mobile robot models
 - [`unicycle_step()`](https://adamrsophie.github.io/robotcompR/reference/unicycle_step.md)
-  : Exact unicycle motion
+  : Closed-form unicycle motion
 - [`diffdrive_forward()`](https://adamrsophie.github.io/robotcompR/reference/diffdrive.md)
   [`diffdrive_inverse()`](https://adamrsophie.github.io/robotcompR/reference/diffdrive.md)
   [`diffdrive_odometry()`](https://adamrsophie.github.io/robotcompR/reference/diffdrive.md)

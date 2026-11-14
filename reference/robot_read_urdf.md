@@ -37,8 +37,12 @@ Joint `<dynamics>` damping and friction values are stored on the joint
 but not used by the dynamics functions; a warning says so.
 
 Input is treated as untrusted: xacro files are refused (expand them with
-ROS tools first), external entities and network access are disabled in
-the XML parser, and mesh files are never opened.
+ROS tools first), documents declaring entities are refused, network
+access is disabled in the XML parser, the file content is parsed as XML
+text (never followed as a further path or URL), and mesh files are never
+opened. Every link named by a joint must be declared. A `velocity` or
+`effort` limit of 0, the usual placeholder for a required URDF
+attribute, is read as unspecified.
 
 ## Examples
 

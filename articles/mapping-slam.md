@@ -88,7 +88,7 @@ points(route[, 1:2], pch = 19, col = "firebrick")
 ``` r
 
 mean(grid_occupied(map) == occ)
-#> [1] 0.9729167
+#> [1] 0.9979167
 ```
 
 ## Grid planning with A\*
@@ -104,7 +104,7 @@ inflate obstacles by its radius first.
 inflated <- grid_inflate(world, radius = 0.2)
 path <- grid_astar(world, c(0.5, 0.5), c(5.5, 3.5), occupied = inflated)
 nrow(path)
-#> [1] 54
+#> [1] 56
 plot(world)
 image(seq(0.05, 5.95, 0.1), seq(0.05, 3.95, 0.1), t(inflated & !occ),
       col = c(NA, grDevices::adjustcolor("orange", 0.3)), add = TRUE)

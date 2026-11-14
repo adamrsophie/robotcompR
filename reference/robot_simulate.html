@@ -109,7 +109,8 @@ error; tighten <code>rtol</code> and <code>atol</code> to reduce it.</p>
 
 <dt id="arg-torque">torque<a class="anchor" aria-label="anchor" href="#arg-torque"></a></dt>
 <dd><p>A function <code>function(t, q, qd)</code> returning joint efforts,
-or <code>NULL</code> for zero torque.</p></dd>
+a constant numeric vector of efforts (one per joint), or <code>NULL</code> for
+zero torque.</p></dd>
 
 
 <dt id="arg-gravity">gravity<a class="anchor" aria-label="anchor" href="#arg-gravity"></a></dt>

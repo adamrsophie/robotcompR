@@ -80,5 +80,5 @@ pf <- robot_particle_filter(200, c(0, 0, 0), diag(0.05, 3), L,
 pf <- pf_update(pf, landmark_measurements(c(0, 0, 0), L), seed = 2)
 pf_estimate(pf)$mean
 #>           x           y       theta 
-#> -0.02164881  0.02588730 -0.02077261 
+#> -0.02886694  0.01564359 -0.01223024 
 ```

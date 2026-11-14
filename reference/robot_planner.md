@@ -24,7 +24,8 @@ robot_planner(
   resolution = 0.02,
   rewire_factor = 2,
   prm_nodes = 200,
-  prm_neighbors = 8
+  prm_neighbors = 8,
+  time_limit = Inf
 )
 ```
 
@@ -49,8 +50,8 @@ robot_planner(
 - bounds:
 
   Matrix of `c(lower, upper)` rows; defaults to the robot's sampling
-  bounds (limits, with unbounded joints sampled in \\\[-\pi, \pi\]\\ or
-  \\\[-1, 1\]\\ m).
+  bounds (see
+  [`robot_random_configuration()`](https://adamrsophie.github.io/robotcompR/reference/robot_configurations.md)).
 
 - self:
 
@@ -84,6 +85,12 @@ robot_planner(
 - prm_nodes, prm_neighbors:
 
   Roadmap size and connectivity.
+
+- time_limit:
+
+  Wall-clock budget in seconds for each call to
+  [`robot_plan()`](https://adamrsophie.github.io/robotcompR/reference/robot_plan.md);
+  planning stops with `success = FALSE` once it is spent.
 
 ## Value
 

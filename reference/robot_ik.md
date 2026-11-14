@@ -3,7 +3,10 @@
 Solves \\FK(q) \approx T^\*\\ for a target pose (or position) of
 `frame`. The error is \\e = (p^\* - p, \log(R^\* R^\top))\\ in world
 coordinates, a proper SO(3) orientation error rather than a difference
-of Euler angles, weighted componentwise by `weights`. Methods:
+of Euler angles. With \\W = \mathrm{diag}(weights)\\ the solver
+minimizes \\e^\top W e = \\W^{1/2} e\\^2\\; `residual` is its square
+root. Joints that sit on a limit and would be pushed outward are frozen
+for that step (an active set), so the other joints keep moving. Methods:
 
 ## Usage
 
@@ -19,9 +22,9 @@ robot_ik(
   max_iterations = 200,
   lambda = 0.01,
   max_step = 0.5,
-  restarts = 0,
+  restarts = 5,
   respect_limits = TRUE,
-  seed = NULL
+  seed = 1L
 )
 ```
 
@@ -76,7 +79,8 @@ robot_ik(
 
 - restarts:
 
-  Number of random restarts.
+  Maximum number of extra attempts from random initial configurations,
+  used only while the solver has not converged.
 
 - respect_limits:
 
@@ -84,8 +88,8 @@ robot_ik(
 
 - seed:
 
-  Optional seed for restarts; the global random state is restored
-  afterwards.
+  Seed for the restart configurations (default 1, so results are
+  reproducible); the global random state is never changed.
 
 ## Value
 
