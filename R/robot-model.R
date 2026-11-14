@@ -219,6 +219,7 @@ robot_links <- function(robot) {
     parent = c(NA_character_, robot$link_names[robot$parent_index[-1]]),
     mass = vapply(l, `[[`, 0, "mass"),
     n_collision = vapply(l, function(z) length(z$collision), 0L),
+    row.names = NULL,
     stringsAsFactors = FALSE
   )
 }
