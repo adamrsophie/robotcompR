@@ -10,11 +10,11 @@ Source:
 [`DESCRIPTION`](https://github.com/adamrsophie/robotcompR/blob/main/DESCRIPTION)
 
 Sophie A (2026). *robotcompR: Robotics, Kinematics, Dynamics, and Motion
-Planning in R*. R package version 0.1.0,
+Planning*. R package version 0.1.0,
 <https://github.com/adamrsophie/robotcompR>.
 
     @Manual{,
-      title = {robotcompR: Robotics, Kinematics, Dynamics, and Motion Planning in R},
+      title = {robotcompR: Robotics, Kinematics, Dynamics, and Motion Planning},
       author = {Adam R Sophie},
       year = {2026},
       note = {R package version 0.1.0},
