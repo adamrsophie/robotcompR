@@ -19,7 +19,13 @@ Exports links (inertial parameters and geometry), joints and limits.
 URDF has no joint offset or post-motion transform, so the export keeps
 the kinematics exact by folding an offset into the joint origin and by
 splitting a joint with a post transform into the moving joint, a
-massless intermediate link named \verb{<child>_motion}, and a fixed joint.
+massless intermediate link named \verb{<child>_motion}, and a fixed joint
+named \verb{<joint>_post} (a numeric suffix is added if a name is taken).
+The extra joints can change the breadth-first order of the movable
+joints; when the reimported configuration order differs, a warning
+gives both orders. Names are XML-escaped. Unspecified velocity and
+effort limits are written as 0, which \code{\link[=robot_read_urdf]{robot_read_urdf()}} reads back as
+unspecified.
 Forward kinematics of every original frame is preserved; the exported
 model has extra frames. Convex-hull geometry has no URDF equivalent and
 is omitted with a warning.

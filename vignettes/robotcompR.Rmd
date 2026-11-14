@@ -69,7 +69,7 @@ robot_plot(arm, q, frames = TRUE)
 ```{r}
 J <- robot_jacobian(arm, q)
 round(J, 4)
-robot_manipulability(arm, q)$yoshikawa
+robot_manipulability(arm, q, rows = 1:2)$yoshikawa
 robot_is_singular(arm, c(0.3, 0))
 ```
 

@@ -25,7 +25,8 @@ robot_simulate(
 \item{times}{Output times (seconds), increasing.}
 
 \item{torque}{A function \verb{function(t, q, qd)} returning joint efforts,
-or \code{NULL} for zero torque.}
+a constant numeric vector of efforts (one per joint), or \code{NULL} for
+zero torque.}
 
 \item{gravity}{Gravity vector in world coordinates.}
 

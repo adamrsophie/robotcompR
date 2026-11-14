@@ -15,9 +15,9 @@ robot_ik(
   max_iterations = 200,
   lambda = 0.01,
   max_step = 0.5,
-  restarts = 0,
+  restarts = 5,
   respect_limits = TRUE,
-  seed = NULL
+  seed = 1L
 )
 }
 \arguments{
@@ -48,12 +48,13 @@ planar arm with a pose target.}
 (radians or meters). Steps are scaled down to this size, which keeps
 iterations started near singular configurations from jumping far.}
 
-\item{restarts}{Number of random restarts.}
+\item{restarts}{Maximum number of extra attempts from random initial
+configurations, used only while the solver has not converged.}
 
 \item{respect_limits}{Project iterates onto the joint limits.}
 
-\item{seed}{Optional seed for restarts; the global random state is
-restored afterwards.}
+\item{seed}{Seed for the restart configurations (default 1, so results
+are reproducible); the global random state is never changed.}
 }
 \value{
 A \code{robot_ik_solution} list with \code{q}, \code{converged}, \code{residual},
@@ -67,7 +68,10 @@ and \code{target_distance}.
 Solves \eqn{FK(q) \approx T^*} for a target pose (or position) of
 \code{frame}. The error is \eqn{e = (p^* - p, \log(R^* R^\top))} in world
 coordinates, a proper SO(3) orientation error rather than a difference
-of Euler angles, weighted componentwise by \code{weights}. Methods:
+of Euler angles. With \eqn{W = \mathrm{diag}(weights)} the solver
+minimizes \eqn{e^\top W e = \|W^{1/2} e\|^2}; \code{residual} is its square
+root. Joints that sit on a limit and would be pushed outward are frozen
+for that step (an active set), so the other joints keep moving. Methods:
 }
 \details{
 \itemize{

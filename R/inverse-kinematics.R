@@ -45,14 +45,34 @@ ik_single <- function(robot, k, q0, target_p, target_R, W, method, tol,
     J <- jacobian_internal(robot, q, k, fk = fk)
     Jw <- sw * J
     ew <- sw * e
-    if (method == "pseudoinverse") {
-      dq <- pinv_solve(Jw, ew)
-    } else if (method == "damped_least_squares") {
-      dq <- as.numeric(t(Jw) %*% solve(Jw %*% t(Jw) + lam^2 * diag(6), ew))
-    } else {
-      JtJ <- crossprod(Jw)
-      H <- JtJ + lam * max(diag(JtJ), 1e-12) * diag(robot$dof)
-      dq <- as.numeric(solve(H, crossprod(Jw, ew)))
+    step_for <- function(Jw) {
+      if (method == "pseudoinverse") {
+        pinv_solve(Jw, ew)
+      } else if (method == "damped_least_squares") {
+        as.numeric(t(Jw) %*% solve(Jw %*% t(Jw) + lam^2 * diag(6), ew))
+      } else {
+        JtJ <- crossprod(Jw)
+        H <- JtJ + lam * max(diag(JtJ), 1e-12) * diag(robot$dof)
+        as.numeric(solve(H, crossprod(Jw, ew)))
+      }
+    }
+    dq <- step_for(Jw)
+    if (limits) {
+      # Active set: joints sitting on a limit and pushed outward are frozen
+      # and the step is recomputed with the remaining joints, so one
+      # saturated joint does not stall the others.
+      eps <- 1e-12 * pmax(1, abs(q))
+      frozen <- rep(FALSE, length(q))
+      for (pass in seq_along(q)) {
+        push <- (q <= L[, 1] + eps & dq < 0) | (q >= L[, 2] - eps & dq > 0)
+        new <- push & !frozen
+        if (!any(new)) break
+        frozen <- frozen | new
+        Jf <- Jw
+        Jf[, frozen] <- 0
+        dq <- step_for(Jf)
+        dq[frozen] <- 0
+      }
     }
     big <- max(abs(dq))
     if (big > max_step) dq <- dq * (max_step / big)
@@ -97,7 +117,10 @@ ik_single <- function(robot, k, q0, target_p, target_R, W, method, tol,
 #' Solves \eqn{FK(q) \approx T^*} for a target pose (or position) of
 #' `frame`. The error is \eqn{e = (p^* - p, \log(R^* R^\top))} in world
 #' coordinates, a proper SO(3) orientation error rather than a difference
-#' of Euler angles, weighted componentwise by `weights`. Methods:
+#' of Euler angles. With \eqn{W = \mathrm{diag}(weights)} the solver
+#' minimizes \eqn{e^\top W e = \|W^{1/2} e\|^2}; `residual` is its square
+#' root. Joints that sit on a limit and would be pushed outward are frozen
+#' for that step (an active set), so the other joints keep moving. Methods:
 #'
 #' * `"levenberg_marquardt"` (default): \eqn{\Delta q = (J^\top W J +
 #'   \lambda \mu I)^{-1} J^\top W e}, where \eqn{\mu} is the largest
@@ -131,10 +154,11 @@ ik_single <- function(robot, k, q0, target_p, target_R, W, method, tol,
 #' @param max_step Largest change of any joint variable in one iteration
 #'   (radians or meters). Steps are scaled down to this size, which keeps
 #'   iterations started near singular configurations from jumping far.
-#' @param restarts Number of random restarts.
+#' @param restarts Maximum number of extra attempts from random initial
+#'   configurations, used only while the solver has not converged.
 #' @param respect_limits Project iterates onto the joint limits.
-#' @param seed Optional seed for restarts; the global random state is
-#'   restored afterwards.
+#' @param seed Seed for the restart configurations (default 1, so results
+#'   are reproducible); the global random state is never changed.
 #' @return A `robot_ik_solution` list with `q`, `converged`, `residual`,
 #'   `position_error`, `orientation_error` (radians), `iterations`,
 #'   `attempts`, `active_limits` (names of joints at a limit),
@@ -151,8 +175,8 @@ robot_ik <- function(robot, target, initial = NULL, frame = NULL,
                      method = c("levenberg_marquardt",
                                 "damped_least_squares", "pseudoinverse"),
                      weights = NULL, tol = 1e-10, max_iterations = 200,
-                     lambda = 0.01, max_step = 0.5, restarts = 0,
-                     respect_limits = TRUE, seed = NULL) {
+                     lambda = 0.01, max_step = 0.5, restarts = 5,
+                     respect_limits = TRUE, seed = 1L) {
   check_robot(robot)
   method <- match.arg(method)
   k <- frame_index(robot, frame)
@@ -176,13 +200,27 @@ robot_ik <- function(robot, target, initial = NULL, frame = NULL,
   restarts <- check_count(restarts, "restarts", min = 0)
   lambda <- check_scalar(lambda, "lambda", positive = TRUE)
   max_step <- check_scalar(max_step, "max_step", positive = TRUE)
+  if (robot$dof == 0) {
+    e <- ik_error(fk_internal(robot, numeric(0))$link[[k]], target_p, target_R)
+    res <- sqrt(sum(W * e * e))
+    return(structure(list(
+      q = stats::setNames(numeric(0), character(0)), converged = res <= tol,
+      residual = res, position_error = vnorm(e[1:3] * (W[1:3] > 0)),
+      orientation_error = if (is.null(target_R) || all(W[4:6] == 0)) NA_real_
+                          else vnorm(e[4:6] * (W[4:6] > 0)),
+      iterations = 0L, attempts = 1L, method = method,
+      active_limits = character(0), singular = FALSE,
+      reach_bound = chain_reach_bound(robot, k),
+      target_distance = vnorm(target_p - robot$base[1:3, 4])
+    ), class = "robot_ik_solution"))
+  }
   run <- function(qs) ik_single(robot, k, qs, target_p, target_R, W, method,
                                 tol, max_iterations, lambda, respect_limits,
                                 step_tol = 1e-14, max_step = max_step)
   best <- run(q0)
   attempts <- 1L
   if (best$residual > tol && restarts > 0) {
-    starts <- robot_random_configuration(robot, restarts, seed = seed)
+    starts <- robot_random_configuration(robot, restarts, seed = seed %||% 1L)
     if (!is.matrix(starts)) starts <- matrix(starts, 1)
     for (i in seq_len(nrow(starts))) {
       attempts <- attempts + 1L
@@ -199,17 +237,26 @@ robot_ik <- function(robot, target, initial = NULL, frame = NULL,
   at_limit <- (abs(q - L[, 1]) < 1e-9 | abs(q - L[, 2]) < 1e-9)
   J <- jacobian_internal(robot, q, k)
   Jw <- sqrt(W) * J
-  sv <- svd(Jw)$d
-  needed <- min(sum(W > 0), robot$dof)
-  rank <- sum(sv > 1e-8 * max(sv, .Machine$double.eps))
+  wrank <- function(Jw) {
+    sv <- svd(Jw)$d
+    sum(sv > 1e-8 * max(sv, .Machine$double.eps))
+  }
+  rank <- wrank(Jw)
+  # The rank the weighted task can reach at all (for example 2 for the
+  # position of a planar arm, whose z row is identically zero), taken as
+  # the largest rank over a few fixed sample configurations.
+  probes <- with_seed_internal(1L, robot_random_configuration(robot, 4))
+  if (!is.matrix(probes)) probes <- matrix(probes, ncol = robot$dof)
+  needed <- max(rank, apply(probes, 1, function(qp)
+    wrank(sqrt(W) * jacobian_internal(robot, qp, k))))
   base_p <- robot$base[1:3, 4]
   structure(list(
     q = q,
     converged = best$residual <= tol,
     residual = best$residual,
     position_error = vnorm(best$error[1:3] * (W[1:3] > 0)),
-    orientation_error = if (is.null(target_R)) NA_real_
-                        else vnorm(best$error[4:6]),
+    orientation_error = if (is.null(target_R) || all(W[4:6] == 0)) NA_real_
+                        else vnorm(best$error[4:6] * (W[4:6] > 0)),
     iterations = best$iterations,
     attempts = attempts,
     method = method,
@@ -273,6 +320,9 @@ ik_planar2 <- function(x, y, l1, l2, tol = 1e-12) {
     return(matrix(numeric(0), 0, 2, dimnames = list(NULL, c("q1", "q2"))))
   }
   c2 <- max(-1, min(1, c2))
+  if (x^2 + y^2 <= tol * (l1 + l2)^2 && abs(l1 - l2) <= tol * (l1 + l2)) {
+    return(matrix(c(0, pi), 1, dimnames = list("q2_positive", c("q1", "q2"))))
+  }
   q2 <- acos(c2)
   q2s <- if (q2 < 1e-12 || abs(q2 - pi) < 1e-12) q2 else c(q2, -q2)
   out <- t(vapply(q2s, function(b) {

@@ -67,8 +67,10 @@ robot_plot <- function(robot, q, projection = c("xy", "xz", "yz", "3d"),
   q <- check_q(robot, q)
   sg <- robot_segments(robot, q)
   origins <- t(vapply(sg$fk$link, function(T) T[1:3, 4], numeric(3)))
-  reach <- max(1e-3, chain_reach_bound(robot, length(robot$link_names)),
-               max(abs(origins)))
+  # The theoretical reach is infinite for unbounded prismatic joints; fall
+  # back to the extent of the current configuration then.
+  bound <- chain_reach_bound(robot, length(robot$link_names))
+  reach <- max(1e-3, if (is.finite(bound)) bound else 0, max(abs(origins)))
   frame_scale <- frame_scale %||% (0.12 * reach)
   if (projection == "3d") {
     pmat <- if (add && !is.null(.robot_plot_state$pmat)) .robot_plot_state$pmat

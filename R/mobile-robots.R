@@ -4,12 +4,15 @@
 
 check_pose2 <- function(p, name = "pose") check_numeric_vector(p, 3, name)
 
-#' Exact unicycle motion
+#' Closed-form unicycle motion
 #'
 #' Integrates the unicycle model \eqn{\dot x = v\cos\theta},
-#' \eqn{\dot y = v\sin\theta}, \eqn{\dot\theta = \omega} exactly for
-#' constant body velocities over `dt`: along a circular arc of radius
-#' \eqn{v/\omega}, or a straight line when \eqn{|\omega| < 10^{-12}}.
+#' \eqn{\dot y = v\sin\theta}, \eqn{\dot\theta = \omega} in closed form
+#' for constant body velocities over `dt`: along a circular arc of radius
+#' \eqn{v/\omega}, written in the chord form
+#' \eqn{\Delta p = v\,dt\,\mathrm{sinc}(\omega dt/2)(\cos(\theta + \omega dt/2),
+#' \sin(\theta + \omega dt/2))}, which stays accurate as \eqn{\omega \to 0}
+#' (a straight line in the limit).
 #' Equivalently the new pose is \eqn{X \exp(\widehat{(v, 0, \omega)}\,dt)}
 #' on SE(2).
 #'
@@ -26,17 +29,36 @@ unicycle_step <- function(pose, v, omega, dt) {
   v <- check_scalar(v, "v")
   w <- check_scalar(omega, "omega")
   dt <- check_scalar(dt, "dt", nonnegative = TRUE)
-  th <- p[3]
-  if (abs(w) < 1e-12) {
-    out <- c(p[1] + v * cos(th) * dt, p[2] + v * sin(th) * dt, th)
-  } else {
-    th2 <- th + w * dt
-    out <- c(p[1] + v / w * (sin(th2) - sin(th)),
-             p[2] - v / w * (cos(th2) - cos(th)), th2)
-  }
-  out[3] <- wrap_angle_internal(out[3])
+  m <- unicycle_motion(p, v, w, dt)
+  out <- c(p[1:2] + m$delta, wrap_angle_internal(p[3] + w * dt))
   names(out) <- c("x", "y", "theta")
   out
+}
+
+# sin(x) / x and its derivative, with series near zero.
+sinc_ <- function(x) if (abs(x) < 1e-4) 1 - x^2 / 6 + x^4 / 120 else sin(x) / x
+dsinc_ <- function(x) {
+  if (abs(x) < 1e-3) -x / 3 + x^3 / 30 else (x * cos(x) - sin(x)) / x^2
+}
+
+# Chord form of the exact arc: the displacement is v dt sinc(phi / 2) along
+# the mean heading theta + phi / 2, with phi = omega dt. It is accurate for
+# every omega, including omega near zero. Also returns the Jacobians of the
+# new pose with respect to the pose (F) and to (v, omega) (G).
+unicycle_motion <- function(p, v, w, dt) {
+  phi <- w * dt
+  h <- p[3] + phi / 2
+  s <- sinc_(phi / 2)
+  ds <- dsinc_(phi / 2)
+  D <- v * dt
+  ch <- cos(h)
+  sh <- sin(h)
+  delta <- D * s * c(ch, sh)
+  F <- diag(3)
+  F[1:2, 3] <- D * s * c(-sh, ch)
+  dphi <- D * (ds / 2 * c(ch, sh) + s / 2 * c(-sh, ch))
+  G <- cbind(c(dt * s * ch, dt * s * sh, 0), c(dphi * dt, dt))
+  list(delta = delta, F = F, G = G)
 }
 
 #' Mobile robot models
@@ -161,7 +183,8 @@ diffdrive_odometry <- function(model, pose, delta_left, delta_right) {
 
 #' Simulate a mobile robot
 #'
-#' Applies piecewise-constant controls exactly. For unicycles and
+#' Applies piecewise-constant controls with the closed-form arc of
+#' [unicycle_step()]. For unicycles and
 #' differential drives the controls are `c(v, omega)` per row; for
 #' bicycles `c(v, steer)`, converted to \eqn{\omega = v\tan\delta/L}.
 #' Controls outside the model limits are an error unless `saturate =
@@ -188,6 +211,13 @@ mobile_simulate <- function(model, pose, controls, dt, saturate = FALSE) {
   out[1, ] <- c(0, p)
   for (i in seq_len(nrow(U))) {
     u <- U[i, ]
+    # Limits are checked on the commanded quantities before conversion, so
+    # clipping the speed of a bicycle keeps its steering geometry.
+    if (abs(u[1]) > model$max_speed) {
+      if (!saturate) stop(sprintf("Speed %g exceeds max_speed at step %d.",
+                                  u[1], i), call. = FALSE)
+      u[1] <- sign(u[1]) * model$max_speed
+    }
     if (model$type == "bicycle") {
       if (abs(u[2]) > model$max_steer) {
         if (!saturate) stop(sprintf("Steering %g exceeds max_steer at step %d.",
@@ -195,12 +225,10 @@ mobile_simulate <- function(model, pose, controls, dt, saturate = FALSE) {
         u[2] <- sign(u[2]) * model$max_steer
       }
       u <- c(u[1], u[1] * tan(u[2]) / model$wheelbase)
-    }
-    if (abs(u[1]) > model$max_speed || abs(u[2]) > model$max_turn_rate) {
-      if (!saturate) stop(sprintf("Control at step %d exceeds the limits.", i),
-                          call. = FALSE)
-      u[1] <- sign(u[1]) * min(abs(u[1]), model$max_speed)
-      u[2] <- sign(u[2]) * min(abs(u[2]), model$max_turn_rate)
+    } else if (abs(u[2]) > model$max_turn_rate) {
+      if (!saturate) stop(sprintf("Turn rate %g exceeds max_turn_rate at step %d.",
+                                  u[2], i), call. = FALSE)
+      u[2] <- sign(u[2]) * model$max_turn_rate
     }
     out[i + 1, ] <- c(out[i, 1] + dt[i],
                       unicycle_step(out[i, 2:4], u[1], u[2], dt[i]))
@@ -239,10 +267,13 @@ world_to_body_velocity <- function(velocity, theta) {
 #' Pure pursuit path following
 #'
 #' Computes a unicycle command that steers toward the lookahead point: the
-#' first point of the polyline `path` at distance `lookahead` beyond the
+#' point of the polyline `path` an arclength `lookahead` beyond the
 #' closest point to the robot. The commanded curvature is
-#' \eqn{\kappa = 2 y_L / L_d^2}, where \eqn{y_L} is the lateral offset
-#' of the lookahead point in the body frame (Coulter, 1992). Near the end
+#' \eqn{\kappa = 2 y_L / \ell^2}, the circle through the robot and the
+#' target, where \eqn{(x_L, y_L)} is the target in the body frame and
+#' \eqn{\ell^2 = x_L^2 + y_L^2} its squared distance (Coulter, 1992). On a
+#' straight path \eqn{\ell} is close to `lookahead`, but it is shorter when
+#' the robot is off the path. Near the end
 #' of the path the last point is used as the goal.
 #'
 #' @param pose Current pose.
@@ -260,6 +291,9 @@ pure_pursuit <- function(pose, path, lookahead, speed) {
   P <- check_matrix(path, NULL, 2, "path")
   Ld <- check_scalar(lookahead, "lookahead", positive = TRUE)
   speed <- check_scalar(speed, "speed")
+  if (nrow(P) < 1 || anyNA(P)) {
+    stop("`path` needs at least one finite waypoint.", call. = FALSE)
+  }
   goal <- P[nrow(P), ]
   if (vnorm(goal - p[1:2]) < Ld / 4) {
     return(list(v = 0, omega = 0, target = goal, done = TRUE))

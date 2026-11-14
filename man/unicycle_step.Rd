@@ -2,7 +2,7 @@
 % Please edit documentation in R/mobile-robots.R
 \name{unicycle_step}
 \alias{unicycle_step}
-\title{Exact unicycle motion}
+\title{Closed-form unicycle motion}
 \usage{
 unicycle_step(pose, v, omega, dt)
 }
@@ -20,9 +20,12 @@ The new pose.
 }
 \description{
 Integrates the unicycle model \eqn{\dot x = v\cos\theta},
-\eqn{\dot y = v\sin\theta}, \eqn{\dot\theta = \omega} exactly for
-constant body velocities over \code{dt}: along a circular arc of radius
-\eqn{v/\omega}, or a straight line when \eqn{|\omega| < 10^{-12}}.
+\eqn{\dot y = v\sin\theta}, \eqn{\dot\theta = \omega} in closed form
+for constant body velocities over \code{dt}: along a circular arc of radius
+\eqn{v/\omega}, written in the chord form
+\eqn{\Delta p = v\,dt\,\mathrm{sinc}(\omega dt/2)(\cos(\theta + \omega dt/2),
+\sin(\theta + \omega dt/2))}, which stays accurate as \eqn{\omega \to 0}
+(a straight line in the limit).
 Equivalently the new pose is \eqn{X \exp(\widehat{(v, 0, \omega)}\,dt)}
 on SE(2).
 }

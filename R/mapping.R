@@ -196,14 +196,23 @@ grid_update_scan <- function(grid, pose, angles, ranges, max_range,
   L <- grid$logodds
   for (k in seq_along(angles)) {
     dir <- c(cos(p[3] + angles[k]), sin(p[3] + angles[k]))
-    end <- p[1:2] + min(ranges[k], max_range) * dir
+    hit <- ranges[k] < max_range
+    # A hit point usually lies on the face of the occupied cell; nudging it
+    # a hair along the beam assigns it to that cell for either direction.
+    reach <- min(ranges[k], max_range) + if (hit) 1e-6 * grid$resolution else 0
+    end <- p[1:2] + reach * dir
     cells <- grid_traverse(grid, p[1:2], end)
     if (!nrow(cells)) next
-    hit <- ranges[k] < max_range
-    free <- if (hit) cells[-nrow(cells), , drop = FALSE] else cells
-    hit_cell <- grid_world_to_cell(grid, end)
+    hit_cell <- if (hit) grid_world_to_cell(grid, end) else matrix(NA, 1, 2)
+    if (hit && !anyNA(hit_cell)) {
+      free <- cells[!(cells[, 1] == hit_cell[1] & cells[, 2] == hit_cell[2]), ,
+                    drop = FALSE]
+      L[hit_cell] <- L[hit_cell] + l_occ
+    } else {
+      # No hit, or a hit outside the map: every traversed cell is free.
+      free <- cells
+    }
     if (nrow(free)) L[free] <- L[free] + l_free
-    if (hit && !anyNA(hit_cell)) L[hit_cell] <- L[hit_cell] + l_occ
   }
   grid$logodds <- pmin(pmax(L, clamp[1]), clamp[2])
   grid
@@ -211,8 +220,11 @@ grid_update_scan <- function(grid, pose, angles, ranges, max_range,
 
 #' Inflate obstacles
 #'
-#' Marks every cell within `radius` of an occupied cell as occupied, for
-#' planning a disc-shaped robot as a point.
+#' Marks every cell whose center lies closer than `radius` to an occupied
+#' cell (treated as a solid square, not a point) as occupied, so a
+#' disc-shaped robot of that radius placed at any remaining free cell
+#' center does not overlap an occupied cell. Plan the robot as a point on
+#' the result.
 #'
 #' @param grid A `robot_occupancy_grid`.
 #' @param radius Inflation radius (m).
@@ -225,11 +237,16 @@ grid_update_scan <- function(grid, pose, angles, ranges, max_range,
 #' @export
 grid_inflate <- function(grid, radius, threshold = 0.65) {
   occ <- grid_occupied(grid, threshold)
-  r <- ceiling(radius / grid$resolution)
+  r <- ceiling(radius / grid$resolution + 0.5)
   out <- occ
   idx <- which(occ, arr.ind = TRUE)
   offs <- expand.grid(di = -r:r, dj = -r:r)
-  offs <- offs[(offs$di^2 + offs$dj^2) * grid$resolution^2 <= radius^2 + 1e-12, ]
+  # Distance from a cell center to the nearest point of an occupied cell
+  # (a square), so a disc of `radius` at a free cell center never overlaps
+  # an occupied cell.
+  gap <- grid$resolution * sqrt(pmax(abs(offs$di) - 0.5, 0)^2 +
+                                  pmax(abs(offs$dj) - 0.5, 0)^2)
+  offs <- offs[gap < radius - 1e-12 * grid$resolution, ]
   for (k in seq_len(nrow(idx))) {
     ii <- idx[k, 1] + offs$di
     jj <- idx[k, 2] + offs$dj

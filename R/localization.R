@@ -2,6 +2,25 @@
 # particle filter. Measurements are range and bearing to landmarks with
 # known identities. Bearing innovations are wrapped to [-pi, pi).
 
+# A factor F with crossprod(F) == S for a symmetric positive semidefinite S,
+# so that rows of Z %*% F are draws from N(0, S) even when S is singular.
+psd_factor <- function(S, name) {
+  S <- (S + t(S)) / 2
+  e <- eigen(S, symmetric = TRUE)
+  if (min(e$values) < -1e-10 * max(1, abs(e$values))) {
+    stop(sprintf("`%s` must be positive semidefinite.", name), call. = FALSE)
+  }
+  t(e$vectors %*% diag(sqrt(pmax(e$values, 0)), nrow(S)))
+}
+
+check_landmark_ids <- function(ids, L) {
+  bad <- setdiff(as.character(ids), rownames(L))
+  if (length(bad)) {
+    stop(sprintf("Unknown landmark id(s): %s.", paste(bad, collapse = ", ")),
+         call. = FALSE)
+  }
+}
+
 check_landmarks <- function(L) {
   L <- check_matrix(L, NULL, 2, "landmarks")
   if (is.null(rownames(L))) rownames(L) <- as.character(seq_len(nrow(L)))
@@ -37,7 +56,7 @@ landmark_measurements <- function(pose, landmarks, R = NULL, max_range = Inf,
   if (!is.null(R) && nrow(out)) {
     R <- check_matrix(R, 2, 2, "R")
     with_seed_internal(seed, {
-      Z <- matrix(stats::rnorm(2 * nrow(out)), ncol = 2) %*% chol(R)
+      Z <- matrix(stats::rnorm(2 * nrow(out)), ncol = 2) %*% psd_factor(R, "R")
       out$range <- out$range + Z[, 1]
       out$bearing <- wrap_angle_internal(out$bearing + Z[, 2])
     })
@@ -93,19 +112,9 @@ ekf_predict <- function(filter, control, dt) {
   x <- filter$mean
   v <- u[1]
   w <- u[2]
-  th <- x[3]
-  if (abs(w) < 1e-9) {
-    F <- matrix(c(1, 0, 0, 0, 1, 0, -v * sin(th) * dt, v * cos(th) * dt, 1), 3)
-    G <- matrix(c(cos(th) * dt, sin(th) * dt, 0,
-                  -v * sin(th) * dt^2 / 2, v * cos(th) * dt^2 / 2, dt), 3)
-  } else {
-    th2 <- th + w * dt
-    F <- matrix(c(1, 0, 0, 0, 1, 0,
-                  v / w * (cos(th2) - cos(th)), v / w * (sin(th2) - sin(th)), 1), 3)
-    G <- matrix(c((sin(th2) - sin(th)) / w, -(cos(th2) - cos(th)) / w, 0,
-                  v * (sin(th) - sin(th2)) / w^2 + v * cos(th2) * dt / w,
-                  -v * (cos(th) - cos(th2)) / w^2 + v * sin(th2) * dt / w, dt), 3)
-  }
+  m <- unicycle_motion(x, v, w, dt)
+  F <- m$F
+  G <- m$G
   filter$mean <- unicycle_step(x, v, w, dt)
   P <- F %*% filter$cov %*% t(F) + G %*% filter$Q %*% t(G)
   filter$cov <- (P + t(P)) / 2
@@ -128,6 +137,11 @@ ekf_update <- function(filter, measurements) {
     d <- lm - x[1:2]
     q <- sum(d^2)
     r <- sqrt(q)
+    if (r < 1e-9) {
+      warning(sprintf("Skipped landmark '%s': the estimate coincides with it, so its bearing is undefined.",
+                      id), call. = FALSE)
+      next
+    }
     zhat <- c(r, wrap_angle_internal(atan2(d[2], d[1]) - x[3]))
     H <- rbind(c(-d[1] / r, -d[2] / r, 0),
                c(d[2] / q, -d[1] / q, -1))
@@ -191,7 +205,7 @@ robot_particle_filter <- function(n, mean, cov, landmarks, Q, R, seed = NULL) {
   m <- check_pose2(mean, "mean")
   C <- check_matrix(cov, 3, 3, "cov")
   X <- with_seed_internal(seed,
-    matrix(stats::rnorm(3 * n), n) %*% chol(C) + matrix(m, n, 3, byrow = TRUE))
+    matrix(stats::rnorm(3 * n), n) %*% psd_factor(C, "cov") + matrix(m, n, 3, byrow = TRUE))
   X[, 3] <- wrap_angle_internal(X[, 3])
   structure(list(particles = X, weights = rep(1 / n, n),
                  landmarks = check_landmarks(landmarks),
@@ -207,7 +221,7 @@ pf_predict <- function(filter, control, dt, seed = NULL) {
   X <- filter$particles
   n <- nrow(X)
   noise <- with_seed_internal(seed,
-    matrix(stats::rnorm(2 * n), n) %*% chol(filter$Q))
+    matrix(stats::rnorm(2 * n), n) %*% psd_factor(filter$Q, "Q"))
   for (i in seq_len(n)) {
     X[i, ] <- unicycle_step(X[i, ], u[1] + noise[i, 1], u[2] + noise[i, 2], dt)
   }
@@ -221,6 +235,7 @@ pf_update <- function(filter, measurements, resample_threshold = 0.5,
                       seed = NULL) {
   stopifnot(inherits(filter, "robot_particle_filter"))
   if (!nrow(measurements)) return(filter)
+  check_landmark_ids(measurements$id, filter$landmarks)
   X <- filter$particles
   Rinv <- solve(filter$R)
   logw <- log(filter$weights)

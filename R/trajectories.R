@@ -139,14 +139,15 @@ trapezoid_profile <- function(h, vmax, amax) {
 
 trapezoid_eval <- function(pr, t) {
   ta <- pr$ta; tc <- pr$tc; T <- pr$T; a <- pr$amax; vp <- pr$vpeak
+  outside <- t < 0 | t > T
   t <- pmin(pmax(t, 0), T)
   s <- ifelse(t < ta, 0.5 * a * t^2,
        ifelse(t < ta + tc, 0.5 * a * ta^2 + vp * (t - ta),
               1 - 0.5 * a * (T - t)^2))
   sd <- ifelse(t < ta, a * t, ifelse(t < ta + tc, vp, a * (T - t)))
   sdd <- ifelse(t < ta, a, ifelse(t < ta + tc, 0, -a))
-  sdd[t >= T] <- 0
-  sd[t >= T] <- 0
+  sdd[t >= T | outside] <- 0
+  sd[t >= T | outside] <- 0
   cbind(s, sd, sdd)
 }
 
@@ -188,6 +189,10 @@ robot_traj_trapezoidal <- function(q0, q1, vmax, amax, times = NULL,
     tr <- new_trajectory(t, matrix(q0, length(t), m, byrow = TRUE), Z, Z,
                          names(q0), "trapezoidal")
     tr$duration <- 0
+    tr$evaluate <- function(t) {
+      Zt <- matrix(0, length(t), m)
+      list(q = matrix(q0, length(t), m, byrow = TRUE), qd = Zt, qdd = Zt)
+    }
     return(tr)
   }
   vs <- min(vmax[moving] / abs(h[moving]))

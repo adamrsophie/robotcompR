@@ -24,7 +24,7 @@ pose of frame b in frame a and maps b coordinates to a coordinates.
 \item Euler angles are intrinsic; \code{"ZYX"} gives yaw, pitch, roll.
 }
 
-See \code{vignette("conventions", package = "robotcompR")} for details.
+See \code{vignette("robotcompR")} and \code{vignette("spatial-math")} for details.
 
 The package is research and teaching software. It is not certified for
 industrial, medical, automotive or any other safety-critical use, and it

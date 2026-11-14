@@ -21,10 +21,13 @@ A list with \code{v}, \code{omega}, the \code{target} point and \code{done}
 }
 \description{
 Computes a unicycle command that steers toward the lookahead point: the
-first point of the polyline \code{path} at distance \code{lookahead} beyond the
+point of the polyline \code{path} an arclength \code{lookahead} beyond the
 closest point to the robot. The commanded curvature is
-\eqn{\kappa = 2 y_L / L_d^2}, where \eqn{y_L} is the lateral offset
-of the lookahead point in the body frame (Coulter, 1992). Near the end
+\eqn{\kappa = 2 y_L / \ell^2}, the circle through the robot and the
+target, where \eqn{(x_L, y_L)} is the target in the body frame and
+\eqn{\ell^2 = x_L^2 + y_L^2} its squared distance (Coulter, 1992). On a
+straight path \eqn{\ell} is close to \code{lookahead}, but it is shorter when
+the robot is off the path. Near the end
 of the path the last point is used as the goal.
 }
 \examples{

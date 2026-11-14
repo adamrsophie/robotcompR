@@ -14,9 +14,14 @@ jacobian_rows <- function(J, measure) {
 #' the `"full"` 6-row Jacobian mixes meters and radians, so measures
 #' computed from it depend on the length unit and should be interpreted
 #' only with an explicit scaling convention. The Yoshikawa measure is
-#' \eqn{w = \sqrt{\det(J J^\top)} = \prod_i \sigma_i}, using the
-#' \eqn{\min(m, n)} singular values of the selected block, and is zero at
-#' singular configurations. The condition number is
+#' reported as \eqn{w = \prod_i \sigma_i} over the \eqn{\min(m, n)}
+#' singular values of the selected \eqn{m \times n} block. When
+#' \eqn{m \le n} this equals \eqn{\sqrt{\det(J J^\top)}}; for a tall block
+#' (more task rows than joints, such as the 3 translational rows of a planar
+#' arm) \eqn{\det(J J^\top)} is always zero, and the product of singular
+#' values measures the volume of the reachable velocity set within the
+#' column space instead. Select the meaningful rows with `rows` (for a
+#' planar arm, `rows = 1:2`) to get the classical value. The condition number is
 #' \eqn{\sigma_{max} / \sigma_{min}} (`Inf` when the rank is deficient). The rank is
 #' the number of singular values above `tol * sigma_max`.
 #'
@@ -44,6 +49,7 @@ robot_manipulability <- function(robot, q, frame = NULL,
   measure <- match.arg(measure)
   J <- robot_jacobian(robot, q, frame)
   Js <- if (is.null(rows)) jacobian_rows(J, measure) else J[rows, , drop = FALSE]
+  if (ncol(Js) == 0) stop("The robot has no movable joints.", call. = FALSE)
   s <- svd(Js)
   sv <- s$d
   smax <- max(sv)

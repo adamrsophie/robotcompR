@@ -22,8 +22,10 @@ A vector (\code{n = 1}) or a matrix with one row per configuration.
 }
 \description{
 \code{robot_random_configuration()} samples uniformly within the position
-limits; unbounded joints are sampled in \eqn{[-\pi, \pi)} (revolute and
-continuous) or \eqn{[-1, 1]} meters (prismatic). The caller's random
+limits; joints unbounded on both sides are sampled in \eqn{[-\pi, \pi)}
+(revolute and continuous) or \eqn{[-1, 1]} meters (prismatic), and a
+joint bounded on one side only is sampled over a span of \eqn{2\pi} rad or
+2 m from its finite limit. The caller's random
 number state is left unchanged when \code{seed} is supplied.
 \code{robot_home()} returns zeros projected onto the limits.
 }

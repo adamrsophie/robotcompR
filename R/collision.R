@@ -22,7 +22,7 @@ simplex_closest <- function(W) {
     }
     x <- as.numeric(crossprod(P, lam))
     d <- sum(x * x)
-    if (d < best_d - 1e-15) {
+    if (d < best_d * (1 - 1e-12)) {
       best_d <- d
       best <- list(idx = idx, lambda = pmax(lam, 0) / sum(pmax(lam, 0)), x = x)
     }
@@ -30,12 +30,18 @@ simplex_closest <- function(W) {
   best
 }
 
-# GJK distance between the convex cores of two geometries.
-gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, tol = 1e-10) {
+# GJK distance between the convex cores of two geometries. Tolerances are
+# relative to the size of the geometries so that tiny and huge objects are
+# treated alike.
+gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, rel_tol = 1e-10) {
   cA <- TA[1:3, 4]
   cB <- TB[1:3, 4]
+  scale <- max(geometry_bound(gA) - geometry_radius(gA),
+               geometry_bound(gB) - geometry_radius(gB),
+               .Machine$double.xmin)
+  tol <- rel_tol * scale
   d <- cA - cB
-  if (vnorm(d) < 1e-12) d <- c(1, 0, 0)
+  if (vnorm(d) < tol) d <- c(1, 0, 0)
   sa <- geometry_support(gA, TA, -d)
   sb <- geometry_support(gB, TB, d)
   A <- matrix(sa, 1)
@@ -51,10 +57,11 @@ gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, tol = 1e-10) {
     sa <- geometry_support(gA, TA, -v)
     sb <- geometry_support(gB, TB, v)
     w <- sa - sb
-    # Converged when the new support point does not improve the bound.
-    if (vn2 - sum(v * w) <= tol * max(1, vn2)) break
+    # Converged when the new support point does not improve the bound
+    # (relative test of van den Bergen, 2003).
+    if (vn2 - sum(v * w) <= 1e-12 * vn2) break
     W <- rbind(A - B, w)
-    if (any(rowSums(abs(sweep(A - B, 2, w))) < 1e-14)) break
+    if (any(rowSums(abs(sweep(A - B, 2, w))) < 1e-14 * scale)) break
     A2 <- rbind(A, sa)
     B2 <- rbind(B, sb)
     cl <- simplex_closest(W)
@@ -62,7 +69,7 @@ gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, tol = 1e-10) {
     B <- B2[cl$idx, , drop = FALSE]
     lam <- cl$lambda
     vnew <- cl$x
-    if (sum(vnew * vnew) >= vn2 - 1e-15 && length(cl$idx) < 4) {
+    if (sum(vnew * vnew) >= vn2 * (1 - 1e-12) && length(cl$idx) < 4) {
       v <- vnew
       break
     }
@@ -217,11 +224,33 @@ robot_attach_geometry <- function(robot, link, geometry) {
   robot
 }
 
-#' Collision geometry for planar DH arms
+# A capsule whose core segment runs from p0 to p1 (in the frame it is
+# attached to).
+capsule_between <- function(radius, p0, p1) {
+  u <- p1 - p0
+  L <- vnorm(u)
+  z <- c(0, 0, 1)
+  axis <- c(-u[2], u[1], 0)  # z cross u
+  ang <- atan2(vnorm(axis), u[3])
+  R <- if (vnorm(axis) < 1e-12 * L) {
+    if (u[3] >= 0) diag(3) else rotx(pi)
+  } else {
+    so3_exp(axis / vnorm(axis) * ang)
+  }
+  geom_capsule(radius, L, origin = robot_pose(R, (p0 + p1) / 2))
+}
+
+#' Capsule collision geometry for DH arms
 #'
-#' Adds a capsule along every link of a serial DH model whose links lie
-#' along their x axes (as in the planar examples), from the parent frame
-#' origin to the link frame origin.
+#' Adds a capsule along every DH link, with its core segment joining the
+#' origins of consecutive DH frames, so offsets along both \eqn{a} and
+#' \eqn{d} are covered (for example the PUMA 560 forearm). For the
+#' standard convention the segment is fixed in the child link frame and is
+#' attached there; for the modified convention it is fixed in the parent
+#' frame and is attached to the parent link (the base for the first
+#' joint). Segments of zero length are skipped. Prismatic joints change the
+#' segment length with the joint value, so they get no capsule and a
+#' warning names them: attach geometry to those links yourself.
 #'
 #' @param robot A `robot_model` built by [robot_dh()] or [robot_example()].
 #' @param radius Capsule radius.
@@ -232,12 +261,33 @@ robot_attach_geometry <- function(robot, link, geometry) {
 robot_capsule_links <- function(robot, radius) {
   check_robot(robot)
   if (is.null(robot$dh)) stop("`robot` must be a DH model.", call. = FALSE)
+  radius <- check_scalar(radius, "radius", positive = TRUE)
+  modified <- identical(robot$dh_convention, "modified")
+  skipped <- character(0)
   for (i in seq_len(nrow(robot$dh))) {
     a <- robot$dh$a[i]
-    if (a <= 0) next
-    robot <- robot_attach_geometry(
-      robot, paste0("link", i),
-      geom_capsule(radius, a, origin = transl(-a / 2, 0, 0) * troty(pi / 2)))
+    al <- robot$dh$alpha[i]
+    d <- robot$dh$d[i]
+    if (robot$dh$type[i] == "prismatic") {
+      skipped <- c(skipped, paste0("link", i))
+      next
+    }
+    if (modified) {
+      # Child origin in the parent frame: Rx(alpha) (a, 0, 0) + Rx(alpha) (0, 0, d).
+      p1 <- c(a, -sin(al) * d, cos(al) * d)
+      link <- if (i == 1) "base" else paste0("link", i - 1)
+    } else {
+      # Parent origin in the child frame: Rx(-alpha) (-a, 0, -d).
+      p1 <- c(-a, -sin(al) * d, -cos(al) * d)
+      link <- paste0("link", i)
+    }
+    if (vnorm(p1) < 1e-12) next
+    robot <- robot_attach_geometry(robot, link,
+                                   capsule_between(radius, c(0, 0, 0), p1))
+  }
+  if (length(skipped)) {
+    warning(sprintf("No capsule for prismatic link(s) %s; attach geometry manually.",
+                    paste(skipped, collapse = ", ")), call. = FALSE)
   }
   robot
 }

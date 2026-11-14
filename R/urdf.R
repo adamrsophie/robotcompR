@@ -71,8 +71,12 @@ urdf_geometry <- function(node, origin) {
 #' but not used by the dynamics functions; a warning says so.
 #'
 #' Input is treated as untrusted: xacro files are refused (expand them
-#' with ROS tools first), external entities and network access are
-#' disabled in the XML parser, and mesh files are never opened.
+#' with ROS tools first), documents declaring entities are refused,
+#' network access is disabled in the XML parser, the file content is
+#' parsed as XML text (never followed as a further path or URL), and mesh
+#' files are never opened. Every link named by a joint must be declared.
+#' A `velocity` or `effort` limit of 0, the usual placeholder for a
+#' required URDF attribute, is read as unspecified.
 #'
 #' @param file Path to a URDF file, or a character string with URDF XML.
 #' @param end_effector Optional end-effector link name.
@@ -102,7 +106,9 @@ robot_read_urdf <- function(file, end_effector = NULL) {
   if (grepl("<!ENTITY", txt, fixed = TRUE)) {
     stop("URDF with DTD entity declarations is refused.", call. = FALSE)
   }
-  doc <- xml2::read_xml(txt, options = c("NONET", "NOBLANKS"))
+  # Parse the text as raw bytes: given a plain string without markup, xml2
+  # would treat it as a path or URL and open it.
+  doc <- xml2::read_xml(charToRaw(enc2utf8(txt)), options = c("NONET", "NOBLANKS"))
   root <- if (xml2::xml_name(doc) == "robot") doc
           else xml2::xml_find_first(doc, "//robot")
   if (inherits(root, "xml_missing")) {
@@ -176,6 +182,10 @@ robot_read_urdf <- function(file, end_effector = NULL) {
     if (!inherits(lim, "xml_missing")) {
       vel <- parse_num(xml2::xml_attr(lim, "velocity"), NULL, "velocity")
       eff <- parse_num(xml2::xml_attr(lim, "effort"), NULL, "effort")
+      # URDF requires these attributes, so 0 is the common placeholder for
+      # "not specified"; a literal zero limit would forbid any motion.
+      if (!is.null(vel) && vel == 0) vel <- NULL
+      if (!is.null(eff) && eff == 0) eff <- NULL
       if (type %in% c("revolute", "prismatic")) {
         limits <- c(parse_num(xml2::xml_attr(lim, "lower"), 0, "lower"),
                     parse_num(xml2::xml_attr(lim, "upper"), 0, "upper"))
@@ -202,12 +212,40 @@ robot_read_urdf <- function(file, end_effector = NULL) {
   if (!length(joints)) {
     stop("The URDF has no joints.", call. = FALSE)
   }
+  declared <- vapply(links, `[[`, "", "name")
+  used <- unique(c(vapply(joints, `[[`, "", "parent"),
+                   vapply(joints, `[[`, "", "child")))
+  undeclared <- setdiff(used, declared)
+  if (length(undeclared)) {
+    stop(sprintf("Joints refer to undeclared link(s): %s.",
+                 paste(undeclared, collapse = ", ")), call. = FALSE)
+  }
   robot_model(links, joints, end_effector = end_effector, name = rname)
 }
 
 fmt_num <- function(x) {
   x[abs(x) < 1e-15] <- 0
   paste(formatC(x, digits = 15, format = "g"), collapse = " ")
+}
+
+# Escape a value for use inside a double-quoted XML attribute.
+xml_attr_escape <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE)
+  x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x <- gsub('"', "&quot;", x, fixed = TRUE)
+  gsub("'", "&apos;", x, fixed = TRUE)
+}
+
+# A name not in `taken`, built from `base` with a numeric suffix if needed.
+unique_name <- function(base, taken) {
+  nm <- base
+  i <- 1L
+  while (nm %in% taken) {
+    nm <- paste0(base, "_", i)
+    i <- i + 1L
+  }
+  nm
 }
 
 urdf_origin_xml <- function(M) {
@@ -223,7 +261,8 @@ urdf_geometry_xml <- function(g, tag) {
                        fmt_num(g$params$radius), fmt_num(g$params$length)),
     capsule = sprintf('<capsule radius="%s" length="%s"/>',
                       fmt_num(g$params$radius), fmt_num(g$params$length)),
-    mesh = sprintf('<mesh filename="%s" scale="%s"/>', g$params$filename,
+    mesh = sprintf('<mesh filename="%s" scale="%s"/>',
+                   xml_attr_escape(g$params$filename),
                    fmt_num(g$params$scale)),
     convex = NULL)
   if (is.null(shape)) return(character(0))
@@ -237,7 +276,13 @@ urdf_geometry_xml <- function(g, tag) {
 #' URDF has no joint offset or post-motion transform, so the export keeps
 #' the kinematics exact by folding an offset into the joint origin and by
 #' splitting a joint with a post transform into the moving joint, a
-#' massless intermediate link named `<child>_motion`, and a fixed joint.
+#' massless intermediate link named `<child>_motion`, and a fixed joint
+#' named `<joint>_post` (a numeric suffix is added if a name is taken).
+#' The extra joints can change the breadth-first order of the movable
+#' joints; when the reimported configuration order differs, a warning
+#' gives both orders. Names are XML-escaped. Unspecified velocity and
+#' effort limits are written as 0, which [robot_read_urdf()] reads back as
+#' unspecified.
 #' Forward kinematics of every original frame is preserved; the exported
 #' model has extra frames. Convex-hull geometry has no URDF equivalent and
 #' is omitted with a warning.
@@ -253,8 +298,10 @@ urdf_geometry_xml <- function(g, tag) {
 #' @export
 robot_write_urdf <- function(robot, file = NULL) {
   check_robot(robot)
-  out <- sprintf('<?xml version="1.0"?>\n<robot name="%s">', robot$name)
+  esc <- xml_attr_escape
+  out <- sprintf('<?xml version="1.0"?>\n<robot name="%s">', esc(robot$name))
   extra_links <- character(0)
+  taken <- c(robot$link_names, robot$joint_names)
   convex_dropped <- FALSE
   if (max(abs(robot$base - diag(4))) > 0) {
     warning("The base pose is not part of URDF and is not exported.",
@@ -276,14 +323,19 @@ robot_write_urdf <- function(robot, file = NULL) {
       if (g$type == "convex") convex_dropped <- TRUE
       body <- c(body, urdf_geometry_xml(g, "collision"))
     }
-    out <- c(out, sprintf('  <link name="%s">', lk$name), body, "  </link>")
+    out <- c(out, sprintf('  <link name="%s">', esc(lk$name)), body, "  </link>")
   }
   for (j in robot$joints) {
     origin <- j$origin
     if (j$type != "fixed" && j$offset != 0) {
       origin <- origin %*% joint_motion(j, 0)
     }
-    child <- if (is.null(j$post)) j$child else paste0(j$child, "_motion")
+    child <- j$child
+    if (!is.null(j$post)) {
+      child <- unique_name(paste0(j$child, "_motion"), taken)
+      post_name <- unique_name(paste0(j$name, "_post"), c(taken, child))
+      taken <- c(taken, child, post_name)
+    }
     lim <- ""
     if (j$type %in% c("revolute", "prismatic", "continuous")) {
       lo <- j$limits[1]
@@ -293,6 +345,8 @@ robot_write_urdf <- function(robot, file = NULL) {
                             "finite limits or type continuous."), j$name),
              call. = FALSE)
       }
+      # URDF requires effort and velocity; 0 marks them as unspecified and
+      # is read back as unspecified by robot_read_urdf().
       lim <- sprintf('<limit%s effort="%s" velocity="%s"/>',
                      if (j$type == "continuous") ""
                      else sprintf(' lower="%s" upper="%s"', fmt_num(lo),
@@ -301,23 +355,33 @@ robot_write_urdf <- function(robot, file = NULL) {
     }
     out <- c(out, sprintf(
       '  <joint name="%s" type="%s"><parent link="%s"/><child link="%s"/>%s%s%s</joint>',
-      j$name, j$type, j$parent, child, urdf_origin_xml(origin),
+      esc(j$name), j$type, esc(j$parent), esc(child), urdf_origin_xml(origin),
       if (j$type == "fixed") "" else sprintf('<axis xyz="%s"/>', fmt_num(j$axis)),
       lim))
     if (!is.null(j$post)) {
       extra_links <- c(extra_links, child)
       out <- c(out, sprintf(
-        '  <joint name="%s_post" type="fixed"><parent link="%s"/><child link="%s"/>%s</joint>',
-        j$name, child, j$child, urdf_origin_xml(j$post)))
+        '  <joint name="%s" type="fixed"><parent link="%s"/><child link="%s"/>%s</joint>',
+        esc(post_name), esc(child), esc(j$child), urdf_origin_xml(j$post)))
     }
   }
-  for (nm in extra_links) out <- c(out, sprintf('  <link name="%s"/>', nm))
+  for (nm in extra_links) out <- c(out, sprintf('  <link name="%s"/>', esc(nm)))
   out <- c(out, "</robot>")
   if (convex_dropped) {
     warning("Convex-hull geometry has no URDF form and was omitted.",
             call. = FALSE)
   }
   txt <- paste(out, collapse = "\n")
+  # Extra fixed joints change the breadth-first order of the tree, which can
+  # reorder the configuration vector of the reimported model.
+  back <- tryCatch(suppressWarnings(robot_read_urdf(txt)), error = function(e) NULL)
+  if (!is.null(back) && !identical(robot_joint_names(back), robot_joint_names(robot))) {
+    warning(sprintf(paste0("The exported model orders its configuration as ",
+                           "%s instead of %s; reorder q accordingly."),
+                    paste(robot_joint_names(back), collapse = ", "),
+                    paste(robot_joint_names(robot), collapse = ", ")),
+            call. = FALSE)
+  }
   if (is.null(file)) return(txt)
   writeLines(txt, file)
   invisible(txt)

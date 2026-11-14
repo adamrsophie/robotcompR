@@ -403,7 +403,8 @@ robot_energy <- function(robot, q, qd, gravity = c(0, 0, -9.81)) {
 #' @param q0,qd0 Initial positions and velocities.
 #' @param times Output times (seconds), increasing.
 #' @param torque A function `function(t, q, qd)` returning joint efforts,
-#'   or `NULL` for zero torque.
+#'   a constant numeric vector of efforts (one per joint), or `NULL` for
+#'   zero torque.
 #' @param method Integration method passed to [deSolve::ode()].
 #' @param rtol,atol Integration tolerances.
 #' @return A `robot_trajectory` with `time`, `q`, `qd` and `qdd`.
@@ -425,7 +426,14 @@ robot_simulate <- function(robot, q0, qd0 = NULL, times, torque = NULL,
   }
   g <- check_gravity(gravity)
   n <- robot$dof
-  tau_fun <- if (is.null(torque)) function(t, q, qd) rep(0, n) else torque
+  tau_fun <- if (is.null(torque)) {
+    function(t, q, qd) rep(0, n)
+  } else if (is.function(torque)) {
+    torque
+  } else {
+    tau_const <- check_numeric_vector(torque, n, "torque")
+    function(t, q, qd) tau_const
+  }
   rhs <- function(t, y, parms) {
     q <- y[seq_len(n)]
     qd <- y[n + seq_len(n)]

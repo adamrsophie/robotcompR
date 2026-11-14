@@ -17,8 +17,11 @@ grid_inflate(grid, radius, threshold = 0.65)
 A logical matrix of inflated occupancy.
 }
 \description{
-Marks every cell within \code{radius} of an occupied cell as occupied, for
-planning a disc-shaped robot as a point.
+Marks every cell whose center lies closer than \code{radius} to an occupied
+cell (treated as a solid square, not a point) as occupied, so a
+disc-shaped robot of that radius placed at any remaining free cell
+center does not overlap an occupied cell. Plan the robot as a point on
+the result.
 }
 \examples{
 occ <- matrix(FALSE, 10, 10); occ[5, 5] <- TRUE

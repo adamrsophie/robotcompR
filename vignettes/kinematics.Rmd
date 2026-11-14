@@ -75,28 +75,32 @@ round(robot_jacobian_analytic(puma, qp, representation = "rpy"), 4)
 
 ## Manipulability and singularities
 
-Yoshikawa's measure $w = \sqrt{\det(J J^\top)}$ is zero at singularities. The
-condition number of the translational block measures isotropy.
+Yoshikawa's measure $w = \sqrt{\det(J J^\top)}$ is zero at singularities.
+robotcompR reports the product of the singular values of the selected rows,
+which equals $w$ when there are no more rows than joints. A planar arm has
+an identically zero $z$ row, so select `rows = 1:2` for the classical value.
+The condition number of the translational block measures isotropy.
 
 ```{r}
-m <- robot_manipulability(arm, q)
+m <- robot_manipulability(arm, q, rows = 1:2)
 m$yoshikawa
 abs(sin(q[2]))  # closed form for unit links
 m$condition
-robot_manipulability(arm, c(0.3, 0))$condition
+robot_manipulability(arm, c(0.3, 0), rows = 1:2)$condition
 robot_is_singular(arm, c(0.3, 0))
 ```
 
 ```{r, fig.width = 6, fig.height = 4}
 elbow <- seq(-pi, pi, length.out = 181)
-w <- sapply(elbow, function(t) robot_manipulability(arm, c(0, t))$yoshikawa)
+w <- sapply(elbow, function(t) robot_manipulability(arm, c(0, t), rows = 1:2)$yoshikawa)
 plot(elbow, w, type = "l", xlab = "elbow angle (rad)", ylab = "manipulability")
 ```
 
 ## Inverse kinematics
 
-`robot_ik()` solves $\min_q \|W e(q)\|^2$ where $e$ stacks the position error
-and the rotation-vector orientation error. Three methods are available:
+`robot_ik()` solves $\min_q e(q)^\top W e(q) = \|W^{1/2} e(q)\|^2$, where $e$
+stacks the position error and the rotation-vector orientation error and
+$W = \operatorname{diag}(\text{weights})$. Three methods are available:
 
 * `"levenberg_marquardt"` (default): damping scaled by the largest diagonal
   entry of $J^\top W J$, adapted after each accepted or rejected step.
@@ -104,9 +108,12 @@ and the rotation-vector orientation error. Three methods are available:
   singularities.
 * `"pseudoinverse"`: Gauss-Newton with backtracking.
 
-Steps are limited to `max_step` radians or meters, joint limits are enforced
-by projection, and `restarts` adds random initial guesses (reproducible with
-`seed`).
+Steps are limited to `max_step` radians or meters. Joint limits are enforced
+by projection, and joints pushed against a limit are frozen for that step
+(an active set) so the others keep moving. When a run does not converge,
+up to `restarts` (default 5) further runs start from random configurations
+drawn with a fixed `seed`, so results are reproducible and the global
+random state is untouched.
 
 ```{r}
 target <- robot_fk(puma, qp)

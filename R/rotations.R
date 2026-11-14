@@ -172,7 +172,7 @@ matrix_to_euler <- function(R, sequence) {
     t2 <- t2 - pi / 2
   }
   # Extrinsic angles (t1, t2, t3) about (i, j, k); return intrinsic order.
-  out <- c(t3, t2, t1)
-  if (!proper) out <- c(t3, t2, t1)
-  wrap_angle_internal(out)
+  # The middle angle is already in its range ([0, pi] or [-pi/2, pi/2]);
+  # only the outer angles are wrapped, so a middle angle of pi stays pi.
+  c(wrap_angle_internal(t3), t2, wrap_angle_internal(t1))
 }

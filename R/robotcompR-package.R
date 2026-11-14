@@ -16,7 +16,7 @@
 #'   `c(v, w)`.
 #' * Euler angles are intrinsic; `"ZYX"` gives yaw, pitch, roll.
 #'
-#' See `vignette("conventions", package = "robotcompR")` for details.
+#' See `vignette("robotcompR")` and `vignette("spatial-math")` for details.
 #'
 #' The package is research and teaching software. It is not certified for
 #' industrial, medical, automotive or any other safety-critical use, and it

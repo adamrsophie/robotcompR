@@ -103,8 +103,10 @@ print.robot_rotation <- function(x, digits = 4, ...) {
 #'
 #' `as_euler()` returns intrinsic Euler angles for `sequence` (see
 #' [robot_rotation()]); the middle angle lies in \eqn{[-\pi/2, \pi/2]} for
-#' Tait-Bryan sequences and \eqn{[0, \pi]} for proper Euler sequences. At
-#' gimbal lock the first angle is set to zero. `as_axis_angle()` returns
+#' Tait-Bryan sequences and \eqn{[0, \pi]} for proper Euler sequences, and
+#' the outer angles lie in \eqn{[-\pi, \pi)}. At gimbal lock only the sum
+#' or difference of the outer angles is determined; the third (last)
+#' angle is then set to zero. `as_axis_angle()` returns
 #' a list with a unit `axis` and `angle` in \eqn{[0, \pi]}; the axis is
 #' `c(0, 0, 1)` for the identity. `as_rotvec()` returns
 #' \eqn{\theta u}. For planar rotations `as_axis_angle()` returns the

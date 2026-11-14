@@ -491,8 +491,10 @@ robot_clamp <- function(robot, q) {
 #' Random and home configurations
 #'
 #' `robot_random_configuration()` samples uniformly within the position
-#' limits; unbounded joints are sampled in \eqn{[-\pi, \pi)} (revolute and
-#' continuous) or \eqn{[-1, 1]} meters (prismatic). The caller's random
+#' limits; joints unbounded on both sides are sampled in \eqn{[-\pi, \pi)}
+#' (revolute and continuous) or \eqn{[-1, 1]} meters (prismatic), and a
+#' joint bounded on one side only is sampled over a span of \eqn{2\pi} rad or
+#' 2 m from its finite limit. The caller's random
 #' number state is left unchanged when `seed` is supplied.
 #' `robot_home()` returns zeros projected onto the limits.
 #'
@@ -524,9 +526,18 @@ sampling_bounds <- function(robot) {
   L <- robot_limits(robot)
   types <- vapply(robot$joints[robot$movable], `[[`, "", "type")
   for (i in seq_len(nrow(L))) {
-    def <- if (types[i] == "prismatic") c(-1, 1) else c(-pi, pi)
-    if (!is.finite(L[i, 1])) L[i, 1] <- def[1]
-    if (!is.finite(L[i, 2])) L[i, 2] <- def[2]
+    # Unbounded sides get a default span (2 m or 2 pi rad), anchored at
+    # the finite limit when only one side is bounded.
+    w <- if (types[i] == "prismatic") 2 else 2 * pi
+    lo <- is.finite(L[i, 1])
+    hi <- is.finite(L[i, 2])
+    if (!lo && !hi) {
+      L[i, ] <- c(-w / 2, w / 2)
+    } else if (!lo) {
+      L[i, 1] <- L[i, 2] - w
+    } else if (!hi) {
+      L[i, 2] <- L[i, 1] + w
+    }
   }
   L
 }

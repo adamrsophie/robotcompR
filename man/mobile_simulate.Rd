@@ -21,7 +21,8 @@ mobile_simulate(model, pose, controls, dt, saturate = FALSE)
 A matrix of poses with columns \code{time}, \code{x}, \code{y}, \code{theta}.
 }
 \description{
-Applies piecewise-constant controls exactly. For unicycles and
+Applies piecewise-constant controls with the closed-form arc of
+\code{\link[=unicycle_step]{unicycle_step()}}. For unicycles and
 differential drives the controls are \code{c(v, omega)} per row; for
 bicycles \code{c(v, steer)}, converted to \eqn{\omega = v\tan\delta/L}.
 Controls outside the model limits are an error unless \code{saturate = TRUE}, in which case they are clipped.

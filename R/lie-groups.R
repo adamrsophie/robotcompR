@@ -1,6 +1,6 @@
 # Lie group and Lie algebra operations on SO(2), SO(3), SE(2) and SE(3).
 #
-# Conventions (see vignette("conventions")):
+# Conventions (see vignette("spatial-math")):
 # * so(3) vectors are angular velocity or rotation vectors w = theta * u.
 # * se(3) twists are ordered linear first: xi = c(v, w).
 # * se(2) twists are ordered c(vx, vy, w).

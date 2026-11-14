@@ -32,9 +32,17 @@ x' = x + \frac{v}{\omega}\left(\sin(\theta + \omega\Delta t) - \sin\theta\right)
 y' = y - \frac{v}{\omega}\left(\cos(\theta + \omega\Delta t) - \cos\theta\right).
 $$
 
-`unicycle_step()` uses this closed form (a straight line when
-$\omega \approx 0$), which equals $X \exp(\widehat{(v, 0, \omega)}\Delta t)$ on
-SE(2). There is no Euler integration error.
+`unicycle_step()` evaluates this arc in the equivalent chord form
+
+$$
+\begin{pmatrix} x' \\ y' \end{pmatrix} = \begin{pmatrix} x \\ y \end{pmatrix}
++ v\Delta t \, \operatorname{sinc}\!\left(\tfrac{\omega\Delta t}{2}\right)
+\begin{pmatrix} \cos(\theta + \omega\Delta t / 2) \\ \sin(\theta + \omega\Delta t / 2) \end{pmatrix},
+$$
+
+which equals $X \exp(\widehat{(v, 0, \omega)}\Delta t)$ on SE(2) and, unlike
+the $v/\omega$ form, stays accurate as $\omega \to 0$. There is no time
+discretization error for piecewise constant controls.
 
 ```{r}
 unicycle_step(c(0, 0, 0), v = pi / 2, omega = pi / 2, dt = 1)
@@ -78,9 +86,11 @@ try(mobile_simulate(car, c(0, 0, 0), cbind(1, 0.8), 1))
 
 ## Pure pursuit
 
-Pure pursuit steers toward a lookahead point a distance $L_d$ ahead along
-the path. With the lookahead point at lateral offset $y_L$ in the body frame,
-the commanded curvature is $\kappa = 2 y_L / L_d^2$.
+Pure pursuit steers toward a lookahead point an arclength $L_d$ ahead
+along the path. With that point at $(x_L, y_L)$ in the body frame, the
+commanded curvature is the circle through the robot and the point,
+$\kappa = 2 y_L / (x_L^2 + y_L^2)$; on the path the denominator is close to
+$L_d^2$.
 
 ```{r}
 s <- seq(0, 2 * pi, length.out = 80)

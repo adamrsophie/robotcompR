@@ -160,8 +160,13 @@ quaternion_rotate <- function(q, v) {
 quaternion_distance <- function(q1, q2) {
   a <- robot_quaternion(q1, canonical = FALSE)$q
   b <- robot_quaternion(q2, canonical = FALSE)$q
-  d <- min(1, abs(sum(a * b)))
-  2 * acos(d)
+  # Angle of the relative rotation a* b, via atan2 so that small angles
+  # keep full relative precision (acos of a dot product near 1 does not).
+  w <- sum(a * b)
+  v <- c(a[1] * b[2] - a[2] * b[1] - a[3] * b[4] + a[4] * b[3],
+         a[1] * b[3] + a[2] * b[4] - a[3] * b[1] - a[4] * b[2],
+         a[1] * b[4] - a[2] * b[3] + a[3] * b[2] - a[4] * b[1])
+  2 * atan2(sqrt(sum(v * v)), abs(w))
 }
 
 #' Spherical linear interpolation of rotations

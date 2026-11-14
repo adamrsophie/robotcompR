@@ -18,7 +18,8 @@ robot_planner(
   resolution = 0.02,
   rewire_factor = 2,
   prm_nodes = 200,
-  prm_neighbors = 8
+  prm_neighbors = 8,
+  time_limit = Inf
 )
 }
 \arguments{
@@ -31,8 +32,7 @@ robot_planner(
 \item{validity}{Optional function of a configuration.}
 
 \item{bounds}{Matrix of \code{c(lower, upper)} rows; defaults to the robot's
-sampling bounds (limits, with unbounded joints sampled in
-\eqn{[-\pi, \pi]} or \eqn{[-1, 1]} m).}
+sampling bounds (see \code{\link[=robot_random_configuration]{robot_random_configuration()}}).}
 
 \item{self}{Check self-collision.}
 
@@ -50,6 +50,9 @@ sampling bounds (limits, with unbounded joints sampled in
 \eqn{\min(\gamma (\log n / n)^{1/d}, \text{step\_size})}.}
 
 \item{prm_nodes, prm_neighbors}{Roadmap size and connectivity.}
+
+\item{time_limit}{Wall-clock budget in seconds for each call to
+\code{\link[=robot_plan]{robot_plan()}}; planning stops with \code{success = FALSE} once it is spent.}
 }
 \value{
 A \code{robot_planner}.

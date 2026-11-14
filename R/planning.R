@@ -34,8 +34,7 @@ planner_algorithms <- c("rrt", "rrt_connect", "rrt_star", "prm")
 #' @param environment Optional `robot_environment`.
 #' @param validity Optional function of a configuration.
 #' @param bounds Matrix of `c(lower, upper)` rows; defaults to the robot's
-#'   sampling bounds (limits, with unbounded joints sampled in
-#'   \eqn{[-\pi, \pi]} or \eqn{[-1, 1]} m).
+#'   sampling bounds (see [robot_random_configuration()]).
 #' @param self Check self-collision.
 #' @param margin Collision margin.
 #' @param step_size Maximum extension per tree step.
@@ -45,6 +44,8 @@ planner_algorithms <- c("rrt", "rrt_connect", "rrt_star", "prm")
 #' @param rewire_factor Scale \eqn{\gamma} of the RRT* radius
 #'   \eqn{\min(\gamma (\log n / n)^{1/d}, \text{step\_size})}.
 #' @param prm_nodes,prm_neighbors Roadmap size and connectivity.
+#' @param time_limit Wall-clock budget in seconds for each call to
+#'   [robot_plan()]; planning stops with `success = FALSE` once it is spent.
 #' @return A `robot_planner`.
 #' @examples
 #' planner <- robot_planner(validity = function(q) sum((q - c(0.5, 0.5))^2) > 0.04,
@@ -59,7 +60,8 @@ robot_planner <- function(robot = NULL, algorithm = c("rrt_connect", "rrt",
                           self = TRUE, margin = 0, step_size = 0.3,
                           goal_bias = 0.05, max_iterations = 5000,
                           resolution = 0.02, rewire_factor = 2,
-                          prm_nodes = 200, prm_neighbors = 8) {
+                          prm_nodes = 200, prm_neighbors = 8,
+                          time_limit = Inf) {
   algorithm <- match.arg(algorithm)
   if (!is.null(robot)) check_robot(robot)
   if (is.null(robot) && is.null(validity)) {
@@ -90,7 +92,10 @@ robot_planner <- function(robot = NULL, algorithm = c("rrt_connect", "rrt",
     resolution = check_scalar(resolution, "resolution", positive = TRUE),
     rewire_factor = check_scalar(rewire_factor, "rewire_factor", positive = TRUE),
     prm_nodes = check_count(prm_nodes, "prm_nodes"),
-    prm_neighbors = check_count(prm_neighbors, "prm_neighbors")
+    prm_neighbors = check_count(prm_neighbors, "prm_neighbors"),
+    time_limit = if (identical(time_limit, Inf)) Inf else
+      check_scalar(time_limit, "time_limit", positive = TRUE),
+    deadline = Inf
   ), class = "robot_planner")
 }
 
@@ -105,6 +110,7 @@ state_valid <- function(pl, q) {
   if (any(q < pl$bounds[, 1] - 1e-12 | q > pl$bounds[, 2] + 1e-12)) {
     return(FALSE)
   }
+  if (!is.null(pl$robot) && !robot_within_limits(pl$robot, q)) return(FALSE)
   if (!is.null(pl$robot) &&
       in_collision_fast(pl$robot, q, pl$environment, pl$self, pl$margin)) {
     return(FALSE)
@@ -118,6 +124,8 @@ edge_valid <- function(pl, a, b) {
   for (i in seq_len(nrow(S))[-1]) if (!state_valid(pl, S[i, ])) return(FALSE)
   TRUE
 }
+
+out_of_time <- function(pl) proc.time()[["elapsed"]] > pl$deadline
 
 sample_state <- function(pl) {
   stats::runif(nrow(pl$bounds), pl$bounds[, 1], pl$bounds[, 2])
@@ -156,6 +164,7 @@ grow_rrt <- function(pl, start, goal) {
   nodes[1, ] <- start
   n <- 1L
   for (it in seq_len(pl$max_iterations)) {
+    if (out_of_time(pl)) break
     target <- if (stats::runif(1) < pl$goal_bias) goal else sample_state(pl)
     i <- nearest_index(nodes, n, target)
     qn <- steer(nodes[i, ], target, pl$step_size)
@@ -188,6 +197,10 @@ grow_rrt_connect <- function(pl, start, goal) {
   tb <- mk(goal)
   a_is_start <- TRUE
   extend <- function(tr, target) {
+    if (tr$n == nrow(tr$nodes)) {
+      tr$nodes <- rbind(tr$nodes, matrix(0, nrow(tr$nodes), d))
+      tr$parent <- c(tr$parent, integer(length(tr$parent)))
+    }
     i <- nearest_index(tr$nodes, tr$n, target)
     qn <- steer(tr$nodes[i, ], target, pl$step_size)
     if (!state_valid(pl, qn) || !edge_valid(pl, tr$nodes[i, ], qn)) {
@@ -200,6 +213,7 @@ grow_rrt_connect <- function(pl, start, goal) {
                                else "advanced")
   }
   for (it in seq_len(pl$max_iterations)) {
+    if (out_of_time(pl)) break
     r <- extend(ta, sample_state(pl))
     ta <- r$tree
     if (r$status != "trapped") {
@@ -207,7 +221,7 @@ grow_rrt_connect <- function(pl, start, goal) {
       repeat {
         r2 <- extend(tb, qnew)
         tb <- r2$tree
-        if (r2$status != "advanced") break
+        if (r2$status != "advanced" || out_of_time(pl)) break
       }
       if (r2$status == "reached") {
         pa <- path_from_tree(ta$nodes, ta$parent, ta$n)
@@ -236,6 +250,7 @@ grow_rrt_star <- function(pl, start, goal) {
   n <- 1L
   goal_nodes <- integer(0)
   for (it in seq_len(pl$max_iterations)) {
+    if (out_of_time(pl)) break
     target <- if (stats::runif(1) < pl$goal_bias) goal else sample_state(pl)
     i <- nearest_index(nodes, n, target)
     qn <- steer(nodes[i, ], target, pl$step_size)
@@ -319,7 +334,8 @@ grow_prm <- function(pl, start, goal) {
   d <- length(start)
   samples <- matrix(0, 0, d)
   tries <- 0L
-  while (nrow(samples) < pl$prm_nodes && tries < pl$max_iterations) {
+  while (nrow(samples) < pl$prm_nodes && tries < pl$max_iterations &&
+         !out_of_time(pl)) {
     tries <- tries + 1L
     q <- sample_state(pl)
     if (state_valid(pl, q)) samples <- rbind(samples, q)
@@ -331,6 +347,7 @@ grow_prm <- function(pl, start, goal) {
   D <- as.matrix(stats::dist(V))
   k <- min(pl$prm_neighbors, nn - 1)
   for (i in seq_len(nn)) {
+    if (out_of_time(pl)) break
     nb <- order(D[i, ])[seq_len(k + 1)][-1]
     for (j in nb) {
       if (j %in% adj[[i]]) next
@@ -387,6 +404,7 @@ robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
   }
   if (!state_valid(planner, start)) return(fail("start configuration is invalid"))
   if (!state_valid(planner, goal)) return(fail("goal configuration is invalid"))
+  planner$deadline <- t0 + planner$time_limit
   res <- with_seed_internal(seed, switch(planner$algorithm,
     rrt = grow_rrt(planner, start, goal),
     rrt_connect = grow_rrt_connect(planner, start, goal),
@@ -400,12 +418,14 @@ robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
   }
   plan <- structure(list(
     path = path, success = ok,
-    message = if (ok) "path found" else
+    message = if (ok) "path found" else if (out_of_time(planner))
+      "no path found within the time limit (this does not prove that none exists)" else
       "no path found within the iteration budget (this does not prove that none exists)",
     algorithm = planner$algorithm, iterations = res$iterations,
     nodes = res$nodes, length = if (ok) path_length(path) else NA_real_,
     seed = seed, time = proc.time()[["elapsed"]] - t0, start = start,
-    goal = goal, planner = planner, roadmap = res$roadmap
+    goal = goal, planner = utils::modifyList(planner, list(deadline = Inf)),
+    roadmap = res$roadmap
   ), class = "robot_plan")
   if (ok && smooth) plan <- robot_shortcut(plan, seed = seed)
   plan
