@@ -162,11 +162,11 @@ sol$converged
 #> [1] TRUE
 c(position = sol$position_error, orientation = sol$orientation_error)
 #>     position  orientation 
-#> 2.618456e-16 5.105920e-16
+#> 3.103168e-16 1.258155e-16
 sol$iterations
 #> [1] 6
 max(abs(robot_fk(puma, sol$q)$matrix - target$matrix))
-#> [1] 3.608225e-16
+#> [1] 2.775558e-16
 ```
 
 Inverse kinematics is rarely unique. The returned solution depends on

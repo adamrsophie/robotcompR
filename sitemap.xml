@@ -53,6 +53,7 @@
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_configurations.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_dh.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_ekf.html</loc></url>
+<url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_ekf_slam.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_energy.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_environment.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_example.html</loc></url>
@@ -95,6 +96,7 @@
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_traj_polynomial.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_traj_trapezoidal.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_transform_point.html</loc></url>
+<url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_ukf.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robot_write_urdf.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/robotcompR-package.html</loc></url>
 <url><loc>https://adamrsophie.github.io/robotcompR/reference/rotation_conversions.html</loc></url>

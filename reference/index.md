@@ -247,6 +247,10 @@
   [`ekf_predict()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf.md)
   [`ekf_update()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf.md)
   : Extended Kalman filter localization
+- [`robot_ukf()`](https://adamrsophie.github.io/robotcompR/reference/robot_ukf.md)
+  [`ukf_predict()`](https://adamrsophie.github.io/robotcompR/reference/robot_ukf.md)
+  [`ukf_update()`](https://adamrsophie.github.io/robotcompR/reference/robot_ukf.md)
+  : Unscented Kalman filter localization
 - [`robot_particle_filter()`](https://adamrsophie.github.io/robotcompR/reference/robot_particle_filter.md)
   [`pf_predict()`](https://adamrsophie.github.io/robotcompR/reference/robot_particle_filter.md)
   [`pf_update()`](https://adamrsophie.github.io/robotcompR/reference/robot_particle_filter.md)
@@ -269,11 +273,16 @@
   : Inflate obstacles
 - [`grid_astar()`](https://adamrsophie.github.io/robotcompR/reference/grid_astar.md)
   : A\* search on an occupancy grid
+- [`robot_ekf_slam()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf_slam.md)
+  [`ekf_slam_predict()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf_slam.md)
+  [`ekf_slam_update()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf_slam.md)
+  [`ekf_slam_landmarks()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf_slam.md)
+  : EKF-SLAM with range-bearing landmarks
 - [`robot_pose_graph()`](https://adamrsophie.github.io/robotcompR/reference/robot_pose_graph.md)
   [`pose_graph_add_edge()`](https://adamrsophie.github.io/robotcompR/reference/robot_pose_graph.md)
-  : SE(2) pose graphs
+  : Pose graphs
 - [`pose_graph_optimize()`](https://adamrsophie.github.io/robotcompR/reference/pose_graph_optimize.md)
-  : Optimize an SE(2) pose graph
+  : Optimize a pose graph
 
 ## Visualization
 

@@ -155,11 +155,11 @@
 </tr>
 <tr>
 <td>Trajectories</td>
-<td>Cubic and quintic polynomials, synchronized trapezoidal profiles, timed waypoint paths, Cartesian straight lines, limit checks</td>
+<td>Cubic and quintic polynomials, synchronized trapezoidal profiles, timed waypoint paths, Cartesian straight lines with spatial velocities and accelerations and their joint-space conversion, limit checks</td>
 </tr>
 <tr>
 <td>Collision</td>
-<td>Spheres, boxes, cylinders, capsules and convex hulls; GJK distances with closed form sphere and capsule pairs; environment and self-collision checks; discrete path checks</td>
+<td>Spheres, boxes, cylinders, capsules and convex hulls; GJK distances with closed form sphere and capsule pairs; EPA penetration depth; environment and self-collision checks; discrete and continuous (conservative advancement) path checks</td>
 </tr>
 <tr>
 <td>Planning</td>
@@ -171,11 +171,11 @@
 </tr>
 <tr>
 <td>Localization</td>
-<td>EKF with wrapped innovations and Joseph form; particle filter with low-variance resampling</td>
+<td>EKF with wrapped innovations and Joseph form; unscented Kalman filter; particle filter with low-variance resampling</td>
 </tr>
 <tr>
 <td>Mapping and SLAM</td>
-<td>Log-odds occupancy grids, exact ray casting, scan integration, inflation, A*; SE(2) pose graph optimization with sparse Gauss-Newton and LM damping</td>
+<td>Log-odds occupancy grids, exact ray casting, scan integration, inflation, A*; EKF-SLAM with landmark initialization; SE(2) and SE(3) pose graph optimization with sparse Gauss-Newton and LM damping</td>
 </tr>
 </tbody>
 </table>
@@ -195,7 +195,7 @@
 <div class="section level2">
 <h2 id="limitations">Limitations<a class="anchor" aria-label="anchor" href="#limitations"></a>
 </h2>
-<p>robotcompR is written in R for clarity and teaching. Planners and filters are practical for a few degrees of freedom and modest sample counts. Floating, planar and mimic joints, mesh collision geometry, penetration depth for general convex pairs, continuous collision checking, friction and contact dynamics are out of scope for this release. A planner failure never proves that no path exists.</p>
+<p>robotcompR is written in R for clarity and teaching. Planners and filters are practical for a few degrees of freedom and modest sample counts. Floating, planar and mimic joints, mesh collision geometry, friction and contact dynamics are out of scope for this release. A planner failure never proves that no path exists.</p>
 </div>
 <div class="section level2">
 <h2 id="the-adamrsophie-computational-series">The adamrsophie computational series<a class="anchor" aria-label="anchor" href="#the-adamrsophie-computational-series"></a>

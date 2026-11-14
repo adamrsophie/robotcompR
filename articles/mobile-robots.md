@@ -190,6 +190,44 @@ f
 #> std devs: 0.06725, 0.04176, 0.02353
 ```
 
+## Unscented Kalman filter
+
+[`robot_ukf()`](https://adamrsophie.github.io/robotcompR/reference/robot_ukf.md)
+has the same interface as the EKF but replaces linearization with the
+unscented transform: 2n + 1 sigma points of the state (augmented with
+the control noise for prediction) are pushed through the exact motion
+and measurement models and recombined, with headings and bearings
+averaged on the circle. It needs no Jacobians and captures some
+second-order effects.
+
+``` r
+
+fu <- robot_ukf(c(0, 0, 0), diag(0.01, 3), L, Q, R)
+fe <- robot_ekf(c(0, 0, 0), diag(0.01, 3), L, Q, R)
+truth <- c(0, 0, 0)
+set.seed(7)
+err <- matrix(NA, 120, 2, dimnames = list(NULL, c("ekf", "ukf")))
+for (k in 1:120) {
+  u <- c(1, 0.25)
+  un <- u + as.numeric(rnorm(2) %*% chol(Q))
+  truth <- unicycle_step(truth, un[1], un[2], 0.1)
+  fe <- ekf_predict(fe, u, 0.1)
+  fu <- ukf_predict(fu, u, 0.1)
+  if (k %% 5 == 0) {
+    z <- landmark_measurements(truth, L, R, max_range = 6, seed = k)
+    fe <- ekf_update(fe, z)
+    fu <- ukf_update(fu, z)
+  }
+  err[k, ] <- c(sqrt(sum((fe$mean[1:2] - truth[1:2])^2)), sqrt(sum((fu$mean[1:2] - truth[1:2])^2)))
+}
+colMeans(err)
+#>        ekf        ukf 
+#> 0.04894947 0.04926721
+fu
+#> <robot_ukf> mean: 0.12273, 7.6396, -3.1402 
+#> std devs: 0.06727, 0.04176, 0.02353
+```
+
 ## Particle filter
 
 The particle filter represents the belief with weighted samples. It
@@ -220,7 +258,7 @@ plot(pf$particles[, 1:2], pch = 16, cex = 0.4, col = grDevices::adjustcolor("ste
 points(truth[1], truth[2], pch = 4, cex = 2, lwd = 2)
 ```
 
-![](mobile-robots_files/figure-html/unnamed-chunk-10-1.png)
+![](mobile-robots_files/figure-html/unnamed-chunk-11-1.png)
 
 Filters are values: each step returns a new object and leaves the old
 one unchanged, which makes it easy to compare runs.

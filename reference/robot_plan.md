@@ -6,7 +6,8 @@ random number state is restored afterwards and the seed is recorded in
 the result. A failure (`success = FALSE`) only means that no path was
 found within the iteration budget; it does not prove that no path
 exists. A successful path is collision-free only up to the discrete
-edge-checking resolution.
+edge-checking resolution; verify it with
+`robot_check_path(..., method = "continuous")` when that matters.
 
 ## Usage
 
@@ -49,6 +50,6 @@ plan <- robot_plan(planner, c(0.1, 0.1), c(0.9, 0.1), seed = 2)
 plan
 #> <robot_plan> rrt_connect: success
 #> path found 
-#> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.006 s
+#> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.013 s
 #> seed: 2 
 ```

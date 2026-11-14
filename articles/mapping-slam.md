@@ -186,11 +186,102 @@ plot(res$graph)
 
 ![](mapping-slam_files/figure-html/unnamed-chunk-9-1.png)
 
+### SE(3) pose graphs
+
+Give
+[`robot_pose_graph()`](https://adamrsophie.github.io/robotcompR/reference/robot_pose_graph.md)
+a list of SE(3) poses instead of a matrix and the same functions
+optimize a 3D graph. Edges are relative `robot_pose` measurements with 6
+by 6 information matrices (translation first), the residual is e\_{ij} =
+\log(Z\_{ij}^{-1} X_i^{-1} X_j), and nodes are updated on the manifold
+as X \exp(\delta).
+
+``` r
+
+set.seed(4)
+step <- se3_exp(c(1, 0, 0.1, 0, 0.15, 2 * pi / 12))
+truth3 <- Reduce(function(X, k) X %*% step, 1:24, accumulate = TRUE, init = diag(4))
+noisy3 <- lapply(1:24, function(k) step %*% se3_exp(rnorm(6, sd = 0.02)))
+odom3 <- Reduce(function(X, Z) X %*% Z, noisy3, accumulate = TRUE, init = diag(4))
+g3 <- robot_pose_graph(odom3)
+for (k in 1:24) g3 <- pose_graph_add_edge(g3, k, k + 1, noisy3[[k]], diag(2500, 6))
+# The helix revisits each heading after 12 steps, 1.2 m higher.
+for (k in 1:13) {
+  g3 <- pose_graph_add_edge(g3, k, k + 12, solve(truth3[[k]]) %*% truth3[[k + 12]],
+                            diag(1e4, 6))
+}
+res3 <- pose_graph_optimize(g3)
+res3$converged
+#> [1] TRUE
+err <- function(nodes) max(vapply(seq_along(nodes), function(k)
+  sqrt(sum((pose_translation(nodes[[k]]) - truth3[[k]][1:3, 4])^2)), 0))
+c(odometry = err(lapply(odom3, function(M) robot_pose(matrix = M))),
+  optimized = err(res3$graph$nodes))
+#>   odometry  optimized 
+#> 0.41548311 0.07660563
+```
+
+## EKF-SLAM
+
+When landmarks are not known in advance,
+[`robot_ekf_slam()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf_slam.md)
+estimates them together with the pose. The state grows by two entries
+each time a new landmark id is seen; the new landmark is initialized
+from the inverse measurement model with its covariance and its
+correlation with the pose. Later sightings correct both the pose and
+every correlated landmark.
+
+``` r
+
+L <- rbind(a = c(5, 0), b = c(0, 5), c = c(5, 5), d = c(-2, 3), e = c(2, -3))
+Q <- diag(c(0.02, 0.01))
+R <- diag(c(0.05, 0.002))
+f <- robot_ekf_slam(c(0, 0, 0), diag(1e-9, 3), Q, R)
+truth <- odo <- c(0, 0, 0)
+set.seed(7)
+tr <- matrix(NA, 300, 3)
+est <- tr
+for (k in 1:300) {
+  u <- c(1, 0.25)
+  un <- u + as.numeric(rnorm(2) %*% chol(Q))
+  truth <- unicycle_step(truth, un[1], un[2], 0.1)
+  f <- ekf_slam_predict(f, u, 0.1)
+  if (k %% 5 == 0) {
+    f <- ekf_slam_update(f, landmark_measurements(truth, L, R, max_range = 6, seed = k))
+  }
+  tr[k, ] <- truth
+  est[k, ] <- f$mean[1:3]
+}
+f
+#> <robot_ekf_slam> pose: 4.0892, 2.7046, 1.3608 ; 5 landmarks
+M <- ekf_slam_landmarks(f)
+round(cbind(M, error = sqrt(rowSums((M - L[rownames(M), ])^2))), 3)
+#>        x      y error
+#> a  4.910 -0.064 0.110
+#> b -0.095  4.988 0.096
+#> d -2.137  3.046 0.145
+#> e  1.928 -3.000 0.072
+#> c  4.985  4.875 0.126
+plot(tr[, 1:2], type = "l", asp = 1, xlab = "x (m)", ylab = "y (m)",
+     xlim = c(-3, 6), ylim = c(-4, 6))
+lines(est[, 1:2], col = "firebrick", lwd = 2)
+points(L, pch = 17, col = "navy")
+points(M, pch = 4, cex = 1.5, col = "firebrick")
+```
+
+![](mapping-slam_files/figure-html/unnamed-chunk-11-1.png)
+
+The map is only defined up to the initial pose, which is why the initial
+covariance is nearly zero: it anchors the map frame.
+
 ## Limitations
 
 - Grids are 2D and use a simple inverse sensor model with no beam width.
 - A\* runs in R; grids of a few hundred cells on a side are comfortable.
-- The pose graph solver handles SE(2) only, with Gaussian edges. It has
-  no robust kernels, so a single wrong loop closure can distort the map.
+- The pose graph solver uses Gaussian edges. It has no robust kernels,
+  so a single wrong loop closure can distort the map. SE(3) Jacobians
+  are computed by finite differences.
+- EKF-SLAM uses known data association and dense covariances, so it
+  scales quadratically with the number of landmarks.
 - Data association (deciding which loop closures are real) is left to
   the user.

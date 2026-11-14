@@ -190,9 +190,13 @@ waypoint.</p>
 <h2 id="cartesian-motion">Cartesian motion<a class="anchor" aria-label="anchor" href="#cartesian-motion"></a>
 </h2>
 <p><code><a href="../reference/robot_traj_cartesian.html">robot_traj_cartesian()</a></code> moves the end effector along a
-straight line with a quintic time scaling, interpolating orientation by
-slerp. Combine it with inverse kinematics, seeding each solve with the
-previous solution:</p>
+straight line with a quintic time scaling <span class="math inline">s(t)</span>, interpolating orientation by slerp,
+<span class="math inline">R(s) = \exp(s\,\hat\phi) R_0</span> with <span class="math inline">\phi = \log(R_1 R_0^\top)</span>. The spatial
+velocity is <span class="math inline">\dot s\,(p_1 - p_0, \phi)</span>
+and the acceleration <span class="math inline">\ddot s\,(p_1 - p_0,
+\phi)</span>, returned as <code>velocity</code> and
+<code>acceleration</code>. The conversion to joints can be done by hand,
+seeding each inverse kinematics solve with the previous solution:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">from</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span>translation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">0.3</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">to</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span>translation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.8</span>, <span class="fl">1.2</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
@@ -206,6 +210,25 @@ previous solution:</p>
 <span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_fk_positions.html">robot_fk_positions</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">Q</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">P</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, <span class="va">P</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"b"</span>, asp <span class="op">=</span> <span class="fl">1</span>, xlab <span class="op">=</span> <span class="st">"x (m)"</span>, ylab <span class="op">=</span> <span class="st">"y (m)"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="trajectories_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="576"></p>
+<p>or by passing <code>robot</code>. Then joint velocities solve <span class="math inline">J\dot q = V</span> and joint accelerations solve
+<span class="math inline">J\ddot q = A - \dot J \dot q</span> at each
+sample, so the result is a full <code>robot_trajectory</code> that
+<code><a href="../reference/robot_traj_check.html">robot_traj_check()</a></code> can test against velocity and
+acceleration limits:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">jt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_cartesian.html">robot_traj_cartesian</a></span><span class="op">(</span><span class="va">from</span>, <span class="va">to</span>, duration <span class="op">=</span> <span class="fl">2</span>, n <span class="op">=</span> <span class="fl">101</span>, robot <span class="op">=</span> <span class="va">arm</span>,</span>
+<span>                           initial <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="op">-</span><span class="fl">0.8</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">jt</span><span class="op">$</span><span class="va">converged</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="co"># Joint velocities map back to the commanded Cartesian velocity.</span></span>
+<span><span class="va">i</span> <span class="op">&lt;-</span> <span class="fl">30</span></span>
+<span><span class="va">J</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_jacobian.html">robot_jacobian</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">jt</span><span class="op">$</span><span class="va">joint</span><span class="op">$</span><span class="va">q</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>commanded <span class="op">=</span> <span class="va">jt</span><span class="op">$</span><span class="va">velocity</span><span class="op">[</span><span class="va">i</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>, achieved <span class="op">=</span> <span class="op">(</span><span class="va">J</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">jt</span><span class="op">$</span><span class="va">joint</span><span class="op">$</span><span class="va">qd</span><span class="op">[</span><span class="va">i</span>, <span class="op">]</span><span class="op">)</span><span class="op">[</span><span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                   vx        vy</span></span>
+<span><span class="co">#&gt; commanded -0.4451455 0.5723299</span></span>
+<span><span class="co">#&gt; achieved  -0.4451455 0.5723299</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">jt</span><span class="op">$</span><span class="va">joint</span>, <span class="st">"qd"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="trajectories_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="576"></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

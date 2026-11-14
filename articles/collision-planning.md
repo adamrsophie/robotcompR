@@ -15,10 +15,12 @@ plus a radius, so a capsule is a segment swept by a sphere.
 returns the separation distance and witness points. Sphere and capsule
 pairs use closed-form segment distances (exact depth when they overlap).
 Other pairs use the Gilbert, Johnson and Keerthi (GJK) algorithm on
-support functions; when those overlap the result reports
-`collision = TRUE` but `depth_known = FALSE`, because computing
-penetration depth would need an extra algorithm (EPA) that is not
-implemented.
+support functions. When the cores of a GJK pair overlap, the expanding
+polytope algorithm (EPA) grows a polytope inside the Minkowski
+difference A - B until its face nearest the origin is part of the
+boundary; the distance to that face is the penetration depth, the length
+of the shortest translation that separates the shapes. Negative
+distances are therefore always exact depths.
 
 ``` r
 
@@ -29,21 +31,14 @@ c(d$distance, sqrt(2) - 0.2)
 #> [1] 1.214214 1.214214
 d$point_a
 #> [1] 0.5 0.5 0.0
-geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(), transl(0.5, 0, 0))
-#> $distance
-#> [1] 0
-#> 
-#> $collision
-#> [1] TRUE
-#> 
-#> $depth_known
-#> [1] FALSE
-#> 
-#> $point_a
-#> [1] 0.25 0.50 0.50
-#> 
-#> $point_b
-#> [1] 0.25 0.50 0.50
+geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(), transl(0.5, 0, 0))$distance
+#> [1] -0.5
+# Two unit cubes, one turned 45 degrees: depth 0.5 + sqrt(2) / 2 - 0.9.
+geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(),
+              robot_pose(rotz(pi / 4), c(0.9, 0, 0)))$distance
+#> [1] -0.3071068
+0.9 - 0.5 - sqrt(2) / 2
+#> [1] -0.3071068
 ```
 
 Mesh geometry from URDF files is kept for reference but is not
@@ -65,9 +60,9 @@ env <- robot_environment(
   post = geom_cylinder(0.1, 1, origin = transl(-1, 1, 0))
 )
 robot_check_collision(arm, c(0, 0), env)
-#> <robot_collision_result> IN COLLISION; 1 pair evaluated, min distance -0.05
+#> <robot_collision_result> IN COLLISION; 1 pair evaluated, min distance -0.25
 #>  object_a object_b        type distance collision
-#>     link2    block environment    -0.05      TRUE
+#>     link2    block environment    -0.25      TRUE
 robot_check_collision(arm, c(pi / 2, 0), env, distances = TRUE)
 #> <robot_collision_result> collision free; 4 pairs evaluated, min distance 0.85
 ```
@@ -102,6 +97,38 @@ This is a discrete check. A thin obstacle can slip between samples if
 the resolution is coarse relative to the obstacle size and the link
 lengths.
 
+### Continuous checking
+
+`method = "continuous"` removes that caveat with conservative
+advancement. At the current configuration it computes the clearance d of
+every geometry pair and a bound M on how far any point of the pair can
+move per unit of the segment parameter. For a revolute joint, a point at
+distance r from the joint axis moves at most r per radian, and r is
+bounded by the fixed frame offsets of the chain plus the size of the
+geometry. Moving by d / M cannot cause contact, so the check steps
+forward by that amount until it either reaches the end of the segment or
+a clearance reaches zero.
+
+Here a thin post sits between two samples of a coarse discrete check:
+
+``` r
+
+post <- robot_environment(post = geom_box(c(0.02, 0.02, 1), origin = transl(cos(0.6), sin(0.6), 0)))
+P <- rbind(c(0, 0), c(1.2, 0))
+robot_check_path(arm, P, post, resolution = 0.5)$valid
+#> [1] TRUE
+cc <- robot_check_path(arm, P, post, method = "continuous")
+cc$valid
+#> [1] FALSE
+cc$q
+#> [1] 0.5362514 0.0000000
+robot_check_collision(arm, cc$q, post)$min_distance
+#> [1] 8.367652e-10
+```
+
+The configuration returned is the first contact along the motion, up to
+the tolerance `tol`.
+
 ## Sampling-based planners
 
 [`robot_planner()`](https://adamrsophie.github.io/robotcompR/reference/robot_planner.md)
@@ -123,7 +150,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1)
 plan
 #> <robot_plan> rrt_connect: success
 #> path found 
-#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 0.482 s
+#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 1.13 s
 #> seed: 1
 robot_check_path(arm, plan$path, env, resolution = 0.01)$valid
 #> [1] TRUE
@@ -168,7 +195,7 @@ for (alg in c("rrt", "rrt_connect", "rrt_star", "prm")) {
 }
 ```
 
-![](collision-planning_files/figure-html/unnamed-chunk-9-1.png)![](collision-planning_files/figure-html/unnamed-chunk-9-2.png)![](collision-planning_files/figure-html/unnamed-chunk-9-3.png)![](collision-planning_files/figure-html/unnamed-chunk-9-4.png)
+![](collision-planning_files/figure-html/unnamed-chunk-10-1.png)![](collision-planning_files/figure-html/unnamed-chunk-10-2.png)![](collision-planning_files/figure-html/unnamed-chunk-10-3.png)![](collision-planning_files/figure-html/unnamed-chunk-10-4.png)
 
 ### Practical advice
 

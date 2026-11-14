@@ -114,9 +114,12 @@ head(chk$violations)
 ## Cartesian motion
 
 [`robot_traj_cartesian()`](https://adamrsophie.github.io/robotcompR/reference/robot_traj_cartesian.md)
-moves the end effector along a straight line with a quintic time
-scaling, interpolating orientation by slerp. Combine it with inverse
-kinematics, seeding each solve with the previous solution:
+moves the end effector along a straight line with a quintic time scaling
+s(t), interpolating orientation by slerp, R(s) = \exp(s\\\hat\phi) R_0
+with \phi = \log(R_1 R_0^\top). The spatial velocity is \dot s\\(p_1 -
+p_0, \phi) and the acceleration \ddot s\\(p_1 - p_0, \phi), returned as
+`velocity` and `acceleration`. The conversion to joints can be done by
+hand, seeding each inverse kinematics solve with the previous solution:
 
 ``` r
 
@@ -134,3 +137,27 @@ plot(P[, 1], P[, 2], type = "b", asp = 1, xlab = "x (m)", ylab = "y (m)")
 ```
 
 ![](trajectories_files/figure-html/unnamed-chunk-7-1.png)
+
+or by passing `robot`. Then joint velocities solve J\dot q = V and joint
+accelerations solve J\ddot q = A - \dot J \dot q at each sample, so the
+result is a full `robot_trajectory` that
+[`robot_traj_check()`](https://adamrsophie.github.io/robotcompR/reference/robot_traj_check.md)
+can test against velocity and acceleration limits:
+
+``` r
+
+jt <- robot_traj_cartesian(from, to, duration = 2, n = 101, robot = arm,
+                           initial = c(0.3, -0.8), weights = c(1, 1, 0, 0, 0, 0))
+all(jt$converged)
+#> [1] TRUE
+# Joint velocities map back to the commanded Cartesian velocity.
+i <- 30
+J <- robot_jacobian(arm, jt$joint$q[i, ])
+rbind(commanded = jt$velocity[i, 1:2], achieved = (J %*% jt$joint$qd[i, ])[1:2])
+#>                   vx        vy
+#> commanded -0.4451455 0.5723299
+#> achieved  -0.4451455 0.5723299
+plot(jt$joint, "qd")
+```
+
+![](trajectories_files/figure-html/unnamed-chunk-8-1.png)

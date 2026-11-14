@@ -5,19 +5,27 @@ plus a radius: GJK (Gilbert, Johnson and Keerthi, 1988) computes the
 distance between the cores, and the radii are subtracted. The result
 is exact (up to the GJK tolerance) for separated shapes. When shapes
 with a radius overlap but their cores do not, the negative distance is
-the exact penetration depth. When the cores themselves overlap the
-penetration depth is not computed: distance is reported as
-\(-(r_A + r_B)\) with depth_known = FALSE, and only collision
-should be relied on. Meshes are not supported."><meta property="og:description" content="Computes the separation distance and closest points between two convex
+the exact penetration depth. When the cores themselves overlap, the
+expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
+penetration depth of the cores, and the negative distance is that depth
+plus both radii: the length of the shortest translation that separates
+the shapes. For curved cores (cylinders) EPA converges to a relative
+tolerance of about \(10^{-9}\) of the object size. depth_known is
+TRUE for every result and kept for compatibility. Meshes are not
+supported."><meta property="og:description" content="Computes the separation distance and closest points between two convex
 primitives placed in a common frame. Each primitive is a convex core
 plus a radius: GJK (Gilbert, Johnson and Keerthi, 1988) computes the
 distance between the cores, and the radii are subtracted. The result
 is exact (up to the GJK tolerance) for separated shapes. When shapes
 with a radius overlap but their cores do not, the negative distance is
-the exact penetration depth. When the cores themselves overlap the
-penetration depth is not computed: distance is reported as
-\(-(r_A + r_B)\) with depth_known = FALSE, and only collision
-should be relied on. Meshes are not supported."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
+the exact penetration depth. When the cores themselves overlap, the
+expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
+penetration depth of the cores, and the negative distance is that depth
+plus both radii: the length of the shortest translation that separates
+the shapes. For curved cores (cylinders) EPA converges to a relative
+tolerance of about \(10^{-9}\) of the object size. depth_known is
+TRUE for every result and kept for compatibility. Meshes are not
+supported."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -81,10 +89,14 @@ plus a radius: GJK (Gilbert, Johnson and Keerthi, 1988) computes the
 distance between the cores, and the radii are subtracted. The result
 is exact (up to the GJK tolerance) for separated shapes. When shapes
 with a radius overlap but their cores do not, the negative distance is
-the exact penetration depth. When the cores themselves overlap the
-penetration depth is not computed: <code>distance</code> is reported as
-\(-(r_A + r_B)\) with <code>depth_known = FALSE</code>, and only <code>collision</code>
-should be relied on. Meshes are not supported.</p>
+the exact penetration depth. When the cores themselves overlap, the
+expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
+penetration depth of the cores, and the negative distance is that depth
+plus both radii: the length of the shortest translation that separates
+the shapes. For curved cores (cylinders) EPA converges to a relative
+tolerance of about \(10^{-9}\) of the object size. <code>depth_known</code> is
+<code>TRUE</code> for every result and kept for compatibility. Meshes are not
+supported.</p>
     </div>
 
     <div class="section level2">

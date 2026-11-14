@@ -263,7 +263,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">tau</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_inverse_dynamics.html">robot_inverse_dynamics</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span>, qd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0</span><span class="op">)</span>, qdd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, gravity <span class="op">=</span> <span class="va">g</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_forward_dynamics.html">robot_forward_dynamics</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span>, qd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0</span><span class="op">)</span>, tau <span class="op">=</span> <span class="va">tau</span>, gravity <span class="op">=</span> <span class="va">g</span><span class="op">)</span></span>
 <span><span class="co">#&gt;        joint1        joint2 </span></span>
-<span><span class="co">#&gt; -2.325413e-15  1.000000e+00</span></span></code></pre></div>
+<span><span class="co">#&gt; -7.751375e-16  1.000000e+00</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="planning-around-an-obstacle">Planning around an obstacle<a class="anchor" aria-label="anchor" href="#planning-around-an-obstacle"></a>
@@ -277,7 +277,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">plan</span></span>
 <span><span class="co">#&gt; &lt;robot_plan&gt; rrt_connect: success</span></span>
 <span><span class="co">#&gt; path found (shortcut smoothed) </span></span>
-<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.269 s</span></span>
+<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.626 s</span></span>
 <span><span class="co">#&gt; seed: 1</span></span>
 <span><span class="va">traj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_path.html">robot_traj_path</a></span><span class="op">(</span><span class="va">plan</span>, vmax <span class="op">=</span> <span class="fl">1</span>, amax <span class="op">=</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_traj_check.html">robot_traj_check</a></span><span class="op">(</span><span class="va">robot</span>, <span class="va">traj</span><span class="op">)</span><span class="op">$</span><span class="va">ok</span></span>
@@ -316,10 +316,10 @@ Cartesian paths.</li>
 queries and sampling-based planners.</li>
 <li>
 <code><a href="../articles/mobile-robots.html">vignette("mobile-robots")</a></code>: wheeled robot models, path
-following and localization.</li>
+following and localization with EKF, UKF and particle filters.</li>
 <li>
-<code><a href="../articles/mapping-slam.html">vignette("mapping-slam")</a></code>: occupancy grids, grid search
-and pose graphs.</li>
+<code><a href="../articles/mapping-slam.html">vignette("mapping-slam")</a></code>: occupancy grids, grid search,
+EKF-SLAM and SE(2) and SE(3) pose graphs.</li>
 </ul>
 </div>
 <div class="section level2">
@@ -334,12 +334,13 @@ samples. Specific limits:</p>
 planar and mimic joints are rejected.</li>
 <li>Collision geometry is convex (spheres, boxes, cylinders, capsules
 and convex hulls). Meshes are kept as metadata but are not used for
-queries. Penetration depth is exact for sphere and capsule pairs and
-reported as unknown otherwise.</li>
-<li>Path collision checks are discrete at a user-chosen resolution.</li>
+queries. Penetration depths are exact (EPA for general pairs).</li>
+<li>Path collision checks are discrete at a user-chosen resolution or
+continuous by conservative advancement.</li>
 <li>Sampling-based planners are probabilistically complete at best; a
 failure to find a path never proves that none exists.</li>
-<li>Mobile robot tools are planar (SE(2)).</li>
+<li>Mobile robot tools are planar (SE(2)); pose graphs also handle
+SE(3).</li>
 <li>No contact dynamics, friction models or actuator models.</li>
 </ul>
 </div>

@@ -1,12 +1,16 @@
-# Optimize an SE(2) pose graph
+# Optimize a pose graph
 
 Minimizes \\\sum e\_{ij}^\top \Omega\_{ij} e\_{ij}\\ over the node poses
-with Gauss-Newton iterations and Levenberg-Marquardt damping, using the
-relative-pose residual \\e\_{ij} = (R_z^\top(R_i^\top(t_j - t_i) - t_z),
+with Gauss-Newton iterations and Levenberg-Marquardt damping. For SE(2)
+graphs the residual is \\e\_{ij} = (R_z^\top(R_i^\top(t_j - t_i) - t_z),
 \mathrm{wrap}(\theta_j - \theta_i - \theta_z))\\, analytic Jacobians
 (Grisetti et al., 2010, "A tutorial on graph-based SLAM") and sparse
-linear algebra from 'Matrix'. Node `fixed` is held constant to remove
-the gauge freedom. Headings are wrapped after each update.
+linear algebra from 'Matrix', and headings are wrapped after each
+update. For SE(3) graphs the residual is \\e\_{ij} = \log(Z\_{ij}^{-1}
+X_i^{-1} X_j)\\ (translation first), nodes are updated on the manifold
+as \\X \exp(\delta)\\, and the Jacobians with respect to \\\delta\\ are
+computed by central differences. Node `fixed` is held constant to remove
+the gauge freedom.
 
 ## Usage
 

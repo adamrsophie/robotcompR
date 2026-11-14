@@ -102,10 +102,13 @@ shape plus a radius, so a capsule is a segment swept by a sphere.</p>
 <p><code><a href="../reference/geom_distance.html">geom_distance()</a></code> returns the separation distance and
 witness points. Sphere and capsule pairs use closed-form segment
 distances (exact depth when they overlap). Other pairs use the Gilbert,
-Johnson and Keerthi (GJK) algorithm on support functions; when those
-overlap the result reports <code>collision = TRUE</code> but
-<code>depth_known = FALSE</code>, because computing penetration depth
-would need an extra algorithm (EPA) that is not implemented.</p>
+Johnson and Keerthi (GJK) algorithm on support functions. When the cores
+of a GJK pair overlap, the expanding polytope algorithm (EPA) grows a
+polytope inside the Minkowski difference <span class="math inline">A -
+B</span> until its face nearest the origin is part of the boundary; the
+distance to that face is the penetration depth, the length of the
+shortest translation that separates the shapes. Negative distances are
+therefore always exact depths.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/geom_distance.html">geom_distance</a></span><span class="op">(</span><span class="fu"><a href="../reference/geometry.html">geom_sphere</a></span><span class="op">(</span><span class="fl">0.5</span><span class="op">)</span>, <span class="fu"><a href="../reference/geometry.html">geom_sphere</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span>, <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="op">)</span>, <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">distance</span></span>
 <span><span class="co">#&gt; [1] 1.2</span></span>
@@ -114,21 +117,14 @@ would need an extra algorithm (EPA) that is not implemented.</p>
 <span><span class="co">#&gt; [1] 1.214214 1.214214</span></span>
 <span><span class="va">d</span><span class="op">$</span><span class="va">point_a</span></span>
 <span><span class="co">#&gt; [1] 0.5 0.5 0.0</span></span>
-<span><span class="fu"><a href="../reference/geom_distance.html">geom_distance</a></span><span class="op">(</span><span class="fu"><a href="../reference/geometry.html">geom_box</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/geometry.html">geom_box</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="op">)</span>, <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; $distance</span></span>
-<span><span class="co">#&gt; [1] 0</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $collision</span></span>
-<span><span class="co">#&gt; [1] TRUE</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $depth_known</span></span>
-<span><span class="co">#&gt; [1] FALSE</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $point_a</span></span>
-<span><span class="co">#&gt; [1] 0.25 0.50 0.50</span></span>
-<span><span class="co">#&gt; </span></span>
-<span><span class="co">#&gt; $point_b</span></span>
-<span><span class="co">#&gt; [1] 0.25 0.50 0.50</span></span></code></pre></div>
+<span><span class="fu"><a href="../reference/geom_distance.html">geom_distance</a></span><span class="op">(</span><span class="fu"><a href="../reference/geometry.html">geom_box</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/geometry.html">geom_box</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="op">)</span>, <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">distance</span></span>
+<span><span class="co">#&gt; [1] -0.5</span></span>
+<span><span class="co"># Two unit cubes, one turned 45 degrees: depth 0.5 + sqrt(2) / 2 - 0.9.</span></span>
+<span><span class="fu"><a href="../reference/geom_distance.html">geom_distance</a></span><span class="op">(</span><span class="fu"><a href="../reference/geometry.html">geom_box</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/geometry.html">geom_box</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>              <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_rotations.html">rotz</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">4</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">distance</span></span>
+<span><span class="co">#&gt; [1] -0.3071068</span></span>
+<span><span class="fl">0.9</span> <span class="op">-</span> <span class="fl">0.5</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2</span></span>
+<span><span class="co">#&gt; [1] -0.3071068</span></span></code></pre></div>
 <p>Mesh geometry from URDF files is kept for reference but is not
 collidable.</p>
 </div>
@@ -146,9 +142,9 @@ poses.</p>
 <span>  post <span class="op">=</span> <span class="fu"><a href="../reference/geometry.html">geom_cylinder</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">1</span>, origin <span class="op">=</span> <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_check_collision.html">robot_check_collision</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="va">env</span><span class="op">)</span></span>
-<span><span class="co">#&gt; &lt;robot_collision_result&gt; IN COLLISION; 1 pair evaluated, min distance -0.05</span></span>
+<span><span class="co">#&gt; &lt;robot_collision_result&gt; IN COLLISION; 1 pair evaluated, min distance -0.25</span></span>
 <span><span class="co">#&gt;  object_a object_b        type distance collision</span></span>
-<span><span class="co">#&gt;     link2    block environment    -0.05      TRUE</span></span>
+<span><span class="co">#&gt;     link2    block environment    -0.25      TRUE</span></span>
 <span><span class="fu"><a href="../reference/robot_check_collision.html">robot_check_collision</a></span><span class="op">(</span><span class="va">arm</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span>, <span class="va">env</span>, distances <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;robot_collision_result&gt; collision free; 4 pairs evaluated, min distance 0.85</span></span></code></pre></div>
 <p>Self-collision checks skip links that share a joint (they always
@@ -174,6 +170,36 @@ sweeps through the block:</p>
 <p>This is a discrete check. A thin obstacle can slip between samples if
 the resolution is coarse relative to the obstacle size and the link
 lengths.</p>
+</div>
+<div class="section level3">
+<h3 id="continuous-checking">Continuous checking<a class="anchor" aria-label="anchor" href="#continuous-checking"></a>
+</h3>
+<p><code>method = "continuous"</code> removes that caveat with
+conservative advancement. At the current configuration it computes the
+clearance <span class="math inline">d</span> of every geometry pair and
+a bound <span class="math inline">M</span> on how far any point of the
+pair can move per unit of the segment parameter. For a revolute joint, a
+point at distance <span class="math inline">r</span> from the joint axis
+moves at most <span class="math inline">r</span> per radian, and <span class="math inline">r</span> is bounded by the fixed frame offsets of
+the chain plus the size of the geometry. Moving by <span class="math inline">d / M</span> cannot cause contact, so the check
+steps forward by that amount until it either reaches the end of the
+segment or a clearance reaches zero.</p>
+<p>Here a thin post sits between two samples of a coarse discrete
+check:</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">post</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_environment.html">robot_environment</a></span><span class="op">(</span>post <span class="op">=</span> <span class="fu"><a href="../reference/geometry.html">geom_box</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.02</span>, <span class="fl">0.02</span>, <span class="fl">1</span><span class="op">)</span>, origin <span class="op">=</span> <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="fl">0.6</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="fl">0.6</span><span class="op">)</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.2</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/robot_check_path.html">robot_check_path</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">P</span>, <span class="va">post</span>, resolution <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">$</span><span class="va">valid</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span>
+<span><span class="va">cc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_check_path.html">robot_check_path</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">P</span>, <span class="va">post</span>, method <span class="op">=</span> <span class="st">"continuous"</span><span class="op">)</span></span>
+<span><span class="va">cc</span><span class="op">$</span><span class="va">valid</span></span>
+<span><span class="co">#&gt; [1] FALSE</span></span>
+<span><span class="va">cc</span><span class="op">$</span><span class="va">q</span></span>
+<span><span class="co">#&gt; [1] 0.5362514 0.0000000</span></span>
+<span><span class="fu"><a href="../reference/robot_check_collision.html">robot_check_collision</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">cc</span><span class="op">$</span><span class="va">q</span>, <span class="va">post</span><span class="op">)</span><span class="op">$</span><span class="va">min_distance</span></span>
+<span><span class="co">#&gt; [1] 8.367652e-10</span></span></code></pre></div>
+<p>The configuration returned is the first contact along the motion, up
+to the tolerance <code>tol</code>.</p>
 </div>
 </div>
 <div class="section level2">
@@ -215,13 +241,13 @@ lengths.</p>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">planner</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_planner.html">robot_planner</a></span><span class="op">(</span><span class="va">arm</span>, <span class="st">"rrt_connect"</span>, <span class="va">env</span>, step_size <span class="op">=</span> <span class="fl">0.3</span><span class="op">)</span></span>
 <span><span class="va">plan</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_plan.html">robot_plan</a></span><span class="op">(</span><span class="va">planner</span>, start <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.8</span>, <span class="fl">0</span><span class="op">)</span>, goal <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.8</span>, <span class="fl">0</span><span class="op">)</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="va">plan</span></span>
 <span><span class="co">#&gt; &lt;robot_plan&gt; rrt_connect: success</span></span>
 <span><span class="co">#&gt; path found </span></span>
-<span><span class="co">#&gt; 24 waypoints, length 6.671, 67 nodes, 97 iterations, 0.482 s</span></span>
+<span><span class="co">#&gt; 24 waypoints, length 6.671, 67 nodes, 97 iterations, 1.13 s</span></span>
 <span><span class="co">#&gt; seed: 1</span></span>
 <span><span class="fu"><a href="../reference/robot_check_path.html">robot_check_path</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">plan</span><span class="op">$</span><span class="va">path</span>, <span class="va">env</span>, resolution <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span><span class="op">$</span><span class="va">valid</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
@@ -230,7 +256,7 @@ lengths.</p>
 <span><span class="co">#&gt; original shortcut </span></span>
 <span><span class="co">#&gt; 6.671026 4.919281</span></span></code></pre></div>
 <p>A failure only means that no path was found within the budget:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">blocked</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_planner.html">robot_planner</a></span><span class="op">(</span>validity <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">q</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">q</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span> <span class="op">&gt;</span> <span class="fl">0.05</span>,</span>
 <span>                         bounds <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>, max_iterations <span class="op">=</span> <span class="fl">200</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_plan.html">robot_plan</a></span><span class="op">(</span><span class="va">blocked</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0.1</span><span class="op">)</span>, seed <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">$</span><span class="va">message</span></span>
@@ -241,7 +267,7 @@ lengths.</p>
 <p>A <code>validity</code> function and <code>bounds</code> define any
 configuration space. This makes the planners easy to study on 2D
 examples:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">walls</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">q</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="op">!</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">q</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="fl">0.33</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.03</span> <span class="op">&amp;&amp;</span> <span class="va">q</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&lt;</span> <span class="fl">0.7</span><span class="op">)</span> <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">q</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="fl">0.66</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.03</span> <span class="op">&amp;&amp;</span> <span class="va">q</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">&gt;</span> <span class="fl">0.3</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
@@ -258,7 +284,7 @@ examples:</p>
 <span>  <span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">p</span>, obstacles <span class="op">=</span> <span class="va">draw</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/graphics/mtext.html" class="external-link">mtext</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"length %.3f, %d nodes"</span>, <span class="va">p</span><span class="op">$</span><span class="va">length</span>, <span class="va">p</span><span class="op">$</span><span class="va">nodes</span><span class="op">)</span>, side <span class="op">=</span> <span class="fl">3</span>, line <span class="op">=</span> <span class="fl">0.2</span>, cex <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span></span>
 <span><span class="op">}</span></span></code></pre></div>
-<p><img src="collision-planning_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="480"><img src="collision-planning_files/figure-html/unnamed-chunk-9-2.png" class="r-plt" alt="" width="480"><img src="collision-planning_files/figure-html/unnamed-chunk-9-3.png" class="r-plt" alt="" width="480"><img src="collision-planning_files/figure-html/unnamed-chunk-9-4.png" class="r-plt" alt="" width="480"></p>
+<p><img src="collision-planning_files/figure-html/unnamed-chunk-10-1.png" class="r-plt" alt="" width="480"><img src="collision-planning_files/figure-html/unnamed-chunk-10-2.png" class="r-plt" alt="" width="480"><img src="collision-planning_files/figure-html/unnamed-chunk-10-3.png" class="r-plt" alt="" width="480"><img src="collision-planning_files/figure-html/unnamed-chunk-10-4.png" class="r-plt" alt="" width="480"></p>
 </div>
 <div class="section level3">
 <h3 id="practical-advice">Practical advice<a class="anchor" aria-label="anchor" href="#practical-advice"></a>

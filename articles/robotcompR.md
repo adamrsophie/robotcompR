@@ -134,7 +134,7 @@ robot_gravity_torque(arm, q, g)
 tau <- robot_inverse_dynamics(arm, q, qd = c(0.5, 0), qdd = c(0, 1), gravity = g)
 robot_forward_dynamics(arm, q, qd = c(0.5, 0), tau = tau, gravity = g)
 #>        joint1        joint2 
-#> -2.325413e-15  1.000000e+00
+#> -7.751375e-16  1.000000e+00
 ```
 
 ## Planning around an obstacle
@@ -149,7 +149,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
 plan
 #> <robot_plan> rrt_connect: success
 #> path found (shortcut smoothed) 
-#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.269 s
+#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.626 s
 #> seed: 1
 traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
 robot_traj_check(robot, traj)$ok
@@ -182,9 +182,11 @@ plot(sim[, "x"], sim[, "y"], type = "b", asp = 1, xlab = "x (m)", ylab = "y (m)"
 - [`vignette("collision-planning")`](https://adamrsophie.github.io/robotcompR/articles/collision-planning.md):
   geometry, distance queries and sampling-based planners.
 - [`vignette("mobile-robots")`](https://adamrsophie.github.io/robotcompR/articles/mobile-robots.md):
-  wheeled robot models, path following and localization.
+  wheeled robot models, path following and localization with EKF, UKF
+  and particle filters.
 - [`vignette("mapping-slam")`](https://adamrsophie.github.io/robotcompR/articles/mapping-slam.md):
-  occupancy grids, grid search and pose graphs.
+  occupancy grids, grid search, EKF-SLAM and SE(2) and SE(3) pose
+  graphs.
 
 ## Scope and limitations
 
@@ -197,10 +199,10 @@ samples. Specific limits:
   and mimic joints are rejected.
 - Collision geometry is convex (spheres, boxes, cylinders, capsules and
   convex hulls). Meshes are kept as metadata but are not used for
-  queries. Penetration depth is exact for sphere and capsule pairs and
-  reported as unknown otherwise.
-- Path collision checks are discrete at a user-chosen resolution.
+  queries. Penetration depths are exact (EPA for general pairs).
+- Path collision checks are discrete at a user-chosen resolution or
+  continuous by conservative advancement.
 - Sampling-based planners are probabilistically complete at best; a
   failure to find a path never proves that none exists.
-- Mobile robot tools are planar (SE(2)).
+- Mobile robot tools are planar (SE(2)); pose graphs also handle SE(3).
 - No contact dynamics, friction models or actuator models.

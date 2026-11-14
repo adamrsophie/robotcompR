@@ -5,13 +5,15 @@ random number state is restored afterwards and the seed is recorded in
 the result. A failure (success = FALSE) only means that no path was
 found within the iteration budget; it does not prove that no path
 exists. A successful path is collision-free only up to the discrete
-edge-checking resolution."><meta property="og:description" content="Runs the configured planner from start to goal. Start and goal are
+edge-checking resolution; verify it with
+robot_check_path(..., method = &quot;continuous&quot;) when that matters."><meta property="og:description" content="Runs the configured planner from start to goal. Start and goal are
 validated first. Randomness is reproducible: with seed the global
 random number state is restored afterwards and the seed is recorded in
 the result. A failure (success = FALSE) only means that no path was
 found within the iteration budget; it does not prove that no path
 exists. A successful path is collision-free only up to the discrete
-edge-checking resolution."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
+edge-checking resolution; verify it with
+robot_check_path(..., method = &quot;continuous&quot;) when that matters."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -75,7 +77,8 @@ random number state is restored afterwards and the seed is recorded in
 the result. A failure (<code>success = FALSE</code>) only means that no path was
 found within the iteration budget; it does not prove that no path
 exists. A successful path is collision-free only up to the discrete
-edge-checking resolution.</p>
+edge-checking resolution; verify it with
+<code>robot_check_path(..., method = "continuous")</code> when that matters.</p>
     </div>
 
     <div class="section level2">
@@ -118,7 +121,7 @@ edge-checking resolution.</p>
 <span class="r-in"><span><span class="va">plan</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;robot_plan&gt; rrt_connect: success</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> path found </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.006 s</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.013 s</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> seed: 2 </span>
 </code></pre></div>
     </div>

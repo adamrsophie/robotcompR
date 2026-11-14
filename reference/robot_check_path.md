@@ -1,10 +1,6 @@
 # Collision checking along a path
 
-Checks the straight joint-space segments between consecutive waypoints
-by sampling them so that no joint moves more than `resolution` between
-samples (radians or meters). This discrete check can miss collisions
-with obstacles thinner than the swept motion between samples; it is not
-continuous swept-volume checking.
+Checks the straight joint-space segments between consecutive waypoints.
 
 ## Usage
 
@@ -16,7 +12,10 @@ robot_check_path(
   self = TRUE,
   resolution = 0.02,
   margin = 0,
-  check_limits = TRUE
+  check_limits = TRUE,
+  method = c("discrete", "continuous"),
+  tol = 1e-09,
+  max_steps = 10000
 )
 ```
 
@@ -40,7 +39,7 @@ robot_check_path(
 
 - resolution:
 
-  Maximum joint step between checked samples.
+  Maximum joint step between checked samples (discrete method).
 
 - margin:
 
@@ -50,10 +49,44 @@ robot_check_path(
 
   Also require samples to respect joint limits.
 
+- method:
+
+  `"discrete"` or `"continuous"`.
+
+- tol:
+
+  Clearance treated as contact by the continuous method.
+
+- max_steps:
+
+  Maximum advancement steps per segment (continuous method); reaching it
+  reports the segment as invalid with a warning.
+
 ## Value
 
-A list with `valid`, the index of the first invalid sample (`NA` when
-valid), the invalid configuration, and the number of samples checked.
+A list with `valid`, `first_invalid` (the index of the first invalid
+sample for the discrete method, or of the first invalid segment for the
+continuous method; `NA` when valid), the invalid configuration `q`, and
+`samples`, the number of configurations checked.
+
+## Details
+
+With `method = "discrete"` (the default) each segment is sampled so that
+no joint moves more than `resolution` between samples (radians or
+meters). This can miss collisions with obstacles thinner than the swept
+motion between samples.
+
+With `method = "continuous"` each segment is checked by conservative
+advancement: at the current configuration the clearance \\d\\ of every
+geometry pair is computed, together with an upper bound \\M\\ on how far
+any point of the pair can move per unit of the segment parameter (from
+the joint displacements and fixed bounds on the lever arms of the
+kinematic chain). Advancing by \\d / M\\ cannot create a contact, so the
+motion is collision-free when the steps reach the end of the segment and
+in collision as soon as a clearance drops to `margin`. The test is exact
+for the continuous straight-line motion, up to `tol`; unbounded
+prismatic joints below a link make its bound infinite, and the check
+then fails with an error.
 
 ## Examples
 
