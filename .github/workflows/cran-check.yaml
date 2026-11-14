@@ -1,0 +1,107 @@
+name: CRAN-check
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  incoming:
+    runs-on: ubuntu-latest
+    name: CRAN incoming (R devel, PDF manual)
+    timeout-minutes: 60
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      _R_CHECK_CRAN_INCOMING_: true
+      _R_CHECK_CRAN_INCOMING_REMOTE_: true
+      _R_CHECK_CRAN_INCOMING_USE_ASPELL_: true
+      _R_CHECK_FORCE_SUGGESTS_: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: r-lib/actions/setup-pandoc@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+
+      - uses: r-lib/actions/setup-tinytex@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          r-version: devel
+          http-user-agent: release
+          use-public-rspm: true
+
+      - name: Install system spelling dictionary
+        run: sudo apt-get update && sudo apt-get install -y aspell aspell-en qpdf
+
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          extra-packages: any::rcmdcheck, any::urlchecker, any::spelling
+          needs: check
+
+      - name: Install LaTeX packages for the manual
+        run: tlmgr install inconsolata
+
+      - name: Check URLs
+        run: |
+          res <- urlchecker::url_check()
+          print(res)
+          if (nrow(res) > 0) stop("Broken or redirected URLs found.")
+        shell: Rscript {0}
+
+      - name: Spelling
+        run: print(spelling::spell_check_package())
+        shell: Rscript {0}
+
+      - name: R CMD check as CRAN with the manual
+        run: |
+          out <- rcmdcheck::rcmdcheck(args = c("--as-cran"),
+                                      build_args = "--compact-vignettes=gs+qpdf",
+                                      error_on = "never", check_dir = "check")
+          print(out)
+          notes <- out$notes[!grepl("New submission", out$notes)]
+          if (length(out$errors) || length(out$warnings) || length(notes))
+            stop("Check found problems beyond the new submission note.")
+        shell: Rscript {0}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cran-check
+          path: check
+
+  no-suggests:
+    runs-on: ubuntu-latest
+    name: Hard dependencies only
+    timeout-minutes: 60
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      _R_CHECK_FORCE_SUGGESTS_: false
+      _R_CHECK_DEPENDS_ONLY_: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: r-lib/actions/setup-r@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
+        with:
+          dependencies: '"hard"'
+          extra-packages: any::rcmdcheck
+          needs: check
+
+      - name: R CMD check without suggested packages
+        run: |
+          out <- rcmdcheck::rcmdcheck(args = c("--no-manual", "--as-cran",
+                                               "--ignore-vignettes"),
+                                      build_args = c("--no-build-vignettes",
+                                                     "--no-manual"),
+                                      error_on = "warning", check_dir = "check")
+          print(out)
+        shell: Rscript {0}

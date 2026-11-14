@@ -151,7 +151,9 @@ test_that("trajectories, simulation and plotting edge cases", {
 })
 
 test_that("URDF parsing never follows file content and export round trips", {
-  dir <- withr::local_tempdir()
+  dir <- tempfile("urdf")
+  dir.create(dir)
+  on.exit(unlink(dir, recursive = TRUE), add = TRUE)
   target <- file.path(dir, "target.urdf")
   writeLines('<robot name="x"><link name="a"/></robot>', target)
   pointer <- file.path(dir, "pointer.urdf")
