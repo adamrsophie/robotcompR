@@ -49,6 +49,6 @@ plan <- robot_plan(planner, c(0.1, 0.1), c(0.9, 0.1), seed = 2)
 plan
 #> <robot_plan> rrt_connect: success
 #> path found 
-#> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.009 s
+#> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.008 s
 #> seed: 2 
 ```

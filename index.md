@@ -1,4 +1,4 @@
-# robotcompR: Robot Modeling, Kinematics, Dynamics and Motion Planning in R ![robotcompR logo](reference/figures/logo.png)
+# robotcompR: Robot Modeling, Kinematics, Dynamics and Motion Planning in R
 
 ***robotcompR*** is an R-native framework for robotics computation. It
 covers the path from spatial mathematics to robot models, kinematics,
