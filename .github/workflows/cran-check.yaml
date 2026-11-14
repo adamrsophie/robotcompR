@@ -65,7 +65,10 @@ jobs:
                                       error_on = "never", check_dir = "check")
           print(out)
           notes <- out$notes[!grepl("New submission", out$notes)]
-          if (length(out$errors) || length(out$warnings) || length(notes))
+          bad <- grepl("invalid|redirect|not reachable", out$notes,
+                       ignore.case = TRUE)
+          if (length(out$errors) || length(out$warnings) || length(notes) ||
+              any(bad))
             stop("Check found problems beyond the new submission note.")
         shell: Rscript {0}
 

@@ -24,5 +24,8 @@
   quaternions, revolute, polytope and roadmaps are standard robotics terms.
 * The slowest example takes under half a second; none are wrapped in
   `\dontrun{}`.
+* `robot_ik()` draws its random restarts from a fixed default `seed` so
+  results are reproducible. It saves and restores `.Random.seed`, so the
+  user's random number stream is never changed; a test checks this.
 * The package writes files only when the user passes a path, and tests use
   `tempfile()`.
