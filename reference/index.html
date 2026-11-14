@@ -59,6 +59,10 @@
         </td>
         <td><p>Denavit-Hartenberg transform of one link</p></td>
       </tr><tr><td>
+          <p><code><a href="diffdrive.html">diffdrive_forward()</a></code> <code><a href="diffdrive.html">diffdrive_inverse()</a></code> <code><a href="diffdrive.html">diffdrive_odometry()</a></code> </p>
+        </td>
+        <td><p>Differential-drive kinematics and odometry</p></td>
+      </tr><tr><td>
           <p><code><a href="elementary_rotations.html">rotx()</a></code> <code><a href="elementary_rotations.html">roty()</a></code> <code><a href="elementary_rotations.html">rotz()</a></code> <code><a href="elementary_rotations.html">rot2()</a></code> </p>
         </td>
         <td><p>Elementary rotation matrices</p></td>
@@ -66,6 +70,30 @@
           <p><code><a href="elementary_transforms.html">transl()</a></code> <code><a href="elementary_transforms.html">trotx()</a></code> <code><a href="elementary_transforms.html">troty()</a></code> <code><a href="elementary_transforms.html">trotz()</a></code> </p>
         </td>
         <td><p>Homogeneous transforms from elementary motions</p></td>
+      </tr><tr><td>
+          <p><code><a href="geom_distance.html">geom_distance()</a></code> </p>
+        </td>
+        <td><p>Distance between two geometric primitives</p></td>
+      </tr><tr><td>
+          <p><code><a href="geometry.html">geom_sphere()</a></code> <code><a href="geometry.html">geom_box()</a></code> <code><a href="geometry.html">geom_cylinder()</a></code> <code><a href="geometry.html">geom_capsule()</a></code> <code><a href="geometry.html">geom_convex()</a></code> <code><a href="geometry.html">geom_mesh()</a></code> </p>
+        </td>
+        <td><p>Collision and visual geometry</p></td>
+      </tr><tr><td>
+          <p><code><a href="grid_astar.html">grid_astar()</a></code> </p>
+        </td>
+        <td><p>A* search on an occupancy grid</p></td>
+      </tr><tr><td>
+          <p><code><a href="grid_coordinates.html">grid_world_to_cell()</a></code> <code><a href="grid_coordinates.html">grid_cell_to_world()</a></code> <code><a href="grid_coordinates.html">grid_probability()</a></code> <code><a href="grid_coordinates.html">grid_occupied()</a></code> </p>
+        </td>
+        <td><p>Grid coordinate conversion and probabilities</p></td>
+      </tr><tr><td>
+          <p><code><a href="grid_inflate.html">grid_inflate()</a></code> </p>
+        </td>
+        <td><p>Inflate obstacles</p></td>
+      </tr><tr><td>
+          <p><code><a href="grid_scans.html">grid_raycast()</a></code> <code><a href="grid_scans.html">grid_update_scan()</a></code> </p>
+        </td>
+        <td><p>Simulate and integrate range scans</p></td>
       </tr><tr><td>
           <p><code><a href="hat_vee.html">so3_hat()</a></code> <code><a href="hat_vee.html">so3_vee()</a></code> <code><a href="hat_vee.html">se3_hat()</a></code> <code><a href="hat_vee.html">se3_vee()</a></code> <code><a href="hat_vee.html">so2_hat()</a></code> <code><a href="hat_vee.html">so2_vee()</a></code> <code><a href="hat_vee.html">se2_hat()</a></code> <code><a href="hat_vee.html">se2_vee()</a></code> </p>
         </td>
@@ -87,6 +115,10 @@
         </td>
         <td><p>Joint limits checks</p></td>
       </tr><tr><td>
+          <p><code><a href="landmark_measurements.html">landmark_measurements()</a></code> </p>
+        </td>
+        <td><p>Range-bearing landmark measurements</p></td>
+      </tr><tr><td>
           <p><code><a href="lie_exp_log.html">so3_exp()</a></code> <code><a href="lie_exp_log.html">so3_log()</a></code> <code><a href="lie_exp_log.html">se3_exp()</a></code> <code><a href="lie_exp_log.html">se3_log()</a></code> </p>
         </td>
         <td><p>Exponential and logarithm maps of SO(3) and SE(3)</p></td>
@@ -95,13 +127,33 @@
         </td>
         <td><p>Exponential and logarithm maps of SO(2) and SE(2)</p></td>
       </tr><tr><td>
+          <p><code><a href="mobile_models.html">robot_unicycle()</a></code> <code><a href="mobile_models.html">robot_diffdrive()</a></code> <code><a href="mobile_models.html">robot_bicycle()</a></code> </p>
+        </td>
+        <td><p>Mobile robot models</p></td>
+      </tr><tr><td>
+          <p><code><a href="mobile_simulate.html">mobile_simulate()</a></code> </p>
+        </td>
+        <td><p>Simulate a mobile robot</p></td>
+      </tr><tr><td>
           <p><code><a href="orthonormalize.html">orthonormalize()</a></code> </p>
         </td>
         <td><p>Project a matrix onto the nearest rotation</p></td>
       </tr><tr><td>
+          <p><code><a href="planar_velocity.html">body_to_world_velocity()</a></code> <code><a href="planar_velocity.html">world_to_body_velocity()</a></code> </p>
+        </td>
+        <td><p>Convert between body and world velocities</p></td>
+      </tr><tr><td>
           <p><code><a href="pose_components.html">pose_rotation()</a></code> <code><a href="pose_components.html">pose_translation()</a></code> </p>
         </td>
         <td><p>Pose components</p></td>
+      </tr><tr><td>
+          <p><code><a href="pose_graph_optimize.html">pose_graph_optimize()</a></code> </p>
+        </td>
+        <td><p>Optimize an SE(2) pose graph</p></td>
+      </tr><tr><td>
+          <p><code><a href="pure_pursuit.html">pure_pursuit()</a></code> </p>
+        </td>
+        <td><p>Pure pursuit path following</p></td>
       </tr><tr><td>
           <p><code><a href="quaternion_ops.html">quaternion_conjugate()</a></code> <code><a href="quaternion_ops.html">quaternion_rotate()</a></code> <code><a href="quaternion_ops.html">quaternion_distance()</a></code> </p>
         </td>
@@ -110,6 +162,26 @@
           <p><code><a href="quaternion_slerp.html">quaternion_slerp()</a></code> </p>
         </td>
         <td><p>Spherical linear interpolation of rotations</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_attach_geometry.html">robot_attach_geometry()</a></code> </p>
+        </td>
+        <td><p>Attach collision geometry to a link</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_bias.html">robot_gravity_torque()</a></code> <code><a href="robot_bias.html">robot_coriolis()</a></code> <code><a href="robot_bias.html">robot_bias_forces()</a></code> </p>
+        </td>
+        <td><p>Gravity, Coriolis and centrifugal terms</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_capsule_links.html">robot_capsule_links()</a></code> </p>
+        </td>
+        <td><p>Collision geometry for planar DH arms</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_check_collision.html">robot_check_collision()</a></code> </p>
+        </td>
+        <td><p>Collision checking at a configuration</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_check_path.html">robot_check_path()</a></code> </p>
+        </td>
+        <td><p>Collision checking along a path</p></td>
       </tr><tr><td>
           <p><code><a href="robot_compose.html">robot_compose()</a></code> </p>
         </td>
@@ -123,6 +195,18 @@
         </td>
         <td><p>Robot models from Denavit-Hartenberg parameters</p></td>
       </tr><tr><td>
+          <p><code><a href="robot_ekf.html">robot_ekf()</a></code> <code><a href="robot_ekf.html">ekf_predict()</a></code> <code><a href="robot_ekf.html">ekf_update()</a></code> </p>
+        </td>
+        <td><p>Extended Kalman filter localization</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_energy.html">robot_com()</a></code> <code><a href="robot_energy.html">robot_energy()</a></code> </p>
+        </td>
+        <td><p>Center of mass and mechanical energy</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_environment.html">robot_environment()</a></code> </p>
+        </td>
+        <td><p>Static environments</p></td>
+      </tr><tr><td>
           <p><code><a href="robot_example.html">robot_example()</a></code> </p>
         </td>
         <td><p>Example robot models</p></td>
@@ -135,6 +219,10 @@
         </td>
         <td><p>Positions of a frame for many configurations</p></td>
       </tr><tr><td>
+          <p><code><a href="robot_forward_dynamics.html">robot_forward_dynamics()</a></code> </p>
+        </td>
+        <td><p>Forward dynamics with the articulated body algorithm</p></td>
+      </tr><tr><td>
           <p><code><a href="robot_ik.html">robot_ik()</a></code> </p>
         </td>
         <td><p>Numerical inverse kinematics</p></td>
@@ -146,6 +234,10 @@
           <p><code><a href="robot_inverse.html">robot_inverse()</a></code> </p>
         </td>
         <td><p>Inverse of a rotation or pose</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_inverse_dynamics.html">robot_inverse_dynamics()</a></code> </p>
+        </td>
+        <td><p>Inverse dynamics with the recursive Newton-Euler algorithm</p></td>
       </tr><tr><td>
           <p><code><a href="robot_is_singular.html">robot_is_singular()</a></code> </p>
         </td>
@@ -175,6 +267,10 @@
         </td>
         <td><p>Manipulability and singularity analysis</p></td>
       </tr><tr><td>
+          <p><code><a href="robot_mass_matrix.html">robot_mass_matrix()</a></code> </p>
+        </td>
+        <td><p>Joint-space mass matrix with the composite rigid body algorithm</p></td>
+      </tr><tr><td>
           <p><code><a href="robot_model.html">robot_model()</a></code> </p>
         </td>
         <td><p>Robot models as rigid-body trees</p></td>
@@ -182,6 +278,22 @@
           <p><code><a href="robot_modify.html">robot_add_frame()</a></code> <code><a href="robot_modify.html">robot_set_base()</a></code> <code><a href="robot_modify.html">robot_set_end_effector()</a></code> <code><a href="robot_modify.html">robot_set_inertia()</a></code> <code><a href="robot_modify.html">robot_set_limits()</a></code> </p>
         </td>
         <td><p>Modify a robot model</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_occupancy_grid.html">robot_occupancy_grid()</a></code> </p>
+        </td>
+        <td><p>Occupancy grid maps</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_particle_filter.html">robot_particle_filter()</a></code> <code><a href="robot_particle_filter.html">pf_predict()</a></code> <code><a href="robot_particle_filter.html">pf_update()</a></code> <code><a href="robot_particle_filter.html">pf_estimate()</a></code> </p>
+        </td>
+        <td><p>Particle filter localization</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_plan.html">robot_plan()</a></code> </p>
+        </td>
+        <td><p>Plan a path between two configurations</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_planner.html">robot_planner()</a></code> </p>
+        </td>
+        <td><p>Motion planners</p></td>
       </tr><tr><td>
           <p><code><a href="robot_plot.html">robot_plot()</a></code> </p>
         </td>
@@ -199,6 +311,10 @@
         </td>
         <td><p>Distance between two poses</p></td>
       </tr><tr><td>
+          <p><code><a href="robot_pose_graph.html">robot_pose_graph()</a></code> <code><a href="robot_pose_graph.html">pose_graph_add_edge()</a></code> </p>
+        </td>
+        <td><p>SE(2) pose graphs</p></td>
+      </tr><tr><td>
           <p><code><a href="robot_pose_interp.html">robot_pose_interp()</a></code> </p>
         </td>
         <td><p>Interpolate between two poses</p></td>
@@ -206,6 +322,10 @@
           <p><code><a href="robot_quaternion.html">robot_quaternion()</a></code> </p>
         </td>
         <td><p>Unit quaternions</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_read_urdf.html">robot_read_urdf()</a></code> </p>
+        </td>
+        <td><p>Read a URDF robot description</p></td>
       </tr><tr><td>
           <p><code><a href="robot_relative_pose.html">robot_relative_pose()</a></code> </p>
         </td>
@@ -215,9 +335,41 @@
         </td>
         <td><p>Rotations in two and three dimensions</p></td>
       </tr><tr><td>
+          <p><code><a href="robot_shortcut.html">robot_shortcut()</a></code> </p>
+        </td>
+        <td><p>Shortcut smoothing of a planned path</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_simulate.html">robot_simulate()</a></code> </p>
+        </td>
+        <td><p>Simulate torque-driven rigid-body dynamics</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_traj_cartesian.html">robot_traj_cartesian()</a></code> </p>
+        </td>
+        <td><p>Task-space (Cartesian) trajectories</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_traj_check.html">robot_traj_check()</a></code> </p>
+        </td>
+        <td><p>Check a trajectory against robot limits</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_traj_path.html">robot_traj_path()</a></code> </p>
+        </td>
+        <td><p>Time-parameterize a geometric path</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_traj_polynomial.html">robot_traj_polynomial()</a></code> </p>
+        </td>
+        <td><p>Polynomial joint trajectories</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_traj_trapezoidal.html">robot_traj_trapezoidal()</a></code> </p>
+        </td>
+        <td><p>Trapezoidal velocity profile trajectories</p></td>
+      </tr><tr><td>
           <p><code><a href="robot_transform_point.html">robot_transform_point()</a></code> <code><a href="robot_transform_point.html">robot_transform_direction()</a></code> </p>
         </td>
         <td><p>Transform points and directions</p></td>
+      </tr><tr><td>
+          <p><code><a href="robot_write_urdf.html">robot_write_urdf()</a></code> </p>
+        </td>
+        <td><p>Write a robot model as URDF</p></td>
       </tr><tr><td>
           <p><code><a href="rotation_conversions.html">as_euler()</a></code> <code><a href="rotation_conversions.html">as_axis_angle()</a></code> <code><a href="rotation_conversions.html">as_rotvec()</a></code> </p>
         </td>
@@ -230,6 +382,10 @@
           <p><code><a href="so3_jacobians.html">so3_jacobian_left()</a></code> <code><a href="so3_jacobians.html">so3_jacobian_right()</a></code> <code><a href="so3_jacobians.html">so3_jacobian_left_inverse()</a></code> <code><a href="so3_jacobians.html">so3_jacobian_right_inverse()</a></code> </p>
         </td>
         <td><p>Jacobians of SO(3)</p></td>
+      </tr><tr><td>
+          <p><code><a href="unicycle_step.html">unicycle_step()</a></code> </p>
+        </td>
+        <td><p>Exact unicycle motion</p></td>
       </tr><tr><td>
           <p><code><a href="wrap_angle.html">wrap_angle()</a></code> </p>
         </td>
