@@ -134,7 +134,7 @@ robot_gravity_torque(arm, q, g)
 tau <- robot_inverse_dynamics(arm, q, qd = c(0.5, 0), qdd = c(0, 1), gravity = g)
 robot_forward_dynamics(arm, q, qd = c(0.5, 0), tau = tau, gravity = g)
 #>        joint1        joint2 
-#> -7.751375e-16  1.000000e+00
+#> -2.325413e-15  1.000000e+00
 ```
 
 ## Planning around an obstacle
@@ -149,7 +149,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
 plan
 #> <robot_plan> rrt_connect: success
 #> path found (shortcut smoothed) 
-#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.619 s
+#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.29 s
 #> seed: 1
 traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
 robot_traj_check(robot, traj)$ok

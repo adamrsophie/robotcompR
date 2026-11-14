@@ -263,7 +263,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">tau</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_inverse_dynamics.html">robot_inverse_dynamics</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span>, qd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0</span><span class="op">)</span>, qdd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, gravity <span class="op">=</span> <span class="va">g</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_forward_dynamics.html">robot_forward_dynamics</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">q</span>, qd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0</span><span class="op">)</span>, tau <span class="op">=</span> <span class="va">tau</span>, gravity <span class="op">=</span> <span class="va">g</span><span class="op">)</span></span>
 <span><span class="co">#&gt;        joint1        joint2 </span></span>
-<span><span class="co">#&gt; -7.751375e-16  1.000000e+00</span></span></code></pre></div>
+<span><span class="co">#&gt; -2.325413e-15  1.000000e+00</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="planning-around-an-obstacle">Planning around an obstacle<a class="anchor" aria-label="anchor" href="#planning-around-an-obstacle"></a>
@@ -277,7 +277,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">plan</span></span>
 <span><span class="co">#&gt; &lt;robot_plan&gt; rrt_connect: success</span></span>
 <span><span class="co">#&gt; path found (shortcut smoothed) </span></span>
-<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.619 s</span></span>
+<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.29 s</span></span>
 <span><span class="co">#&gt; seed: 1</span></span>
 <span><span class="va">traj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_path.html">robot_traj_path</a></span><span class="op">(</span><span class="va">plan</span>, vmax <span class="op">=</span> <span class="fl">1</span>, amax <span class="op">=</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_traj_check.html">robot_traj_check</a></span><span class="op">(</span><span class="va">robot</span>, <span class="va">traj</span><span class="op">)</span><span class="op">$</span><span class="va">ok</span></span>

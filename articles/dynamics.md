@@ -64,9 +64,9 @@ tau
 #>    joint1    joint2 
 #> 20.648283  4.113131
 max(abs(M %*% qdd + robot_bias_forces(arm, q, qd, gravity = g) - tau))
-#> [1] 1.776357e-15
+#> [1] 8.881784e-16
 max(abs(robot_forward_dynamics(arm, q, qd, tau, gravity = g) - qdd))
-#> [1] 6.217249e-15
+#> [1] 4.884981e-15
 ```
 
 ## Gravity compensation and energy
@@ -122,7 +122,7 @@ sim <- robot_simulate(arm, q0 = c(0.5, 0.2), qd0 = c(0, 0),
 E <- apply(cbind(sim$q, sim$qd), 1, function(x)
   robot_energy(arm, x[1:2], x[3:4], gravity = g)[["total"]])
 diff(range(E))
-#> [1] 8.932079e-07
+#> [1] 8.936274e-07
 plot(sim, "q")
 ```
 
