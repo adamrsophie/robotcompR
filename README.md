@@ -12,9 +12,9 @@ covers the path from spatial mathematics to robot models, kinematics,
 dynamics, collision checking, motion planning, trajectories and planar
 mobile robotics, with explicit conventions and reference-checked
 algorithms. It needs no MATLAB, Python, Julia or ROS 2; everything runs on
-base R, [Matrix](https://cran.r-project.org/package=Matrix),
-[deSolve](https://cran.r-project.org/package=deSolve) and
-[xml2](https://cran.r-project.org/package=xml2).
+base R, [Matrix](https://CRAN.R-project.org/package=Matrix),
+[deSolve](https://CRAN.R-project.org/package=deSolve) and
+[xml2](https://CRAN.R-project.org/package=xml2).
 
 Documentation: <https://adamrsophie.github.io/robotcompR/>
 

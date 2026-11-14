@@ -37,15 +37,15 @@ jobs:
           use-public-rspm: true
 
       - name: Install system spelling dictionary
-        run: sudo apt-get update && sudo apt-get install -y aspell aspell-en qpdf
+        run: sudo apt-get update && sudo apt-get install -y aspell aspell-en qpdf tidy
 
       - uses: r-lib/actions/setup-r-dependencies@f9a764fea8d5c63df6ef9a5c7795bf7deb5d7e05 # v2.14.0
         with:
-          extra-packages: any::rcmdcheck, any::urlchecker, any::spelling
+          extra-packages: any::rcmdcheck, any::urlchecker, any::spelling, any::V8
           needs: check
 
       - name: Install LaTeX packages for the manual
-        run: tlmgr install inconsolata
+        run: tlmgr install inconsolata courier helvetic times psnfss
 
       - name: Check URLs
         run: |
