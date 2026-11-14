@@ -1,0 +1,185 @@
+---
+title: "Rotations, poses and Lie groups"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Rotations, poses and Lie groups}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(robotcompR)
+```
+
+Every robotics computation rests on a handful of conventions. Mixing them
+silently is the most common source of wrong results, so robotcompR fixes one
+set and checks it wherever it can.
+
+## Rotation matrices
+
+A rotation matrix $R \in SO(3)$ satisfies $R^\top R = I$ and $\det R = 1$.
+Rotations are *active*: $R p$ rotates the vector $p$. The elementary
+rotations are
+
+$$
+R_z(\theta) = \begin{pmatrix} \cos\theta & -\sin\theta & 0 \\ \sin\theta & \cos\theta & 0 \\ 0 & 0 & 1 \end{pmatrix}.
+$$
+
+```{r}
+rotz(pi / 2) %*% c(1, 0, 0)
+is_rotation_matrix(rotz(0.3) %*% rotx(0.2))
+```
+
+Numerical drift accumulates when many rotations are multiplied.
+`orthonormalize()` projects back onto $SO(3)$ with the polar decomposition:
+
+```{r}
+R <- diag(3)
+for (i in 1:1000) R <- R %*% rotx(0.001) %*% roty(0.002)
+max(abs(crossprod(R) - diag(3)))
+R <- orthonormalize(R)
+max(abs(crossprod(R) - diag(3)))
+```
+
+## Euler angles
+
+Sequences are *intrinsic*: `"ZYX"` means rotate about z, then about the new y,
+then about the newest x, so $R = R_z(\alpha) R_y(\beta) R_x(\gamma)$. All twelve
+proper Euler and Tait-Bryan sequences are supported.
+
+```{r}
+r <- robot_rotation(euler = c(0.3, -0.2, 0.1), sequence = "ZYX")
+as_euler(r, "ZYX")
+as_euler(r, "XYZ")
+as_euler(r, "ZXZ")
+```
+
+At gimbal lock (pitch $\pm\pi/2$ for `"ZYX"`), the decomposition is not
+unique. The returned angles still reproduce the matrix:
+
+```{r}
+r <- robot_rotation(euler = c(0.4, pi / 2, 0.1), sequence = "ZYX")
+a <- as_euler(r, "ZYX")
+a
+max(abs(robot_rotation(euler = a, sequence = "ZYX")$matrix - r$matrix))
+```
+
+URDF `rpy` attributes are fixed-axis roll, pitch, yaw, which equal the
+intrinsic `"ZYX"` angles in reverse order.
+
+## Axis-angle, rotation vectors and quaternions
+
+```{r}
+r <- robot_rotation(axis = c(1, 1, 0), angle = 2)
+as_axis_angle(r)
+as_rotvec(r)
+q <- robot_quaternion(r)
+q
+```
+
+Quaternions are scalar first and use the Hamilton product. Since $q$ and
+$-q$ represent the same rotation, the canonical form has $w \ge 0$.
+
+```{r}
+qa <- robot_quaternion(robot_rotation(axis = c(0, 0, 1), angle = 0.5))
+qb <- robot_quaternion(robot_rotation(axis = c(0, 1, 0), angle = 0.8))
+qa * qb
+quaternion_rotate(qa, c(1, 0, 0))
+quaternion_distance(qa, qb)
+quaternion_slerp(qa, qb, c(0, 0.5, 1))
+```
+
+`quaternion_slerp()` follows the shortest arc and returns unit quaternions.
+
+## Rigid transformations
+
+A pose $T_{ab} \in SE(3)$ maps coordinates in frame $b$ to frame $a$:
+
+$$
+T_{ab} = \begin{pmatrix} R_{ab} & p_{ab} \\ 0 & 1 \end{pmatrix}, \qquad
+p_a = R_{ab} p_b + p_{ab}.
+$$
+
+Frames can be named so that mismatched compositions fail loudly:
+
+```{r}
+T_world_base <- robot_pose(rotz(pi / 2), c(1, 0, 0), parent = "world", child = "base")
+T_base_tool <- robot_pose(translation = c(0, 0, 0.5), parent = "base", child = "tool")
+T_world_tool <- T_world_base * T_base_tool
+T_world_tool
+robot_transform_point(T_world_tool, rbind(c(0, 0, 0), c(0.1, 0, 0)))
+try(T_base_tool * T_world_base)
+```
+
+Inverse and relative poses:
+
+```{r}
+robot_inverse(T_world_base)
+robot_relative_pose(T_world_base, T_world_tool)
+robot_pose_distance(T_world_base, T_world_tool)
+```
+
+## Lie group tools
+
+The exponential and logarithm maps connect rotations and poses to their
+tangent spaces. robotcompR uses series expansions near zero and dedicated
+branches near $\pi$, so round trips stay accurate in both regimes.
+
+```{r}
+w <- c(0.1, -0.4, 0.3)
+max(abs(so3_log(so3_exp(w)) - w))
+w_pi <- c(0, 0, pi - 1e-9)
+so3_log(so3_exp(w_pi))
+xi <- c(0.5, 0.2, -0.1, 0.3, 0.2, -0.4)  # linear part first
+max(abs(se3_log(se3_exp(xi)) - xi))
+```
+
+The left Jacobian of $SO(3)$ relates small tangent perturbations to
+perturbations of the rotation: $\exp(\phi + \delta) \approx
+\exp(J_l(\phi)\delta)\exp(\phi)$.
+
+```{r}
+phi <- c(0.4, -0.2, 0.7)
+d <- c(1e-6, 0, 0)
+lhs <- so3_exp(phi + d) %*% t(so3_exp(phi))
+max(abs(so3_log(lhs) - so3_jacobian_left(phi) %*% d))
+```
+
+The adjoint maps twists between frames. With linear-first twists
+$\xi = (v, \omega)$:
+
+$$
+\mathrm{Ad}_T = \begin{pmatrix} R & [p]_\times R \\ 0 & R \end{pmatrix}.
+$$
+
+```{r}
+T <- robot_pose(rotz(0.3), c(1, 2, 0))
+round(se3_adjoint(T), 4)
+```
+
+## Interpolating poses
+
+`robot_pose_interp()` either interpolates translation linearly and rotation
+by slerp (`"decoupled"`), or moves along the constant twist joining the poses
+(`"screw"`). Both agree at the endpoints.
+
+```{r}
+a <- robot_pose()
+b <- robot_pose(rotz(pi / 2), c(1, 1, 0))
+mid <- robot_pose_interp(a, b, 0.5, method = "decoupled")
+pose_translation(mid)
+mid_screw <- robot_pose_interp(a, b, 0.5, method = "screw")
+pose_translation(mid_screw)
+```
+
+## Planar rotations and poses
+
+```{r}
+so2_exp(pi / 3)
+se2_exp(c(1, 0, pi / 2))
+wrap_angle(c(3 * pi, -3 * pi / 2))
+```

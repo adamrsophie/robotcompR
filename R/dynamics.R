@@ -168,6 +168,7 @@ rnea_internal <- function(robot, q, qd, qdd, gravity, Fext, tr = NULL) {
 #' mass).
 #'
 #' @inheritParams robot_inverse_dynamics
+#' @param q Joint positions.
 #' @return An n by n matrix.
 #' @examples
 #' robot_mass_matrix(robot_example("planar2"), c(0, 0.5))
@@ -219,6 +220,7 @@ crba_internal <- function(robot, q, tr = NULL) {
 #' otherwise the articulated inertia is singular and the function stops.
 #'
 #' @inheritParams robot_inverse_dynamics
+#' @param q,qd Joint positions and velocities.
 #' @param tau Joint efforts (defaults to zero).
 #' @return Named numeric vector of joint accelerations.
 #' @examples
@@ -315,6 +317,7 @@ aba_internal <- function(robot, q, qd, tau, gravity, Fext, tr = NULL) {
 #' returns their sum, \eqn{C(q, \dot q)\dot q + g(q)}.
 #'
 #' @inheritParams robot_inverse_dynamics
+#' @param q,qd Joint positions and velocities.
 #' @return Named numeric vector.
 #' @examples
 #' robot <- robot_example("planar2")
@@ -350,6 +353,7 @@ robot_bias_forces <- function(robot, q, qd, gravity = c(0, 0, -9.81)) {
 #' their sum.
 #'
 #' @inheritParams robot_inverse_dynamics
+#' @param q,qd Joint positions and velocities.
 #' @return A list (`robot_com`) or named numeric vector (`robot_energy`).
 #' @examples
 #' robot <- robot_example("planar2")

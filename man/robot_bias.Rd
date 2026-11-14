@@ -16,6 +16,8 @@ robot_bias_forces(robot, q, qd, gravity = c(0, 0, -9.81))
 \arguments{
 \item{robot}{A \code{robot_model} with inertial parameters.}
 
+\item{q, qd}{Joint positions and velocities.}
+
 \item{gravity}{Gravity vector in world coordinates.}
 }
 \value{

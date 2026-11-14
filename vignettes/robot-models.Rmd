@@ -1,0 +1,154 @@
+---
+title: "Robot models: joints, links, DH parameters and URDF"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Robot models: joints, links, DH parameters and URDF}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(robotcompR)
+```
+
+A `robot_model` is a kinematic tree: links connected by joints, rooted at a
+base link. Each joint carries a fixed `origin` pose (from the parent link
+frame to the joint frame), a motion along or about its `axis`, and optional
+limits. Serial chains, branched trees and models read from URDF all share
+the same representation, so every algorithm in the package works on all of
+them.
+
+## Building a model by hand
+
+The child link frame of a joint is
+
+$$
+T_{\text{parent},\text{child}}(q) = T_{\text{origin}} \; M(q + q_0) \; T_{\text{post}},
+$$
+
+where $M$ is a rotation about the axis (revolute and continuous joints) or a
+translation along it (prismatic joints), $q_0$ is an optional offset and
+$T_{\text{post}}$ an optional fixed transform after the motion (used by the
+DH builder).
+
+```{r}
+links <- list(
+  robot_link("base"),
+  robot_link("upper", mass = 2, com = c(0.25, 0, 0),
+             inertia = inertia_rod(2, 0.5, axis = "x")),
+  robot_link("lower", mass = 1, com = c(0.2, 0, 0),
+             inertia = inertia_rod(1, 0.4, axis = "x"))
+)
+joints <- list(
+  robot_joint("shoulder", "revolute", "base", "upper",
+              limits = c(-pi, pi), velocity = 2, effort = 40),
+  robot_joint("elbow", "revolute", "upper", "lower",
+              origin = transl(0.5, 0, 0), limits = c(-2.5, 2.5))
+)
+arm <- robot_model(links, joints, name = "hand_built")
+arm <- robot_add_frame(arm, "tool", "lower", origin = transl(0.4, 0, 0))
+arm
+robot_links(arm)
+robot_limits(arm)
+```
+
+Inertia helpers return tensors about the center of mass:
+
+```{r}
+inertia_box(1, c(0.1, 0.2, 0.3))
+inertia_cylinder(2, radius = 0.05, length = 0.4)
+inertia_sphere(1, 0.1)
+```
+
+`robot_link()` rejects inertia tensors that are not symmetric positive
+semidefinite or violate the triangle inequality on the principal moments.
+
+## Denavit-Hartenberg parameters
+
+`robot_dh()` builds a chain from standard (distal) or modified (proximal,
+Craig) DH parameters. With the standard convention, each link transform is
+
+$$
+T_i = R_z(\theta_i) \, T_z(d_i) \, T_x(a_i) \, R_x(\alpha_i).
+$$
+
+With the modified convention it is
+$T_i = R_x(\alpha_{i-1}) \, T_x(a_{i-1}) \, R_z(\theta_i) \, T_z(d_i)$.
+
+```{r}
+scara <- robot_dh(a = c(0.4, 0.3, 0), alpha = c(0, pi, 0), d = c(0.2, 0, 0),
+                  theta = c(0, 0, 0),
+                  joint_type = c("revolute", "revolute", "prismatic"),
+                  limits = rbind(c(-2.5, 2.5), c(-2, 2), c(0, 0.15)),
+                  name = "scara")
+scara
+pose_translation(robot_fk(scara, c(0, 0, 0.1)))
+dh_transform(0.4, 0, 0.2, 0)
+```
+
+The PUMA 560 example uses the standard DH table of Corke (1996), in meters:
+
+```{r}
+puma <- robot_example("puma560")
+puma$dh
+pose_translation(robot_fk(puma, rep(0, 6)))
+```
+
+## Branched trees
+
+```{r}
+tree <- robot_example("branched")
+robot_joints(tree)[, c("name", "parent", "child")]
+names(robot_fk(tree, c(0.3, -0.2, 0.4, 0.1), frame = "all"))
+```
+
+## URDF import and export
+
+`robot_read_urdf()` accepts a file path or an XML string. It supports
+revolute, continuous, prismatic and fixed joints, inertials (rotated into the
+link frame), and visual and collision primitives. It refuses things it
+cannot represent instead of guessing:
+
+* `xacro` files must be expanded first.
+* Floating, planar and mimic joints are errors.
+* Documents with entity declarations are rejected, and network access is
+  disabled while parsing.
+* Mesh geometry is stored by file name and never opened.
+* Joint `<dynamics>` (damping and friction) is read, stored and reported
+  with a warning, because the dynamics functions do not model it.
+
+```{r}
+pt <- robot_read_urdf(system.file("extdata", "pan_tilt.urdf", package = "robotcompR"))
+pt
+robot_joints(pt)[, c("name", "type", "lower", "upper")]
+```
+
+Exporting writes a URDF that reproduces the same kinematics and inertia.
+Joint offsets are folded into the origin, and DH post transforms become an
+extra fixed joint:
+
+```{r}
+xml <- robot_write_urdf(robot_example("planar3"))
+cat(substr(xml, 1, 600))
+back <- robot_read_urdf(xml)
+q <- c(0.1, 0.2, 0.3)
+max(abs(robot_fk(back, q)$matrix - robot_fk(robot_example("planar3"), q)$matrix))
+```
+
+## Modifying models
+
+Models are immutable values; modifiers return a new model.
+
+```{r}
+mounted <- robot_set_base(arm, robot_pose(rotz(pi / 2), c(0, 0, 1)))
+pose_translation(robot_fk(mounted, c(0, 0)))
+heavier <- robot_set_inertia(arm, "lower", mass = 3, com = c(0.2, 0, 0))
+robot_links(heavier)$mass
+tight <- robot_set_limits(arm, rbind(c(-1, 1), c(-1, 1)))
+robot_within_limits(tight, c(0.5, 1.5))
+robot_clamp(tight, c(0.5, 1.5))
+```

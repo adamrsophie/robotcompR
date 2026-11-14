@@ -1,0 +1,154 @@
+---
+title: "Forward kinematics, Jacobians and inverse kinematics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Forward kinematics, Jacobians and inverse kinematics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(robotcompR)
+```
+
+## Forward kinematics
+
+For a tree, the pose of every link follows from a single pass from the base
+outward. `robot_fk()` returns the end-effector pose by default, any named
+frame, or all frames.
+
+```{r}
+arm <- robot_example("planar2")
+q <- c(0.6, -1.1)
+robot_fk(arm, q)
+# Closed form for unit links.
+c(cos(q[1]) + cos(q[1] + q[2]), sin(q[1]) + sin(q[1] + q[2]))
+```
+
+Batches of configurations go one per row:
+
+```{r}
+Q <- rbind(c(0, 0), c(pi / 2, 0), c(pi / 2, pi / 2))
+robot_fk_positions(arm, Q)
+```
+
+```{r, fig.width = 5, fig.height = 5}
+robot_plot_workspace(arm, n = 1500, seed = 1)
+```
+
+## The geometric Jacobian
+
+The geometric Jacobian $J(q)$ maps joint velocities to the spatial velocity
+of a point on the end effector, linear part first:
+
+$$
+\begin{pmatrix} v \\ \omega \end{pmatrix} = J(q) \, \dot q.
+$$
+
+For a revolute joint $i$ with world axis $z_i$ through point $p_i$, column $i$
+is $(z_i \times (p - p_i), \; z_i)$; for a prismatic joint it is $(z_i, 0)$.
+
+`reference = "world"` expresses both parts in world coordinates at the
+end-effector origin. `"local"` expresses them in the end-effector frame, and
+`"space"` returns the spatial (twist) Jacobian at the world origin.
+
+```{r}
+J <- robot_jacobian(arm, q)
+round(J, 6)
+Jn <- robot_jacobian_numeric(arm, q)
+max(abs(J - Jn))
+```
+
+The analytic Jacobian differentiates a minimal orientation parametrization
+instead. It becomes singular where that parametrization does, which is why
+the geometric Jacobian is preferred for control.
+
+```{r}
+puma <- robot_example("puma560")
+qp <- c(0.1, -0.5, 0.3, 0.2, 0.4, -0.3)
+round(robot_jacobian_analytic(puma, qp, representation = "rpy"), 4)
+```
+
+## Manipulability and singularities
+
+Yoshikawa's measure $w = \sqrt{\det(J J^\top)}$ is zero at singularities. The
+condition number of the translational block measures isotropy.
+
+```{r}
+m <- robot_manipulability(arm, q)
+m$yoshikawa
+abs(sin(q[2]))  # closed form for unit links
+m$condition
+robot_manipulability(arm, c(0.3, 0))$condition
+robot_is_singular(arm, c(0.3, 0))
+```
+
+```{r, fig.width = 6, fig.height = 4}
+elbow <- seq(-pi, pi, length.out = 181)
+w <- sapply(elbow, function(t) robot_manipulability(arm, c(0, t))$yoshikawa)
+plot(elbow, w, type = "l", xlab = "elbow angle (rad)", ylab = "manipulability")
+```
+
+## Inverse kinematics
+
+`robot_ik()` solves $\min_q \|W e(q)\|^2$ where $e$ stacks the position error
+and the rotation-vector orientation error. Three methods are available:
+
+* `"levenberg_marquardt"` (default): damping scaled by the largest diagonal
+  entry of $J^\top W J$, adapted after each accepted or rejected step.
+* `"damped_least_squares"`: fixed damping $\lambda$, robust near
+  singularities.
+* `"pseudoinverse"`: Gauss-Newton with backtracking.
+
+Steps are limited to `max_step` radians or meters, joint limits are enforced
+by projection, and `restarts` adds random initial guesses (reproducible with
+`seed`).
+
+```{r}
+target <- robot_fk(puma, qp)
+sol <- robot_ik(puma, target, initial = rep(0, 6))
+sol$converged
+c(position = sol$position_error, orientation = sol$orientation_error)
+sol$iterations
+max(abs(robot_fk(puma, sol$q)$matrix - target$matrix))
+```
+
+Inverse kinematics is rarely unique. The returned solution depends on the
+initial guess:
+
+```{r}
+s1 <- robot_ik(arm, robot_pose(translation = c(1, 1, 0)), initial = c(0, 1),
+               weights = c(1, 1, 0, 0, 0, 0))
+s2 <- robot_ik(arm, robot_pose(translation = c(1, 1, 0)), initial = c(1.5, -1),
+               weights = c(1, 1, 0, 0, 0, 0))
+rbind(s1$q, s2$q)
+ik_planar2(1, 1, 1, 1)
+```
+
+Unreachable targets are reported, not hidden. The solver returns the closest
+configuration it found, `converged = FALSE`, and a reach bound:
+
+```{r}
+far <- robot_ik(arm, robot_pose(translation = c(3, 0, 0)),
+                weights = c(1, 1, 0, 0, 0, 0))
+far$converged
+far$position_error
+far$reach_bound
+far$target_distance
+```
+
+Weights select which components matter. A planar arm cannot control all six,
+so here only $x$ and $y$ are weighted. For a 6 DOF arm, a zero weight on the
+yaw row would ask only for position and two tilt angles.
+
+## Limits
+
+```{r}
+lim <- robot_ik(puma, target, initial = rep(0, 6), respect_limits = TRUE)
+robot_within_limits(puma, lim$q)
+lim$active_limits
+```

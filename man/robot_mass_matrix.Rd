@@ -8,6 +8,8 @@ robot_mass_matrix(robot, q)
 }
 \arguments{
 \item{robot}{A \code{robot_model} with inertial parameters.}
+
+\item{q}{Joint positions.}
 }
 \value{
 An n by n matrix.

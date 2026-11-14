@@ -1,0 +1,150 @@
+url: https://adamrsophie.github.io/robotcompR/
+
+template:
+  bootstrap: 5
+  light-switch: true
+  math-rendering: katex
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, lightswitch, github]
+
+home:
+  sidebar:
+    structure: [links, license, citation, authors, dev]
+
+articles:
+- title: Foundations
+  navbar: Foundations
+  contents:
+  - spatial-math
+  - robot-models
+- title: Manipulators
+  navbar: Manipulators
+  contents:
+  - kinematics
+  - dynamics
+  - trajectories
+  - collision-planning
+- title: Mobile robots
+  navbar: Mobile robots
+  contents:
+  - mobile-robots
+  - mapping-slam
+
+reference:
+- title: Package overview
+  contents:
+  - robotcompR-package
+- title: Rotations and quaternions
+  contents:
+  - robot_rotation
+  - rotation_conversions
+  - elementary_rotations
+  - is_rotation_matrix
+  - orthonormalize
+  - robot_quaternion
+  - quaternion_ops
+  - quaternion_slerp
+  - angle_units
+  - wrap_angle
+- title: Rigid transformations
+  contents:
+  - robot_pose
+  - pose_components
+  - elementary_transforms
+  - robot_compose
+  - robot_inverse
+  - robot_relative_pose
+  - robot_transform_point
+  - robot_pose_distance
+  - robot_pose_interp
+- title: Lie groups
+  contents:
+  - hat_vee
+  - lie_exp_log
+  - lie_exp_log_2d
+  - so3_jacobians
+  - se3_adjoint
+- title: Robot models
+  contents:
+  - robot_joint
+  - robot_link
+  - inertia_solids
+  - robot_model
+  - robot_dh
+  - dh_transform
+  - robot_example
+  - robot_introspection
+  - robot_modify
+  - joint_limits
+  - robot_configurations
+  - robot_read_urdf
+  - robot_write_urdf
+- title: Kinematics
+  contents:
+  - robot_fk
+  - robot_fk_positions
+  - robot_jacobian
+  - robot_jacobian_numeric
+  - robot_jacobian_analytic
+  - robot_manipulability
+  - robot_is_singular
+  - robot_ik
+  - ik_planar2
+- title: Dynamics and simulation
+  contents:
+  - robot_inverse_dynamics
+  - robot_mass_matrix
+  - robot_forward_dynamics
+  - robot_bias
+  - robot_energy
+  - robot_simulate
+- title: Trajectories
+  contents:
+  - robot_traj_polynomial
+  - robot_traj_trapezoidal
+  - robot_traj_path
+  - robot_traj_cartesian
+  - robot_traj_check
+- title: Collision checking
+  contents:
+  - geometry
+  - geom_distance
+  - robot_attach_geometry
+  - robot_capsule_links
+  - robot_environment
+  - robot_check_collision
+  - robot_check_path
+- title: Motion planning
+  contents:
+  - robot_planner
+  - robot_plan
+  - robot_shortcut
+- title: Mobile robots
+  contents:
+  - mobile_models
+  - unicycle_step
+  - diffdrive
+  - mobile_simulate
+  - planar_velocity
+  - pure_pursuit
+- title: Localization
+  contents:
+  - landmark_measurements
+  - robot_ekf
+  - robot_particle_filter
+- title: Mapping and SLAM
+  contents:
+  - robot_occupancy_grid
+  - grid_coordinates
+  - grid_scans
+  - grid_inflate
+  - grid_astar
+  - robot_pose_graph
+  - pose_graph_optimize
+- title: Visualization
+  contents:
+  - robot_plot
+  - robot_plot_workspace

@@ -16,6 +16,8 @@ robot_forward_dynamics(
 \arguments{
 \item{robot}{A \code{robot_model} with inertial parameters.}
 
+\item{q, qd}{Joint positions and velocities.}
+
 \item{tau}{Joint efforts (defaults to zero).}
 
 \item{gravity}{Gravity vector in world coordinates.}

@@ -1,0 +1,150 @@
+---
+title: "Getting started with robotcompR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Getting started with robotcompR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(robotcompR)
+```
+
+robotcompR is a native R toolkit for robot modeling, kinematics, dynamics,
+collision checking, motion planning, trajectory generation and planar mobile
+robotics. Everything is written in R on top of base linear algebra,
+'Matrix' for sparse least squares, 'deSolve' for simulation and 'xml2' for
+URDF files. Nothing requires a robotics middleware installation.
+
+This article is a tour. Each topic has its own article with derivations,
+reference checks and limitations.
+
+## Conventions in one place
+
+| Topic | Convention |
+|---|---|
+| Units | SI: meters, radians, seconds, kilograms, newtons |
+| Rotations | Active, right-handed; matrices act on column vectors |
+| Quaternions | Scalar first `c(w, x, y, z)`, Hamilton product, `w >= 0` canonical |
+| Euler angles | Intrinsic sequences; `"ZYX"` returns `c(yaw, pitch, roll)` |
+| URDF `rpy` | Fixed-axis roll, pitch, yaw: `R = Rz(yaw) Ry(pitch) Rx(roll)` |
+| Poses | `T_a_b` maps coordinates in frame b into frame a |
+| Composition | `T_a_c = T_a_b * T_b_c`, with frame names checked when present |
+| Twists and wrenches | Linear part first: `c(v, w)` and `c(f, tau)` |
+| Jacobian rows | Linear velocity rows 1 to 3, angular rows 4 to 6 |
+| Points | One point per row in batch functions |
+| Planar poses | `c(x, y, theta)` with `theta` wrapped to `[-pi, pi)` |
+
+## A first robot
+
+`robot_example()` ships a few reference models. The two-link planar arm has
+unit links with uniform 1 kg rods, so most of its quantities have closed forms.
+
+```{r}
+arm <- robot_example("planar2")
+arm
+robot_joints(arm)
+```
+
+Forward kinematics returns a `robot_pose`:
+
+```{r}
+q <- c(pi / 4, -pi / 3)
+T <- robot_fk(arm, q)
+T
+pose_translation(T)
+```
+
+```{r, fig.height = 4}
+robot_plot(arm, q, frames = TRUE)
+```
+
+## Jacobians, singularities and inverse kinematics
+
+```{r}
+J <- robot_jacobian(arm, q)
+round(J, 4)
+robot_manipulability(arm, q)$yoshikawa
+robot_is_singular(arm, c(0.3, 0))
+```
+
+Inverse kinematics reports convergence and the remaining error instead of
+silently returning the closest configuration it found:
+
+```{r}
+target <- robot_pose(translation = c(1.2, 0.8, 0))
+sol <- robot_ik(arm, target, initial = c(0.5, -0.5),
+                weights = c(1, 1, 0, 0, 0, 0))
+sol$converged
+sol$position_error
+pose_translation(robot_fk(arm, sol$q))
+ik_planar2(1.2, 0.8, 1, 1)
+```
+
+## Dynamics
+
+```{r}
+g <- c(0, -9.81, 0)
+robot_mass_matrix(arm, q)
+robot_gravity_torque(arm, q, g)
+tau <- robot_inverse_dynamics(arm, q, qd = c(0.5, 0), qdd = c(0, 1), gravity = g)
+robot_forward_dynamics(arm, q, qd = c(0.5, 0), tau = tau, gravity = g)
+```
+
+## Planning around an obstacle
+
+```{r}
+robot <- robot_capsule_links(arm, radius = 0.05)
+env <- robot_environment(block = geom_box(c(0.4, 0.4, 0.4), origin = transl(1.5, 0, 0)))
+planner <- robot_planner(robot, "rrt_connect", env)
+plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
+                   smooth = TRUE)
+plan
+traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
+robot_traj_check(robot, traj)$ok
+```
+
+## Mobile robots
+
+```{r}
+sim <- mobile_simulate(robot_unicycle(), c(0, 0, 0),
+                       cbind(1, rep(pi / 8, 16)), dt = 0.5)
+plot(sim[, "x"], sim[, "y"], type = "b", asp = 1, xlab = "x (m)", ylab = "y (m)")
+```
+
+## Where to go next
+
+* `vignette("spatial-math")`: rotations, quaternions, poses and Lie groups.
+* `vignette("robot-models")`: joints, links, DH parameters and URDF.
+* `vignette("kinematics")`: forward kinematics, Jacobians and inverse
+  kinematics.
+* `vignette("dynamics")`: RNEA, CRBA, ABA and simulation.
+* `vignette("trajectories")`: polynomial, trapezoidal and Cartesian paths.
+* `vignette("collision-planning")`: geometry, distance queries and
+  sampling-based planners.
+* `vignette("mobile-robots")`: wheeled robot models, path following and
+  localization.
+* `vignette("mapping-slam")`: occupancy grids, grid search and pose graphs.
+
+## Scope and limitations
+
+robotcompR is a teaching and research toolkit, not a real-time controller.
+It is written in R, so planners and filters are meant for problems with a few
+degrees of freedom and thousands (not millions) of samples. Specific limits:
+
+* Joints are revolute, continuous, prismatic or fixed. Floating, planar and
+  mimic joints are rejected.
+* Collision geometry is convex (spheres, boxes, cylinders, capsules and
+  convex hulls). Meshes are kept as metadata but are not used for queries.
+  Penetration depth is exact for sphere and capsule pairs and reported as
+  unknown otherwise.
+* Path collision checks are discrete at a user-chosen resolution.
+* Sampling-based planners are probabilistically complete at best; a failure
+  to find a path never proves that none exists.
+* Mobile robot tools are planar (SE(2)).
+* No contact dynamics, friction models or actuator models.
