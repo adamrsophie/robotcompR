@@ -134,6 +134,7 @@ reference:
   contents:
   - landmark_measurements
   - robot_ekf
+  - robot_ukf
   - robot_particle_filter
 - title: Mapping and SLAM
   contents:
@@ -142,6 +143,7 @@ reference:
   - grid_scans
   - grid_inflate
   - grid_astar
+  - robot_ekf_slam
   - robot_pose_graph
   - pose_graph_optimize
 - title: Visualization

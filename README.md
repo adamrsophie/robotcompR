@@ -58,12 +58,12 @@ traj <- robot_traj_path(plan, vmax = 1, amax = 2)
 | Kinematics | Forward kinematics for all frames, geometric (world, local, space) and analytic Jacobians, manipulability and singularity tests |
 | Inverse kinematics | Levenberg-Marquardt, damped least squares and pseudoinverse solvers with weights, limits, restarts and honest convergence reports; closed form two-link IK |
 | Dynamics | Recursive Newton-Euler, composite rigid body and articulated body algorithms; gravity, Coriolis and bias terms; external wrenches; energy and center of mass; ODE simulation with closed-loop torques |
-| Trajectories | Cubic and quintic polynomials, synchronized trapezoidal profiles, timed waypoint paths, Cartesian straight lines, limit checks |
-| Collision | Spheres, boxes, cylinders, capsules and convex hulls; GJK distances with closed form sphere and capsule pairs; environment and self-collision checks; discrete path checks |
+| Trajectories | Cubic and quintic polynomials, synchronized trapezoidal profiles, timed waypoint paths, Cartesian straight lines with spatial velocities and accelerations and their joint-space conversion, limit checks |
+| Collision | Spheres, boxes, cylinders, capsules and convex hulls; GJK distances with closed form sphere and capsule pairs; EPA penetration depth; environment and self-collision checks; discrete and continuous (conservative advancement) path checks |
 | Planning | RRT, RRT-Connect, RRT* and PRM in joint space or any custom space, shortcut smoothing, reproducible seeds |
 | Mobile robots | Exact unicycle integration, differential drive with odometry, kinematic bicycle, pure pursuit |
-| Localization | EKF with wrapped innovations and Joseph form; particle filter with low-variance resampling |
-| Mapping and SLAM | Log-odds occupancy grids, exact ray casting, scan integration, inflation, A*; SE(2) pose graph optimization with sparse Gauss-Newton and LM damping |
+| Localization | EKF with wrapped innovations and Joseph form; unscented Kalman filter; particle filter with low-variance resampling |
+| Mapping and SLAM | Log-odds occupancy grids, exact ray casting, scan integration, inflation, A*; EKF-SLAM with landmark initialization; SE(2) and SE(3) pose graph optimization with sparse Gauss-Newton and LM damping |
 
 ## Conventions
 
@@ -77,8 +77,7 @@ traj <- robot_traj_path(plan, vmax = 1, amax = 2)
 
 robotcompR is written in R for clarity and teaching. Planners and filters are
 practical for a few degrees of freedom and modest sample counts. Floating,
-planar and mimic joints, mesh collision geometry, penetration depth for
-general convex pairs, continuous collision checking, friction and contact
+planar and mimic joints, mesh collision geometry, friction and contact
 dynamics are out of scope for this release. A planner failure never proves
 that no path exists.
 

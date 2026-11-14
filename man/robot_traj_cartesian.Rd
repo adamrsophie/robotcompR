@@ -4,7 +4,17 @@
 \alias{robot_traj_cartesian}
 \title{Task-space (Cartesian) trajectories}
 \usage{
-robot_traj_cartesian(from, to, duration, n = 51)
+robot_traj_cartesian(
+  from,
+  to,
+  duration,
+  n = 51,
+  robot = NULL,
+  initial = NULL,
+  frame = NULL,
+  weights = NULL,
+  ...
+)
 }
 \arguments{
 \item{from, to}{Start and end \code{robot_pose} objects (SE(3)).}
@@ -12,18 +22,52 @@ robot_traj_cartesian(from, to, duration, n = 51)
 \item{duration}{Duration in seconds.}
 
 \item{n}{Number of samples.}
+
+\item{robot}{Optional \code{robot_model} for the joint-space conversion.}
+
+\item{initial}{Initial guess for the first inverse kinematics solve.}
+
+\item{frame}{End-effector frame; defaults to the robot's end effector.}
+
+\item{weights}{Task weights passed to \code{\link[=robot_ik]{robot_ik()}} and used in the
+velocity solves (for example \code{c(1, 1, 0, 0, 0, 1)} for a planar arm).}
+
+\item{...}{Further arguments passed to \code{\link[=robot_ik]{robot_ik()}}.}
 }
 \value{
-A list with \code{time}, \code{s} and \code{poses} (a list of \code{robot_pose}).
+A list with \code{time}, \code{s}, \code{poses} (a list of \code{robot_pose}),
+\code{velocity} and \code{acceleration} (one row per sample, columns
+\verb{vx, vy, vz, wx, wy, wz}), and, with \code{robot}, \code{joint} (a
+\code{robot_trajectory}) and \code{converged} (logical, one per sample).
 }
 \description{
 Interpolates between two poses with a quintic time scaling
 \eqn{s(t)}: the position moves along the straight line and the
-orientation along the shortest great circle (\code{\link[=quaternion_slerp]{quaternion_slerp()}}).
-Use \code{\link[=robot_ik]{robot_ik()}} at each sample to obtain joint configurations.
+orientation along the shortest great circle (\code{\link[=quaternion_slerp]{quaternion_slerp()}}),
+\eqn{R(s) = \exp(s\,\widehat{\phi}) R_0} with world-frame rotation
+vector \eqn{\phi = \log(R_1 R_0^\top)}. The spatial velocity of the
+moving frame, in world coordinates and linear part first, is therefore
+\eqn{(v, \omega) = \dot s\,(p_1 - p_0, \phi)} and its acceleration
+\eqn{\ddot s\,(p_1 - p_0, \phi)}; both vanish at the ends.
+}
+\details{
+When \code{robot} is given, the path is also converted to joints: inverse
+kinematics is solved at each sample, warm-started from the previous
+solution (from \code{initial} at the first sample), and joint velocities and
+accelerations follow from the weighted least-squares solutions of
+\eqn{J \dot q = V} and \eqn{J \ddot q = A - \dot J \dot q}, with the
+world Jacobian of \code{frame} and \eqn{\dot J \dot q} from a central
+difference of \eqn{J} along \eqn{\dot q}.
 }
 \examples{
 ct <- robot_traj_cartesian(robot_pose(), robot_pose(rotz(1), c(1, 0, 0)),
                            duration = 1, n = 3)
 pose_translation(ct$poses[[2]])
+ct$velocity[2, ]
+arm <- robot_example("planar2")
+a <- robot_fk(arm, c(0.3, 1.2))
+b <- robot_pose(translation = c(1.2, 0.6, 0))
+jt <- robot_traj_cartesian(a, b, 1, n = 11, robot = arm, initial = c(0.3, 1.2),
+                           weights = c(1, 1, 0, 0, 0, 0))
+all(jt$converged)
 }

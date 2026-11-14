@@ -22,10 +22,14 @@ plus a radius: GJK (Gilbert, Johnson and Keerthi, 1988) computes the
 distance between the cores, and the radii are subtracted. The result
 is exact (up to the GJK tolerance) for separated shapes. When shapes
 with a radius overlap but their cores do not, the negative distance is
-the exact penetration depth. When the cores themselves overlap the
-penetration depth is not computed: \code{distance} is reported as
-\eqn{-(r_A + r_B)} with \code{depth_known = FALSE}, and only \code{collision}
-should be relied on. Meshes are not supported.
+the exact penetration depth. When the cores themselves overlap, the
+expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
+penetration depth of the cores, and the negative distance is that depth
+plus both radii: the length of the shortest translation that separates
+the shapes. For curved cores (cylinders) EPA converges to a relative
+tolerance of about \eqn{10^{-9}} of the object size. \code{depth_known} is
+\code{TRUE} for every result and kept for compatibility. Meshes are not
+supported.
 }
 \examples{
 geom_distance(geom_sphere(0.5), geom_box(c(1, 1, 1)),

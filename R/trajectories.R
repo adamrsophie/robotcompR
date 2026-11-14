@@ -268,24 +268,93 @@ robot_traj_path <- function(path, vmax, amax, dt = 0.01) {
 #'
 #' Interpolates between two poses with a quintic time scaling
 #' \eqn{s(t)}: the position moves along the straight line and the
-#' orientation along the shortest great circle ([quaternion_slerp()]).
-#' Use [robot_ik()] at each sample to obtain joint configurations.
+#' orientation along the shortest great circle ([quaternion_slerp()]),
+#' \eqn{R(s) = \exp(s\,\widehat{\phi}) R_0} with world-frame rotation
+#' vector \eqn{\phi = \log(R_1 R_0^\top)}. The spatial velocity of the
+#' moving frame, in world coordinates and linear part first, is therefore
+#' \eqn{(v, \omega) = \dot s\,(p_1 - p_0, \phi)} and its acceleration
+#' \eqn{\ddot s\,(p_1 - p_0, \phi)}; both vanish at the ends.
+#'
+#' When `robot` is given, the path is also converted to joints: inverse
+#' kinematics is solved at each sample, warm-started from the previous
+#' solution (from `initial` at the first sample), and joint velocities and
+#' accelerations follow from the weighted least-squares solutions of
+#' \eqn{J \dot q = V} and \eqn{J \ddot q = A - \dot J \dot q}, with the
+#' world Jacobian of `frame` and \eqn{\dot J \dot q} from a central
+#' difference of \eqn{J} along \eqn{\dot q}.
 #'
 #' @param from,to Start and end `robot_pose` objects (SE(3)).
 #' @param duration Duration in seconds.
 #' @param n Number of samples.
-#' @return A list with `time`, `s` and `poses` (a list of `robot_pose`).
+#' @param robot Optional `robot_model` for the joint-space conversion.
+#' @param initial Initial guess for the first inverse kinematics solve.
+#' @param frame End-effector frame; defaults to the robot's end effector.
+#' @param weights Task weights passed to [robot_ik()] and used in the
+#'   velocity solves (for example `c(1, 1, 0, 0, 0, 1)` for a planar arm).
+#' @param ... Further arguments passed to [robot_ik()].
+#' @return A list with `time`, `s`, `poses` (a list of `robot_pose`),
+#'   `velocity` and `acceleration` (one row per sample, columns
+#'   `vx, vy, vz, wx, wy, wz`), and, with `robot`, `joint` (a
+#'   `robot_trajectory`) and `converged` (logical, one per sample).
 #' @examples
 #' ct <- robot_traj_cartesian(robot_pose(), robot_pose(rotz(1), c(1, 0, 0)),
 #'                            duration = 1, n = 3)
 #' pose_translation(ct$poses[[2]])
+#' ct$velocity[2, ]
+#' arm <- robot_example("planar2")
+#' a <- robot_fk(arm, c(0.3, 1.2))
+#' b <- robot_pose(translation = c(1.2, 0.6, 0))
+#' jt <- robot_traj_cartesian(a, b, 1, n = 11, robot = arm, initial = c(0.3, 1.2),
+#'                            weights = c(1, 1, 0, 0, 0, 0))
+#' all(jt$converged)
 #' @export
-robot_traj_cartesian <- function(from, to, duration, n = 51) {
+robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
+                                 initial = NULL, frame = NULL, weights = NULL,
+                                 ...) {
   stopifnot(inherits(from, "robot_pose"), inherits(to, "robot_pose"))
+  if (from$dim != 3 || to$dim != 3) stop("Poses must be SE(3).", call. = FALSE)
   sc <- robot_traj_polynomial(0, 1, duration, n = n)
   s <- pmin(pmax(as.numeric(sc$q), 0), 1)
-  list(time = sc$time, s = s,
-       poses = lapply(s, function(si) robot_pose_interp(from, to, si)))
+  sd <- as.numeric(sc$qd)
+  sdd <- as.numeric(sc$qdd)
+  dp <- pose_translation_vector(to) - pose_translation_vector(from)
+  phi <- so3_log(pose_rotation_matrix(to) %*% t(pose_rotation_matrix(from)))
+  axis <- c(dp, phi)
+  cols <- c("vx", "vy", "vz", "wx", "wy", "wz")
+  V <- outer(sd, axis)
+  A <- outer(sdd, axis)
+  colnames(V) <- colnames(A) <- cols
+  out <- list(time = sc$time, s = s,
+              poses = lapply(s, function(si) robot_pose_interp(from, to, si)),
+              velocity = V, acceleration = A)
+  if (is.null(robot)) return(out)
+  check_robot(robot)
+  w <- if (is.null(weights)) rep(1, 6) else check_numeric_vector(weights, 6, "weights")
+  sw <- sqrt(w)
+  m <- length(s)
+  Q <- Qd <- Qdd <- matrix(0, m, robot$dof)
+  ok <- logical(m)
+  q <- initial
+  for (i in seq_len(m)) {
+    sol <- robot_ik(robot, out$poses[[i]], initial = q, frame = frame,
+                    weights = weights, ...)
+    q <- sol$q
+    ok[i] <- sol$converged
+    J <- robot_jacobian(robot, q, frame)
+    qd <- pinv_solve(sw * J, sw * V[i, ])
+    h <- 1e-6
+    Jdqd <- if (any(qd != 0)) {
+      as.numeric((robot_jacobian(robot, q + h * qd, frame) -
+                    robot_jacobian(robot, q - h * qd, frame)) %*% qd) / (2 * h)
+    } else numeric(6)
+    Q[i, ] <- q
+    Qd[i, ] <- qd
+    Qdd[i, ] <- pinv_solve(sw * J, sw * (A[i, ] - Jdqd))
+  }
+  out$joint <- new_trajectory(sc$time, Q, Qd, Qdd, robot_joint_names(robot),
+                              "cartesian")
+  out$converged <- ok
+  out
 }
 
 #' Check a trajectory against robot limits

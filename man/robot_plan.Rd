@@ -27,7 +27,8 @@ random number state is restored afterwards and the seed is recorded in
 the result. A failure (\code{success = FALSE}) only means that no path was
 found within the iteration budget; it does not prove that no path
 exists. A successful path is collision-free only up to the discrete
-edge-checking resolution.
+edge-checking resolution; verify it with
+\code{robot_check_path(..., method = "continuous")} when that matters.
 }
 \examples{
 planner <- robot_planner(validity = function(q) abs(q[1] - 0.5) > 0.1 || q[2] > 0.8,

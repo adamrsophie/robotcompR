@@ -374,7 +374,8 @@ grow_prm <- function(pl, start, goal) {
 #' the result. A failure (`success = FALSE`) only means that no path was
 #' found within the iteration budget; it does not prove that no path
 #' exists. A successful path is collision-free only up to the discrete
-#' edge-checking resolution.
+#' edge-checking resolution; verify it with
+#' `robot_check_path(..., method = "continuous")` when that matters.
 #'
 #' @param planner A `robot_planner`.
 #' @param start,goal Configurations.

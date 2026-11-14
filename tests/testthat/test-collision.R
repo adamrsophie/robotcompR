@@ -24,10 +24,11 @@ test_that("primitive distances match closed forms", {
   expect_true(d$collision)
   expect_equal(d$distance, -0.4, tolerance = 1e-12)
   expect_true(d$depth_known)
-  # Overlapping boxes: collision reported, depth not computed.
+  # Overlapping boxes: EPA gives the exact depth.
   d <- geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(), transl(0.5, 0, 0))
   expect_true(d$collision)
-  expect_false(d$depth_known)
+  expect_true(d$depth_known)
+  expect_equal(d$distance, -0.5, tolerance = 1e-8)
 })
 
 test_that("GJK agrees with brute force for random convex hulls", {

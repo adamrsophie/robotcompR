@@ -11,7 +11,10 @@ robot_check_path(
   self = TRUE,
   resolution = 0.02,
   margin = 0,
-  check_limits = TRUE
+  check_limits = TRUE,
+  method = c("discrete", "continuous"),
+  tol = 1e-09,
+  max_steps = 10000
 )
 }
 \arguments{
@@ -23,24 +26,48 @@ robot_check_path(
 
 \item{self}{Check self-collision.}
 
-\item{resolution}{Maximum joint step between checked samples.}
+\item{resolution}{Maximum joint step between checked samples
+(discrete method).}
 
 \item{margin}{Safety margin: pairs closer than \code{margin} count as
 colliding.}
 
 \item{check_limits}{Also require samples to respect joint limits.}
+
+\item{method}{\code{"discrete"} or \code{"continuous"}.}
+
+\item{tol}{Clearance treated as contact by the continuous method.}
+
+\item{max_steps}{Maximum advancement steps per segment (continuous
+method); reaching it reports the segment as invalid with a warning.}
 }
 \value{
-A list with \code{valid}, the index of the first invalid sample
-(\code{NA} when valid), the invalid configuration, and the number of
-samples checked.
+A list with \code{valid}, \code{first_invalid} (the index of the first
+invalid sample for the discrete method, or of the first invalid
+segment for the continuous method; \code{NA} when valid), the invalid
+configuration \code{q}, and \code{samples}, the number of configurations
+checked.
 }
 \description{
-Checks the straight joint-space segments between consecutive waypoints
-by sampling them so that no joint moves more than \code{resolution} between
-samples (radians or meters). This discrete check can miss collisions
-with obstacles thinner than the swept motion between samples; it is not
-continuous swept-volume checking.
+Checks the straight joint-space segments between consecutive waypoints.
+}
+\details{
+With \code{method = "discrete"} (the default) each segment is sampled so that
+no joint moves more than \code{resolution} between samples (radians or
+meters). This can miss collisions with obstacles thinner than the swept
+motion between samples.
+
+With \code{method = "continuous"} each segment is checked by conservative
+advancement: at the current configuration the clearance \eqn{d} of
+every geometry pair is computed, together with an upper bound \eqn{M}
+on how far any point of the pair can move per unit of the segment
+parameter (from the joint displacements and fixed bounds on the lever
+arms of the kinematic chain). Advancing by \eqn{d / M} cannot create a
+contact, so the motion is collision-free when the steps reach the end
+of the segment and in collision as soon as a clearance drops to
+\code{margin}. The test is exact for the continuous straight-line motion,
+up to \code{tol}; unbounded prismatic joints below a link make its bound
+infinite, and the check then fails with an error.
 }
 \examples{
 robot <- robot_capsule_links(robot_example("planar2"), 0.05)

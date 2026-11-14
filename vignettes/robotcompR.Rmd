@@ -128,8 +128,9 @@ plot(sim[, "x"], sim[, "y"], type = "b", asp = 1, xlab = "x (m)", ylab = "y (m)"
 * `vignette("collision-planning")`: geometry, distance queries and
   sampling-based planners.
 * `vignette("mobile-robots")`: wheeled robot models, path following and
-  localization.
-* `vignette("mapping-slam")`: occupancy grids, grid search and pose graphs.
+  localization with EKF, UKF and particle filters.
+* `vignette("mapping-slam")`: occupancy grids, grid search, EKF-SLAM and
+  SE(2) and SE(3) pose graphs.
 
 ## Scope and limitations
 
@@ -141,10 +142,10 @@ degrees of freedom and thousands (not millions) of samples. Specific limits:
   mimic joints are rejected.
 * Collision geometry is convex (spheres, boxes, cylinders, capsules and
   convex hulls). Meshes are kept as metadata but are not used for queries.
-  Penetration depth is exact for sphere and capsule pairs and reported as
-  unknown otherwise.
-* Path collision checks are discrete at a user-chosen resolution.
+  Penetration depths are exact (EPA for general pairs).
+* Path collision checks are discrete at a user-chosen resolution or
+  continuous by conservative advancement.
 * Sampling-based planners are probabilistically complete at best; a failure
   to find a path never proves that none exists.
-* Mobile robot tools are planar (SE(2)).
+* Mobile robot tools are planar (SE(2)); pose graphs also handle SE(3).
 * No contact dynamics, friction models or actuator models.

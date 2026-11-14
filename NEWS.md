@@ -15,12 +15,18 @@
 * Trajectories: cubic and quintic polynomials, trapezoidal profiles, timed
   waypoint paths and Cartesian straight lines.
 * Collision checking with convex primitives and GJK, environment and
-  self-collision, and discrete path checks.
+  self-collision, and path checks.
 * Sampling-based planning with RRT, RRT-Connect, RRT* and PRM, plus
   shortcut smoothing.
 * Planar mobile robots: unicycle, differential drive, bicycle, odometry and
   pure pursuit.
-* Localization with an extended Kalman filter and a particle filter.
+* Localization with extended and unscented Kalman filters and a particle
+  filter.
 * Occupancy grid mapping, ray casting, inflation and A* search.
-* SE(2) pose graph optimization.
+* EKF-SLAM with known data association.
+* SE(2) and SE(3) pose graph optimization.
+* EPA penetration depth for every convex pair and continuous path collision
+  checking by conservative advancement.
+* Cartesian trajectories report spatial velocities and accelerations and can
+  be converted to joint trajectories.
 * Nine vignettes and a pkgdown site.

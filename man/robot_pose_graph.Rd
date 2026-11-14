@@ -3,34 +3,42 @@
 \name{robot_pose_graph}
 \alias{robot_pose_graph}
 \alias{pose_graph_add_edge}
-\title{SE(2) pose graphs}
+\title{Pose graphs}
 \usage{
 robot_pose_graph(nodes)
 
-pose_graph_add_edge(graph, from, to, measurement, information = diag(3))
+pose_graph_add_edge(graph, from, to, measurement, information = NULL)
 }
 \arguments{
-\item{nodes}{Matrix of initial poses.}
+\item{nodes}{Matrix of initial planar poses, or a list of SE(3) poses.}
 
 \item{graph}{A \code{robot_pose_graph}.}
 
 \item{from, to}{Node indices.}
 
-\item{measurement}{Relative pose \code{c(dx, dy, dtheta)}.}
+\item{measurement}{Relative pose.}
 
-\item{information}{Information matrix.}
+\item{information}{Information matrix; defaults to the identity.}
 }
 \value{
-A \code{robot_pose_graph}.
+A \code{robot_pose_graph} with \code{nodes}, \code{edges} and \code{group}
+(\code{"SE2"} or \code{"SE3"}).
 }
 \description{
-\code{robot_pose_graph()} creates a graph with initial node poses (one
-\code{c(x, y, theta)} per row). \code{pose_graph_add_edge()} adds a relative pose
-measurement \eqn{z_{ij}}, the pose of node j in the frame of node i,
-with a 3 by 3 information matrix (inverse covariance, ordered
-x, y, theta).
+\code{robot_pose_graph()} creates a graph with initial node poses: either a
+matrix with one planar pose \code{c(x, y, theta)} per row (an SE(2) graph) or
+a list of SE(3) \code{robot_pose} objects or 4 by 4 homogeneous matrices (an
+SE(3) graph). \code{pose_graph_add_edge()} adds a relative pose measurement
+\eqn{z_{ij}}, the pose of node j in the frame of node i, with an
+information matrix (inverse covariance). For SE(2) the measurement is
+\code{c(dx, dy, dtheta)} and the information matrix is 3 by 3 (x, y,
+theta); for SE(3) the measurement is a \code{robot_pose} (or 4 by 4 matrix)
+and the information matrix is 6 by 6, translation first, matching the
+tangent ordering of \code{\link[=se3_log]{se3_log()}}.
 }
 \examples{
 g <- robot_pose_graph(rbind(c(0, 0, 0), c(1.1, 0.1, 0.05)))
 g <- pose_graph_add_edge(g, 1, 2, c(1, 0, 0), diag(3))
+g3 <- robot_pose_graph(list(robot_pose(), transl(1.1, 0.1, 0)))
+g3 <- pose_graph_add_edge(g3, 1, 2, transl(1, 0, 0))
 }

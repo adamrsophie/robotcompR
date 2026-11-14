@@ -24,16 +24,23 @@ radius, so a capsule is a segment swept by a sphere.
 `geom_distance()` returns the separation distance and witness points. Sphere
 and capsule pairs use closed-form segment distances (exact depth when they
 overlap). Other pairs use the Gilbert, Johnson and Keerthi (GJK) algorithm on
-support functions; when those overlap the result reports `collision = TRUE`
-but `depth_known = FALSE`, because computing penetration depth would need an
-extra algorithm (EPA) that is not implemented.
+support functions. When the cores of a GJK pair overlap, the expanding
+polytope algorithm (EPA) grows a polytope inside the Minkowski difference
+$A - B$ until its face nearest the origin is part of the boundary; the
+distance to that face is the penetration depth, the length of the shortest
+translation that separates the shapes. Negative distances are therefore
+always exact depths.
 
 ```{r}
 geom_distance(geom_sphere(0.5), geom_sphere(0.3), robot_pose(), transl(2, 0, 0))$distance
 d <- geom_distance(geom_box(c(1, 1, 1)), geom_sphere(0.2), robot_pose(), transl(1.5, 1.5, 0))
 c(d$distance, sqrt(2) - 0.2)
 d$point_a
-geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(), transl(0.5, 0, 0))
+geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(), transl(0.5, 0, 0))$distance
+# Two unit cubes, one turned 45 degrees: depth 0.5 + sqrt(2) / 2 - 0.9.
+geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(),
+              robot_pose(rotz(pi / 4), c(0.9, 0, 0)))$distance
+0.9 - 0.5 - sqrt(2) / 2
 ```
 
 Mesh geometry from URDF files is kept for reference but is not collidable.
@@ -76,6 +83,32 @@ res$q
 
 This is a discrete check. A thin obstacle can slip between samples if the
 resolution is coarse relative to the obstacle size and the link lengths.
+
+### Continuous checking
+
+`method = "continuous"` removes that caveat with conservative advancement.
+At the current configuration it computes the clearance $d$ of every geometry
+pair and a bound $M$ on how far any point of the pair can move per unit of
+the segment parameter. For a revolute joint, a point at distance $r$ from the
+joint axis moves at most $r$ per radian, and $r$ is bounded by the fixed
+frame offsets of the chain plus the size of the geometry. Moving by $d / M$
+cannot cause contact, so the check steps forward by that amount until it
+either reaches the end of the segment or a clearance reaches zero.
+
+Here a thin post sits between two samples of a coarse discrete check:
+
+```{r}
+post <- robot_environment(post = geom_box(c(0.02, 0.02, 1), origin = transl(cos(0.6), sin(0.6), 0)))
+P <- rbind(c(0, 0), c(1.2, 0))
+robot_check_path(arm, P, post, resolution = 0.5)$valid
+cc <- robot_check_path(arm, P, post, method = "continuous")
+cc$valid
+cc$q
+robot_check_collision(arm, cc$q, post)$min_distance
+```
+
+The configuration returned is the first contact along the motion, up to the
+tolerance `tol`.
 
 ## Sampling-based planners
 

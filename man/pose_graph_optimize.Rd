@@ -2,7 +2,7 @@
 % Please edit documentation in R/pose-graph.R
 \name{pose_graph_optimize}
 \alias{pose_graph_optimize}
-\title{Optimize an SE(2) pose graph}
+\title{Optimize a pose graph}
 \usage{
 pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 }
@@ -21,12 +21,16 @@ and \code{converged}.
 }
 \description{
 Minimizes \eqn{\sum e_{ij}^\top \Omega_{ij} e_{ij}} over the node poses
-with Gauss-Newton iterations and Levenberg-Marquardt damping, using the
-relative-pose residual \eqn{e_{ij} = (R_z^\top(R_i^\top(t_j - t_i) -
+with Gauss-Newton iterations and Levenberg-Marquardt damping. For SE(2)
+graphs the residual is \eqn{e_{ij} = (R_z^\top(R_i^\top(t_j - t_i) -
 t_z), \mathrm{wrap}(\theta_j - \theta_i - \theta_z))}, analytic
 Jacobians (Grisetti et al., 2010, "A tutorial on graph-based SLAM") and
-sparse linear algebra from 'Matrix'. Node \code{fixed} is held constant to
-remove the gauge freedom. Headings are wrapped after each update.
+sparse linear algebra from 'Matrix', and headings are wrapped after
+each update. For SE(3) graphs the residual is
+\eqn{e_{ij} = \log(Z_{ij}^{-1} X_i^{-1} X_j)} (translation first), nodes
+are updated on the manifold as \eqn{X \exp(\delta)}, and the
+Jacobians with respect to \eqn{\delta} are computed by central
+differences. Node \code{fixed} is held constant to remove the gauge freedom.
 }
 \examples{
 g <- robot_pose_graph(rbind(c(0, 0, 0), c(1.2, 0.1, 0.1), c(1.9, 1.2, 1.7)))
