@@ -16,10 +16,13 @@
 
 ## Notes for the reviewer
 
-* Words such as Denavit, Hartenberg, Featherstone, Keerthi, Kuffner,
-  LaValle, Karaman, Frazzoli and Kavraki in the Description are author
-  names and method names, not misspellings.
-* All examples run in well under five seconds each; none are wrapped in
+* The incoming check lists possibly misspelled words in the Description.
+  They are correct: Sola, Deray, Atchuthan, Denavit, Hartenberg,
+  Featherstone, Gilbert, Keerthi, Kuffner, LaValle, Karaman, Frazzoli and
+  Kavraki are author names, Kalman is a proper name and "et al." is Latin; GJK, EPA, RRT, PRM, EKF and UKF are acronyms
+  spelled out where they first appear; Jacobians, manipulability,
+  quaternions, revolute, polytope and roadmaps are standard robotics terms.
+* The slowest example takes under half a second; none are wrapped in
   `\dontrun{}`.
 * The package writes files only when the user passes a path, and tests use
   `tempfile()`.
