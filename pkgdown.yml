@@ -1,5 +1,17 @@
 pandoc: 3.8.3
 pkgdown: 2.2.1
 pkgdown_sha: ~
-articles: {}
-last_built: 2026-11-14T03:18Z
+articles:
+  collision-planning: collision-planning.html
+  dynamics: dynamics.html
+  kinematics: kinematics.html
+  mapping-slam: mapping-slam.html
+  mobile-robots: mobile-robots.html
+  robot-models: robot-models.html
+  robotcompR: robotcompR.html
+  spatial-math: spatial-math.html
+  trajectories: trajectories.html
+last_built: 2026-11-14T03:27Z
+urls:
+  reference: https://adamrsophie.github.io/robotcompR/reference
+  article: https://adamrsophie.github.io/robotcompR/articles
