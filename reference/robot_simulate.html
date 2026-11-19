@@ -87,7 +87,8 @@ error; tighten <code>rtol</code> and <code>atol</code> to reduce it.</p>
 <span>  f_ext <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  method <span class="op">=</span> <span class="st">"lsoda"</span>,</span>
 <span>  rtol <span class="op">=</span> <span class="fl">1e-08</span>,</span>
-<span>  atol <span class="op">=</span> <span class="fl">1e-10</span></span>
+<span>  atol <span class="op">=</span> <span class="fl">1e-10</span>,</span>
+<span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -127,6 +128,11 @@ zero torque.</p></dd>
 
 <dt id="arg-rtol-atol">rtol, atol<a class="anchor" aria-label="anchor" href="#arg-rtol-atol"></a></dt>
 <dd><p>Integration tolerances.</p></dd>
+
+
+<dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
+<dd><p>Further arguments to <code><a href="https://rdrr.io/pkg/deSolve/man/ode.html" class="external-link">deSolve::ode()</a></code>, such as <code>maxsteps</code>.
+An integration that stops before the last time is an error.</p></dd>
 
 </dl></div>
     <div class="section level2">

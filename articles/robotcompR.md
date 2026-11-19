@@ -110,7 +110,7 @@ sol <- robot_ik(arm, target, initial = c(0.5, -0.5),
 sol$converged
 #> [1] TRUE
 sol$position_error
-#> [1] 2.482534e-16
+#> [1] 3.140185e-16
 pose_translation(robot_fk(arm, sol$q))
 #> [1] 1.2 0.8 0.0
 ik_planar2(1.2, 0.8, 1, 1)
@@ -149,7 +149,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
 plan
 #> <robot_plan> rrt_connect: success
 #> path found (shortcut smoothed) 
-#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 1.68 s
+#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.41 s
 #> seed: 1
 traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
 robot_traj_check(robot, traj)$ok

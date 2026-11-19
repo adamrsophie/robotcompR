@@ -207,10 +207,13 @@ cat(substr(xml, 1, 600))
 #>   <link name="base">
 #>   </link>
 #>   <link name="link1">
-#>     <inertial><origin xyz="            -0.5                0                0" rpy="0 0 0"/><mass value="               1"/><inertia ixx="               0" ixy="               0" ixz="               0" iyy="0.0833333333333333" iyz="               0" izz="0.0833333333333333"/></inertial>
+#>     <inertial><origin xyz="-0.5 0 0" rpy="0 0 0"/><mass value="1"/><inertia ixx="0" ixy="0" ixz="0" iyy="0.083333333333333329" iyz="0" izz="0.083333333333333329"/></inertial>
 #>   </link>
 #>   <link name="link2">
-#>     <inertial><origin xyz="            -0.4                0                0" rpy="0 0 0"/><mass value="             0.8"/><inertia ixx="               0" ixy="               0" ixz
+#>     <inertial><origin xyz="-0.4 0 0" rpy="0 0 0"/><mass value="0.8"/><inertia ixx="0" ixy="0" ixz="0" iyy="0.042666666666666679" iyz="0" izz="0.042666666666666679"/></inertial>
+#>   </link>
+#>   <link name="link3">
+#>     <inertial><origin xyz="-0.3 0 0" rpy="0 0 0"/><mass value="0.6"/><inertia ixx="0"
 back <- robot_read_urdf(xml)
 q <- c(0.1, 0.2, 0.3)
 max(abs(robot_fk(back, q)$matrix - robot_fk(robot_example("planar3"), q)$matrix))

@@ -48,7 +48,7 @@ c2 <- cos(q[2])
 M_ref <- matrix(c(1/12 + 1/12 + 0.25 + (1 + 0.25 + c2), 1/12 + 0.25 + 0.5 * c2,
                   1/12 + 0.25 + 0.5 * c2, 1/12 + 0.25), 2)
 max(abs(M - M_ref))
-#> [1] 0
+#> [1] 4.440892e-16
 ```
 
 The three algorithms are mutually consistent: RNEA with zero velocity
@@ -64,9 +64,9 @@ tau
 #>    joint1    joint2 
 #> 20.648283  4.113131
 max(abs(M %*% qdd + robot_bias_forces(arm, q, qd, gravity = g) - tau))
-#> [1] 8.881784e-16
+#> [1] 3.552714e-15
 max(abs(robot_forward_dynamics(arm, q, qd, tau, gravity = g) - qdd))
-#> [1] 4.884981e-15
+#> [1] 6.217249e-15
 ```
 
 ## Gravity compensation and energy
@@ -122,7 +122,7 @@ sim <- robot_simulate(arm, q0 = c(0.5, 0.2), qd0 = c(0, 0),
 E <- apply(cbind(sim$q, sim$qd), 1, function(x)
   robot_energy(arm, x[1:2], x[3:4], gravity = g)[["total"]])
 diff(range(E))
-#> [1] 8.936274e-07
+#> [1] 8.928681e-07
 plot(sim, "q")
 ```
 

@@ -21,7 +21,8 @@ robot_simulate(
   f_ext = NULL,
   method = "lsoda",
   rtol = 1e-08,
-  atol = 1e-10
+  atol = 1e-10,
+  ...
 )
 ```
 
@@ -60,6 +61,13 @@ robot_simulate(
 - rtol, atol:
 
   Integration tolerances.
+
+- ...:
+
+  Further arguments to
+  [`deSolve::ode()`](https://rdrr.io/pkg/deSolve/man/ode.html), such as
+  `maxsteps`. An integration that stops before the last time is an
+  error.
 
 ## Value
 

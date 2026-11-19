@@ -54,10 +54,10 @@ cyl[c("depth_known", "distance", "distance_bounds")]
 #> [1] FALSE
 #> 
 #> $distance
-#> [1] -0.9993224
+#> [1] -0.9995293
 #> 
 #> $distance_bounds
-#> [1] -1.0000000 -0.9993224
+#> [1] -1.0000000 -0.9995293
 ```
 
 Mesh geometry from URDF files is kept for reference but is not
@@ -175,7 +175,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1)
 plan
 #> <robot_plan> rrt_connect: success
 #> path found 
-#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 0.763 s
+#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 1.1 s
 #> seed: 1
 robot_check_path(arm, plan$path, env, resolution = 0.01)$valid
 #> [1] TRUE

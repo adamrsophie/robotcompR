@@ -38,7 +38,7 @@ pf_estimate(filter)
 
 - Q, R:
 
-  Control and measurement noise covariances.
+  Control and measurement noise covariances (`R` positive definite).
 
 - seed:
 

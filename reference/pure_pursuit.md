@@ -5,9 +5,12 @@ point of the polyline `path` an arclength `lookahead` beyond the closest
 point to the robot. The commanded curvature is \\\kappa = 2 y_L /
 \ell^2\\, the circle through the robot and the target, where \\(x_L,
 y_L)\\ is the target in the body frame and \\\ell^2 = x_L^2 + y_L^2\\
-its squared distance (Coulter, 1992). On a straight path \\\ell\\ is
-close to `lookahead`, but it is shorter when the robot is off the path.
-Near the end of the path the last point is used as the goal.
+its squared distance (Coulter, 1992). On a straight path with
+cross-track error \\e\\ (and the closest point inside the path), \\\ell
+= \sqrt{L_d^2 + e^2}\\. Near the end of the path the last point is used
+as the goal. When the target is behind the robot (\\x_L \< 0\\) the arc
+would drive away from it, so the command turns in place instead: `v = 0`
+and `omega = 2 |speed| / lookahead` toward the side of the target.
 
 ## Usage
 

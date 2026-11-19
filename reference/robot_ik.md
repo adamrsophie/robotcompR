@@ -126,7 +126,7 @@ robot <- robot_example("planar2")
 sol <- robot_ik(robot, c(1, 1, 0), initial = c(0.3, 0.3))
 sol$q
 #>        joint1        joint2 
-#> -2.670105e-13  1.570796e+00 
+#> -2.669000e-13  1.570796e+00 
 sol$converged
 #> [1] TRUE
 ```

@@ -41,7 +41,7 @@ ekf_update(filter, measurements)
 
 - R:
 
-  Measurement noise covariance (2 by 2).
+  Measurement noise covariance (2 by 2, positive definite).
 
 - filter:
 

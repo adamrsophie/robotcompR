@@ -71,9 +71,13 @@
 <li>EKF-SLAM with known data association.</li>
 <li>SE(2) and SE(3) pose graph optimization with Jacobians that stay valid for residual rotations near pi and a termination <code>status</code>.</li>
 <li>The unscented Kalman filter works in a local tangent chart, so heading statistics stay consistent across the angle cut; every filter requires symmetric positive semidefinite covariances and validated measurements.</li>
-<li>Particle filter prediction, EKF-SLAM updates and rigid-body dynamics use faster kernels (vectorized motion, a rank-two Joseph update and cached spatial inertias) with identical results.</li>
+<li>Particle filter prediction, EKF-SLAM updates and rigid-body dynamics use faster kernels (vectorized motion, a factored sparse Joseph update that keeps the covariance semidefinite, and cached spatial inertias).</li>
 <li>EPA penetration depth for every convex pair, with certified bounds and a <code>depth_known</code> flag, and continuous path collision checking by conservative advancement.</li>
 <li>Cartesian trajectories report spatial velocities and accelerations and can be converted to joint trajectories.</li>
+<li>Collision distances never report clearance that thin, nearly parallel or degenerate geometry cannot prove, and do not depend on scale, rotation or where a hull’s local origin lies.</li>
+<li>Pose graph optimization tests convergence per residual component with equilibrated damping, so graphs with mixed scales converge.</li>
+<li>URDF export writes numbers that read back exactly in any locale and declares URDF 1.1 for capsules; import reads <code>quat_xyzw</code> origins.</li>
+<li>Planners honor their deadline after every validity call, and A* keeps its search on the map with a frontier list.</li>
 <li>Nine vignettes and a pkgdown site.</li>
 </ul></div>
   </main></div>

@@ -33,7 +33,7 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 
 - max_iterations:
 
-  Maximum iterations.
+  Maximum iterations (0 only evaluates the graph).
 
 - tol:
 
@@ -43,20 +43,22 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 
 A list with the optimized `graph`, `cost` history, `iterations`,
 `converged` (`TRUE` only for `status == "converged"`), `status` and
-`gradient`, the relative gradient norm at the start of the last
-iteration.
+`gradient`, the largest scaled gradient component at the start of the
+last iteration.
 
 ## Details
 
 Convergence means stationarity, not merely a small change: the optimizer
-stops with `status = "converged"` when the cost is zero to roundoff for
-the graph's scale or the gradient is negligible relative to the cost
-(\\\\g\\ \le 10^{-6} \sqrt{\max H\_{kk}\\ c}\\). Other outcomes are
-`"stalled"` (the relative decrease fell below `tol`, or no damped step
-decreased the cost, while the gradient is not negligible),
-`"max_iterations"`, `"linear_solve_failed"` and `"invalid_graph"` (nodes
-not connected to `fixed`; the graph is returned unchanged with a
-warning). A noisy graph converges to a positive cost.
+stops with `status = "converged"` when every residual component is at
+roundoff level for the magnitudes involved, or every gradient component
+is negligible on its own scale (\\\|g_k\| \le 10^{-6} \sqrt{H\_{kk}}
+\sqrt{c}\\). A very precise coordinate therefore cannot hide an error in
+another. A graph with a single node is returned unchanged as converged.
+Other outcomes are `"stalled"` (the relative decrease fell below `tol`,
+or no damped step decreased the cost, while the gradient is not
+negligible), `"max_iterations"`, `"linear_solve_failed"` and
+`"invalid_graph"` (nodes not connected to `fixed`; the graph is returned
+unchanged with a warning). A noisy graph converges to a positive cost.
 
 ## Examples
 

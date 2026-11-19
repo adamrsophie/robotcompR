@@ -41,7 +41,8 @@ ekf_slam_landmarks(filter)
 
 - R:
 
-  Measurement noise covariance (2 by 2, range then bearing).
+  Measurement noise covariance (2 by 2, range then bearing, positive
+  definite).
 
 - filter:
 

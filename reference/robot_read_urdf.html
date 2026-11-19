@@ -113,6 +113,10 @@ files are never opened. Every link named by a joint must be declared.
 Limit values are kept literally, as in the reference <code>urdfdom</code>
 parser: a <code>velocity</code> or <code>effort</code> of 0 is a zero limit, and an absent
 attribute is stored as unspecified (<code>NULL</code>).</p>
+<p>URDF versions 1.0, 1.1 and 1.2 are accepted (any other <code>version</code> is an
+error). Origins may give their orientation as <code>quat_xyzw</code> (1.1) instead
+of <code>rpy</code>. The 1.2 <code>acceleration</code>, <code>deceleration</code> and <code>jerk</code> limits are
+not modeled; they are ignored with a warning.</p>
     </div>
 
     <div class="section level2">

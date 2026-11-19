@@ -240,7 +240,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">sol</span><span class="op">$</span><span class="va">converged</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
 <span><span class="va">sol</span><span class="op">$</span><span class="va">position_error</span></span>
-<span><span class="co">#&gt; [1] 2.482534e-16</span></span>
+<span><span class="co">#&gt; [1] 3.140185e-16</span></span>
 <span><span class="fu"><a href="../reference/pose_components.html">pose_translation</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_fk.html">robot_fk</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">sol</span><span class="op">$</span><span class="va">q</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1.2 0.8 0.0</span></span>
 <span><span class="fu"><a href="../reference/ik_planar2.html">ik_planar2</a></span><span class="op">(</span><span class="fl">1.2</span>, <span class="fl">0.8</span>, <span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span></span>
@@ -277,7 +277,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">plan</span></span>
 <span><span class="co">#&gt; &lt;robot_plan&gt; rrt_connect: success</span></span>
 <span><span class="co">#&gt; path found (shortcut smoothed) </span></span>
-<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 1.68 s</span></span>
+<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.41 s</span></span>
 <span><span class="co">#&gt; seed: 1</span></span>
 <span><span class="va">traj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_path.html">robot_traj_path</a></span><span class="op">(</span><span class="va">plan</span>, vmax <span class="op">=</span> <span class="fl">1</span>, amax <span class="op">=</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_traj_check.html">robot_traj_check</a></span><span class="op">(</span><span class="va">robot</span>, <span class="va">traj</span><span class="op">)</span><span class="op">$</span><span class="va">ok</span></span>

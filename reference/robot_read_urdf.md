@@ -45,6 +45,11 @@ kept literally, as in the reference `urdfdom` parser: a `velocity` or
 `effort` of 0 is a zero limit, and an absent attribute is stored as
 unspecified (`NULL`).
 
+URDF versions 1.0, 1.1 and 1.2 are accepted (any other `version` is an
+error). Origins may give their orientation as `quat_xyzw` (1.1) instead
+of `rpy`. The 1.2 `acceleration`, `deceleration` and `jerk` limits are
+not modeled; they are ignored with a warning.
+
 ## Examples
 
 ``` r

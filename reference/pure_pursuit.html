@@ -5,17 +5,23 @@ closest point to the robot. The commanded curvature is
 \(\kappa = 2 y_L / \ell^2\), the circle through the robot and the
 target, where \((x_L, y_L)\) is the target in the body frame and
 \(\ell^2 = x_L^2 + y_L^2\) its squared distance (Coulter, 1992). On a
-straight path \(\ell\) is close to lookahead, but it is shorter when
-the robot is off the path. Near the end
-of the path the last point is used as the goal."><meta property="og:description" content="Computes a unicycle command that steers toward the lookahead point: the
+straight path with cross-track error \(e\) (and the closest point
+inside the path), \(\ell = \sqrt{L_d^2 + e^2}\). Near the end of the
+path the last point is used as the goal. When the target is behind the
+robot (\(x_L &amp;lt; 0\)) the arc would drive away from it, so the command
+turns in place instead: v = 0 and omega = 2 |speed| / lookahead
+toward the side of the target."><meta property="og:description" content="Computes a unicycle command that steers toward the lookahead point: the
 point of the polyline path an arclength lookahead beyond the
 closest point to the robot. The commanded curvature is
 \(\kappa = 2 y_L / \ell^2\), the circle through the robot and the
 target, where \((x_L, y_L)\) is the target in the body frame and
 \(\ell^2 = x_L^2 + y_L^2\) its squared distance (Coulter, 1992). On a
-straight path \(\ell\) is close to lookahead, but it is shorter when
-the robot is off the path. Near the end
-of the path the last point is used as the goal."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
+straight path with cross-track error \(e\) (and the closest point
+inside the path), \(\ell = \sqrt{L_d^2 + e^2}\). Near the end of the
+path the last point is used as the goal. When the target is behind the
+robot (\(x_L &amp;lt; 0\)) the arc would drive away from it, so the command
+turns in place instead: v = 0 and omega = 2 |speed| / lookahead
+toward the side of the target."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -79,9 +85,12 @@ closest point to the robot. The commanded curvature is
 \(\kappa = 2 y_L / \ell^2\), the circle through the robot and the
 target, where \((x_L, y_L)\) is the target in the body frame and
 \(\ell^2 = x_L^2 + y_L^2\) its squared distance (Coulter, 1992). On a
-straight path \(\ell\) is close to <code>lookahead</code>, but it is shorter when
-the robot is off the path. Near the end
-of the path the last point is used as the goal.</p>
+straight path with cross-track error \(e\) (and the closest point
+inside the path), \(\ell = \sqrt{L_d^2 + e^2}\). Near the end of the
+path the last point is used as the goal. When the target is behind the
+robot (\(x_L &lt; 0\)) the arc would drive away from it, so the command
+turns in place instead: <code>v = 0</code> and <code>omega = 2 |speed| / lookahead</code>
+toward the side of the target.</p>
     </div>
 
     <div class="section level2">

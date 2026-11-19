@@ -8,7 +8,9 @@ with columns \\E = \[R_z R_y e_x, R_z e_y, e_z\]\\; the analytic
 Jacobian is \\J_a = \mathrm{diag}(I, E^{-1}) J\\. `E` is singular when
 \\\cos p = 0\\; the function stops there. With
 `representation = "rotvec"` the orientation is the rotation vector
-\\\phi\\ and \\\dot\phi = J_l(\phi)^{-1}\omega\\.
+\\\phi\\ and \\\dot\phi = J_l(\phi)^{-1}\omega\\; the principal rotation
+vector jumps at a half turn, so the function stops when the rotation
+angle is within `tol` of \\\pi\\.
 
 ## Usage
 
@@ -42,7 +44,8 @@ robot_jacobian_analytic(
 
 - tol:
 
-  Singularity tolerance on \\\|\cos p\|\\.
+  Singularity tolerance on \\\|\cos p\|\\ (RPY) or on \\\pi - \theta\\
+  (rotation vector).
 
 ## Value
 
