@@ -137,6 +137,7 @@ ukf_predict <- function(filter, control, dt) {
 #' @export
 ukf_update <- function(filter, measurements) {
   stopifnot(inherits(filter, "robot_ukf"))
+  measurements <- check_measurements(measurements)
   if (!nrow(measurements)) return(filter)
   check_landmark_ids(measurements$id, filter$landmarks)
   nis <- 0
@@ -240,6 +241,7 @@ ekf_slam_predict <- function(filter, control, dt) {
 #' @export
 ekf_slam_update <- function(filter, measurements) {
   stopifnot(inherits(filter, "robot_ekf_slam"))
+  measurements <- check_measurements(measurements)
   if (!nrow(measurements)) return(filter)
   nis <- 0
   for (k in seq_len(nrow(measurements))) {

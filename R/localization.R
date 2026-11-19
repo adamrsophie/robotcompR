@@ -32,6 +32,22 @@ psd_factor <- function(S, name) {
   t(e$vectors %*% diag(sqrt(pmax(e$values, 0)), nrow(S)))
 }
 
+# Range-bearing measurements: a data frame with id, finite nonnegative
+# range and finite bearing.
+check_measurements <- function(m) {
+  if (!is.data.frame(m) || !all(c("id", "range", "bearing") %in% names(m))) {
+    stop("`measurements` must be a data frame with columns id, range and bearing.",
+         call. = FALSE)
+  }
+  if (!is.numeric(m$range) || !is.numeric(m$bearing) ||
+      any(!is.finite(m$range)) || any(!is.finite(m$bearing)) ||
+      any(m$range < 0) || anyNA(m$id)) {
+    stop("Measurements need ids and finite ranges (nonnegative) and bearings.",
+         call. = FALSE)
+  }
+  m
+}
+
 check_landmark_ids <- function(ids, L) {
   bad <- setdiff(as.character(ids), rownames(L))
   if (length(bad)) {
@@ -144,6 +160,7 @@ ekf_predict <- function(filter, control, dt) {
 #' @export
 ekf_update <- function(filter, measurements) {
   stopifnot(inherits(filter, "robot_ekf"))
+  measurements <- check_measurements(measurements)
   if (!nrow(measurements)) return(filter)
   nis <- 0
   for (k in seq_len(nrow(measurements))) {
@@ -253,6 +270,7 @@ pf_predict <- function(filter, control, dt, seed = NULL) {
 pf_update <- function(filter, measurements, resample_threshold = 0.5,
                       seed = NULL) {
   stopifnot(inherits(filter, "robot_particle_filter"))
+  measurements <- check_measurements(measurements)
   if (!nrow(measurements)) return(filter)
   check_landmark_ids(measurements$id, filter$landmarks)
   X <- filter$particles

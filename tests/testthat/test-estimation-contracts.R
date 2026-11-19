@@ -168,3 +168,20 @@ test_that("map inputs are validated before the map changes", {
   h <- grid_update_scan(g, c(0.5, 0.5, 0), 0, 2, 5)
   expect_equal(h$logodds[1, ], c(-0.4, -0.4, 0.85, 0, 0))
 })
+
+test_that("measurement tables are validated by every filter", {
+  L <- rbind(a = c(1, 0))
+  bad <- list(data.frame(id = "a", range = -1, bearing = 0),
+              data.frame(id = "a", range = NA_real_, bearing = 0),
+              data.frame(id = "a", bearing = 0))
+  f <- robot_ekf(c(0, 0, 0), diag(3), L, diag(2), diag(2))
+  u <- robot_ukf(c(0, 0, 0), diag(3), L, diag(2), diag(2))
+  s <- robot_ekf_slam(c(0, 0, 0), diag(3), diag(2), diag(2))
+  p <- robot_particle_filter(5, c(0, 0, 0), diag(3), L, diag(2), diag(2), seed = 1)
+  for (m in bad) {
+    expect_error(ekf_update(f, m), "easurements")
+    expect_error(ukf_update(u, m), "easurements")
+    expect_error(ekf_slam_update(s, m), "easurements")
+    expect_error(pf_update(p, m), "easurements")
+  }
+})
