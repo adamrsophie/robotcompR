@@ -30,11 +30,20 @@
   statistics stay consistent across the angle cut; every filter requires
   symmetric positive semidefinite covariances and validated measurements.
 * Particle filter prediction, EKF-SLAM updates and rigid-body dynamics use
-  faster kernels (vectorized motion, a rank-two Joseph update and cached
-  spatial inertias) with identical results.
+  faster kernels (vectorized motion, a factored sparse Joseph update that
+  keeps the covariance semidefinite, and cached spatial inertias).
 * EPA penetration depth for every convex pair, with certified bounds and a
   `depth_known` flag, and continuous path collision checking by
   conservative advancement.
 * Cartesian trajectories report spatial velocities and accelerations and can
   be converted to joint trajectories.
+* Collision distances never report clearance that thin, nearly parallel or
+  degenerate geometry cannot prove, and do not depend on scale, rotation
+  or where a hull's local origin lies.
+* Pose graph optimization tests convergence per residual component with
+  equilibrated damping, so graphs with mixed scales converge.
+* URDF export writes numbers that read back exactly in any locale and
+  declares URDF 1.1 for capsules; import reads `quat_xyzw` origins.
+* Planners honor their deadline after every validity call, and A* keeps
+  its search on the map with a frontier list.
 * Nine vignettes and a pkgdown site.
