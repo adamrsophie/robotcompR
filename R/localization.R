@@ -254,13 +254,22 @@ robot_particle_filter <- function(n, mean, cov, landmarks, Q, R, seed = NULL) {
 pf_predict <- function(filter, control, dt, seed = NULL) {
   stopifnot(inherits(filter, "robot_particle_filter"))
   u <- check_numeric_vector(control, 2, "control")
+  dt <- check_scalar(dt, "dt", nonnegative = TRUE)
   X <- filter$particles
   n <- nrow(X)
   noise <- with_seed_internal(seed,
     matrix(stats::rnorm(2 * n), n) %*% psd_factor(filter$Q, "Q"))
-  for (i in seq_len(n)) {
-    X[i, ] <- unicycle_step(X[i, ], u[1] + noise[i, 1], u[2] + noise[i, 2], dt)
-  }
+  # The arc of unicycle_step() for every particle at once, with the same
+  # operation order so the result is bit for bit identical.
+  v <- u[1] + noise[, 1]
+  w <- u[2] + noise[, 2]
+  half <- (w * dt) / 2
+  s <- ifelse(abs(half) < 1e-4, 1 - half^2 / 6 + half^4 / 120, sin(half) / half)
+  h <- X[, 3] + half
+  D <- (v * dt) * s
+  X[, 1] <- X[, 1] + D * cos(h)
+  X[, 2] <- X[, 2] + D * sin(h)
+  X[, 3] <- wrap_angle_internal(X[, 3] + w * dt)
   filter$particles <- X
   filter
 }

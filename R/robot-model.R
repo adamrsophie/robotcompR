@@ -125,7 +125,11 @@ compile_model <- function(m) {
     end_effector = ee, link_names = link_order,
     joint_names = names(joints), parent_index = parent_index,
     movable = movable, q_index = q_index, dof = sum(movable),
-    ancestors = ancestors
+    ancestors = ancestors,
+    # Configuration-independent dynamics quantities, rebuilt on every
+    # compile (all model modifiers recompile), never carried over.
+    spatial_inertia = lapply(links, spatial_inertia),
+    motion_subspace = c(list(NULL), lapply(joints, motion_subspace))
   ), class = "robot_model")
 }
 

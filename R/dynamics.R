@@ -38,6 +38,10 @@ motion_subspace <- function(j) {
   S
 }
 
+link_inertia <- function(robot, k) {
+  robot$spatial_inertia[[k]] %||% spatial_inertia(robot$links[[k]])
+}
+
 pose_inverse_matrix <- function(M) {
   R <- M[1:3, 1:3]
   out <- diag(4)
@@ -58,9 +62,9 @@ link_transforms <- function(robot, q) {
     T <- j$origin %*% joint_motion(j, qi)
     if (!is.null(j$post)) T <- T %*% j$post
     X[[k]] <- se3_adjoint(pose_inverse_matrix(T))
-    S[[k]] <- motion_subspace(j)
   }
-  list(X = X, S = S)
+  list(X = X, S = robot$motion_subspace %||% c(list(NULL),
+                                               lapply(robot$joints, motion_subspace)))
 }
 
 check_gravity <- function(g) check_numeric_vector(g, 3, "gravity")
@@ -147,7 +151,7 @@ rnea_internal <- function(robot, q, qd, qdd, gravity, Fext, tr = NULL) {
       v[[k]] <- as.numeric(X %*% v[[p]])
       a[[k]] <- as.numeric(X %*% a[[p]])
     }
-    I <- spatial_inertia(robot$links[[k]])
+    I <- link_inertia(robot, k)
     f[[k]] <- as.numeric(I %*% a[[k]] + crf(v[[k]]) %*% (I %*% v[[k]])) -
       Fext[[k]]
   }
@@ -184,7 +188,7 @@ robot_mass_matrix <- function(robot, q) {
 crba_internal <- function(robot, q, tr = NULL) {
   nl <- length(robot$link_names)
   tr <- tr %||% link_transforms(robot, q)
-  Ic <- lapply(robot$links, spatial_inertia)
+  Ic <- robot$spatial_inertia %||% lapply(robot$links, spatial_inertia)
   for (k in rev(seq_len(nl)[-1])) {
     p <- robot$parent_index[k]
     if (p > 1) Ic[[p]] <- Ic[[p]] + crossprod(tr$X[[k]], Ic[[k]] %*% tr$X[[k]])
@@ -259,7 +263,7 @@ aba_internal <- function(robot, q, qd, tau, gravity, Fext, tr = NULL) {
       v[[k]] <- vp
       cc[[k]] <- rep(0, 6)
     }
-    IA[[k]] <- spatial_inertia(robot$links[[k]])
+    IA[[k]] <- link_inertia(robot, k)
     pA[[k]] <- as.numeric(crf(v[[k]]) %*% (IA[[k]] %*% v[[k]])) - Fext[[k]]
   }
   # Composite (rigid) subtree inertias give each pivot a reference of the

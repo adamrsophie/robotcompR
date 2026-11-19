@@ -274,17 +274,20 @@ ekf_slam_update <- function(filter, measurements) {
     }
     zhat <- c(r, wrap_angle_internal(atan2(d[2], d[1]) - x[3]))
     Hx <- rbind(c(-d[1] / r, -d[2] / r, 0), c(d[2] / q, -d[1] / q, -1))
-    H <- matrix(0, 2, n)
-    H[, 1:3] <- Hx
-    H[, li] <- -Hx[, 1:2]
+    # H is nonzero only on the pose and this landmark, so with U = P H'
+    # the Joseph form (I - KH) P (I - KH)' + K R K' expands to
+    # P - K U' - U K' + K S K': quadratic, not cubic, in the state size.
+    active <- c(1:3, li)
+    Ha <- cbind(Hx, -Hx[, 1:2])
     innov <- c(z[1] - zhat[1], wrap_angle_internal(z[2] - zhat[2]))
     P <- filter$cov
-    S <- H %*% P %*% t(H) + filter$R
-    K <- P %*% t(H) %*% solve(S)
+    U <- P[, active, drop = FALSE] %*% t(Ha)
+    S <- Ha %*% U[active, , drop = FALSE] + filter$R
+    K <- U %*% solve(S)
     filter$mean <- filter$mean + as.numeric(K %*% innov)
     filter$mean[3] <- wrap_angle_internal(filter$mean[3])
-    IKH <- diag(n) - K %*% H
-    P <- IKH %*% P %*% t(IKH) + K %*% filter$R %*% t(K)
+    KU <- tcrossprod(K, U)
+    P <- P - KU - t(KU) + K %*% tcrossprod(S, K)
     filter$cov <- (P + t(P)) / 2
     nis <- nis + sum(innov * solve(S, innov))
   }
