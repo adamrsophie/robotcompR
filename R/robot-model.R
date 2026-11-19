@@ -365,11 +365,14 @@ robot_set_limits <- function(robot, limits) {
   joints <- robot$joints
   for (i in seq_along(idx)) {
     j <- joints[[idx[i]]]
-    joints[[idx[i]]] <- robot_joint(
+    # The constructor validates the new limits (continuous joints reject
+    # finite ones); every other field, such as damping, is kept.
+    nj <- robot_joint(
       j$name, j$type, j$parent, j$child, robot_pose(matrix = j$origin),
-      j$axis, if (j$type == "continuous") NULL else limits[[i]], j$velocity,
-      j$acceleration, j$effort, j$offset,
+      j$axis, limits[[i]], j$velocity, j$acceleration, j$effort, j$offset,
       if (is.null(j$post)) NULL else robot_pose(matrix = j$post))
+    j$limits <- nj$limits
+    joints[[idx[i]]] <- j
   }
   names(joints) <- robot$joint_names
   recompile(robot, joints = joints)

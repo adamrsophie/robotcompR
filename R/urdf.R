@@ -75,8 +75,9 @@ urdf_geometry <- function(node, origin) {
 #' network access is disabled in the XML parser, the file content is
 #' parsed as XML text (never followed as a further path or URL), and mesh
 #' files are never opened. Every link named by a joint must be declared.
-#' A `velocity` or `effort` limit of 0, the usual placeholder for a
-#' required URDF attribute, is read as unspecified.
+#' Limit values are kept literally, as in the reference `urdfdom`
+#' parser: a `velocity` or `effort` of 0 is a zero limit, and an absent
+#' attribute is stored as unspecified (`NULL`).
 #'
 #' @param file Path to a URDF file, or a character string with URDF XML.
 #' @param end_effector Optional end-effector link name.
@@ -182,10 +183,8 @@ robot_read_urdf <- function(file, end_effector = NULL) {
     if (!inherits(lim, "xml_missing")) {
       vel <- parse_num(xml2::xml_attr(lim, "velocity"), NULL, "velocity")
       eff <- parse_num(xml2::xml_attr(lim, "effort"), NULL, "effort")
-      # URDF requires these attributes, so 0 is the common placeholder for
-      # "not specified"; a literal zero limit would forbid any motion.
-      if (!is.null(vel) && vel == 0) vel <- NULL
-      if (!is.null(eff) && eff == 0) eff <- NULL
+      # Values are kept literally, as urdfdom does: zero means zero. An
+      # absent attribute is stored as NULL (unspecified).
       if (type %in% c("revolute", "prismatic")) {
         limits <- c(parse_num(xml2::xml_attr(lim, "lower"), 0, "lower"),
                     parse_num(xml2::xml_attr(lim, "upper"), 0, "upper"))
@@ -280,24 +279,54 @@ urdf_geometry_xml <- function(g, tag) {
 #' named `<joint>_post` (a numeric suffix is added if a name is taken).
 #' The extra joints can change the breadth-first order of the movable
 #' joints; when the reimported configuration order differs, a warning
-#' gives both orders. Names are XML-escaped. Unspecified velocity and
-#' effort limits are written as 0, which [robot_read_urdf()] reads back as
-#' unspecified.
+#' gives both orders. Names are XML-escaped.
+#'
+#' Limits keep their literal meaning: URDF requires `effort` and
+#' `velocity` on every revolute and prismatic joint, and a value of 0
+#' forbids motion for every URDF reader. When a joint leaves them
+#' unspecified (`NULL`), the export stops unless `fill_limits` supplies the
+#' values to write. Joint damping and friction are written as a
+#' `<dynamics>` element, although the dynamics functions do not apply them.
 #' Forward kinematics of every original frame is preserved; the exported
 #' model has extra frames. Convex-hull geometry has no URDF equivalent and
 #' is omitted with a warning.
 #'
 #' @param robot A `robot_model`.
 #' @param file Output path, or `NULL` to return the XML string.
+#' @param fill_limits `NULL` (the default) to require every revolute and
+#'   prismatic joint to carry effort and velocity limits, or
+#'   `c(effort = , velocity = )` giving the values written for joints that
+#'   leave them unspecified. These values are read back literally.
 #' @return The URDF text, invisibly when written to a file.
 #' @examples
 #' robot <- robot_example("planar2")
-#' txt <- robot_write_urdf(robot)
+#' txt <- robot_write_urdf(robot, fill_limits = c(effort = 50, velocity = 5))
 #' back <- robot_read_urdf(txt)
 #' pose_translation(robot_fk(back, c(pi / 2, pi / 2), "link2"))
 #' @export
-robot_write_urdf <- function(robot, file = NULL) {
+robot_write_urdf <- function(robot, file = NULL, fill_limits = NULL) {
   check_robot(robot)
+  if (!is.null(fill_limits)) {
+    if (!is.numeric(fill_limits) || length(fill_limits) != 2 ||
+        !setequal(names(fill_limits), c("effort", "velocity")) ||
+        any(!is.finite(fill_limits)) || any(fill_limits < 0)) {
+      stop(paste0("`fill_limits` must be NULL or c(effort = , velocity = ) ",
+                  "with finite nonnegative values."), call. = FALSE)
+    }
+  }
+  needs <- vapply(robot$joints, function(j) {
+    j$type %in% c("revolute", "prismatic") &&
+      (is.null(j$effort) || is.null(j$velocity))
+  }, TRUE)
+  if (any(needs) && is.null(fill_limits)) {
+    stop(sprintf(paste0(
+      "URDF requires effort and velocity limits, which are unspecified for ",
+      "joint%s %s. Set them with robot_joint(), or pass fill_limits = ",
+      "c(effort = , velocity = ) to write explicit values."),
+      if (sum(needs) > 1) "s" else "",
+      paste(sprintf("'%s'", robot$joint_names[needs]), collapse = ", ")),
+      call. = FALSE)
+  }
   esc <- xml_attr_escape
   out <- sprintf('<?xml version="1.0"?>\n<robot name="%s">', esc(robot$name))
   extra_links <- character(0)
@@ -337,7 +366,13 @@ robot_write_urdf <- function(robot, file = NULL) {
       taken <- c(taken, child, post_name)
     }
     lim <- ""
-    if (j$type %in% c("revolute", "prismatic", "continuous")) {
+    eff <- j$effort %||% fill_limits[["effort"]]
+    vel <- j$velocity %||% fill_limits[["velocity"]]
+    # A continuous joint may omit <limit>; it is written only when both
+    # values are known, since URDF requires both attributes.
+    write_lim <- j$type %in% c("revolute", "prismatic") ||
+      (j$type == "continuous" && !is.null(eff) && !is.null(vel))
+    if (write_lim) {
       lo <- j$limits[1]
       hi <- j$limits[2]
       if (j$type != "continuous" && (!is.finite(lo) || !is.finite(hi))) {
@@ -345,13 +380,16 @@ robot_write_urdf <- function(robot, file = NULL) {
                             "finite limits or type continuous."), j$name),
              call. = FALSE)
       }
-      # URDF requires effort and velocity; 0 marks them as unspecified and
-      # is read back as unspecified by robot_read_urdf().
       lim <- sprintf('<limit%s effort="%s" velocity="%s"/>',
                      if (j$type == "continuous") ""
                      else sprintf(' lower="%s" upper="%s"', fmt_num(lo),
                                   fmt_num(hi)),
-                     fmt_num(j$effort %||% 0), fmt_num(j$velocity %||% 0))
+                     fmt_num(eff), fmt_num(vel))
+    }
+    if (!is.null(j$damping) || !is.null(j$friction)) {
+      lim <- paste0(lim, sprintf('<dynamics damping="%s" friction="%s"/>',
+                                 fmt_num(j$damping %||% 0),
+                                 fmt_num(j$friction %||% 0)))
     }
     out <- c(out, sprintf(
       '  <joint name="%s" type="%s"><parent link="%s"/><child link="%s"/>%s%s%s</joint>',

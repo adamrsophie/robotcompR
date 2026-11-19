@@ -42,7 +42,7 @@ test_that("URDF round trip preserves kinematics and dynamics", {
   set.seed(31)
   for (nm in c("puma560", "planar3", "branched")) {
     robot <- robot_example(nm)
-    back <- robot_read_urdf(robot_write_urdf(robot))
+    back <- robot_read_urdf(robot_write_urdf(robot, fill_limits = c(effort = 100, velocity = 100)))
     expect_equal(robot_dof(back), robot_dof(robot))
     for (i in 1:3) {
       q <- robot_random_configuration(robot)
@@ -53,12 +53,12 @@ test_that("URDF round trip preserves kinematics and dynamics", {
     }
   }
   r3 <- robot_example("planar3")
-  b3 <- robot_read_urdf(robot_write_urdf(r3))
+  b3 <- robot_read_urdf(robot_write_urdf(r3, fill_limits = c(effort = 100, velocity = 100)))
   q <- c(0.1, 0.2, 0.3)
   expect_equal(unname(robot_mass_matrix(b3, q)), unname(robot_mass_matrix(r3, q)),
                tolerance = 1e-12)
   f <- tempfile(fileext = ".urdf")
-  robot_write_urdf(r3, f)
+  robot_write_urdf(r3, f, fill_limits = c(effort = 100, velocity = 100))
   expect_true(file.exists(f))
 })
 

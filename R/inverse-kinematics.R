@@ -319,14 +319,22 @@ ik_planar2 <- function(x, y, l1, l2, tol = 1e-12) {
   if (abs(c2) > 1 + tol) {
     return(matrix(numeric(0), 0, 2, dimnames = list(NULL, c("q1", "q2"))))
   }
-  c2 <- max(-1, min(1, c2))
-  if (x^2 + y^2 <= tol * (l1 + l2)^2 && abs(l1 - l2) <= tol * (l1 + l2)) {
+  r <- sqrt(x^2 + y^2)
+  # Positional degeneracy is a distance test, so it scales linearly with
+  # the arm, unlike the dimensionless reachability slack above.
+  if (r <= tol * (l1 + l2) && abs(l1 - l2) <= tol * (l1 + l2)) {
     return(matrix(c(0, pi), 1, dimnames = list("q2_positive", c("q1", "q2"))))
   }
-  q2 <- acos(c2)
-  q2s <- if (q2 < 1e-12 || abs(q2 - pi) < 1e-12) q2 else c(q2, -q2)
+  # Half-angle form tan(q2 / 2) = sqrt(((l1 + l2)^2 - r^2) / (r^2 - (l1 - l2)^2))
+  # stays accurate near the stretched and folded configurations, where
+  # acos() loses half its digits.
+  num <- max(0, (l1 + l2 - r) * (l1 + l2 + r))
+  den <- max(0, (r - abs(l1 - l2)) * (r + abs(l1 - l2)))
+  q2 <- 2 * atan2(sqrt(num), sqrt(den))
+  q2s <- if (num == 0 || den == 0) q2 else c(q2, -q2)
   out <- t(vapply(q2s, function(b) {
-    a <- atan2(y, x) - atan2(l2 * sin(b), l1 + l2 * cos(b))
+    # l1 + l2 cos(b) written without cancellation near b = pi.
+    a <- atan2(y, x) - atan2(l2 * sin(b), (l1 - l2) + 2 * l2 * cos(b / 2)^2)
     c(wrap_angle_internal(a), b)
   }, numeric(2)))
   dimnames(out) <- list(c("q2_positive", "q2_negative")[seq_len(nrow(out))],

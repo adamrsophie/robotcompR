@@ -262,6 +262,10 @@ aba_internal <- function(robot, q, qd, tau, gravity, Fext, tr = NULL) {
     IA[[k]] <- spatial_inertia(robot$links[[k]])
     pA[[k]] <- as.numeric(crf(v[[k]]) %*% (IA[[k]] %*% v[[k]])) - Fext[[k]]
   }
+  # Composite (rigid) subtree inertias give each pivot a reference of the
+  # same physical units: the articulated inertia never exceeds it, and a
+  # pivot that is tiny relative to it means the joint drives no inertia.
+  IC <- IA
   U <- vector("list", nl)
   D <- numeric(nl)
   u <- numeric(nl)
@@ -272,7 +276,8 @@ aba_internal <- function(robot, q, qd, tau, gravity, Fext, tr = NULL) {
       S <- tr$S[[k]]
       U[[k]] <- as.numeric(IA[[k]] %*% S)
       D[k] <- sum(S * U[[k]])
-      if (D[k] <= 1e-12 * max(1, max(abs(IA[[k]])))) {
+      Dref <- sum(S * (IC[[k]] %*% S))
+      if (!(Dref > 0) || D[k] <= 1e-12 * Dref) {
         stop(sprintf(paste0("Joint '%s' drives no inertia; forward dynamics ",
                             "is undefined (add mass or inertia)."),
                      robot$joint_names[ji]), call. = FALSE)
@@ -287,6 +292,7 @@ aba_internal <- function(robot, q, qd, tau, gravity, Fext, tr = NULL) {
     if (p > 1) {
       X <- tr$X[[k]]
       IA[[p]] <- IA[[p]] + crossprod(X, Ia %*% X)
+      IC[[p]] <- IC[[p]] + crossprod(X, IC[[k]] %*% X)
       pA[[p]] <- pA[[p]] + as.numeric(crossprod(X, pa))
     }
   }

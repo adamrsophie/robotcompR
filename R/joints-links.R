@@ -100,7 +100,13 @@ as_pose3 <- function(x, name) {
                          call. = FALSE)
     return(x)
   }
-  if (is.matrix(x)) return(robot_pose(matrix = x))
+  if (is.matrix(x)) {
+    if (!identical(dim(x), c(4L, 4L))) {
+      stop(sprintf("`%s` must be a 4 by 4 SE(3) matrix, not %d by %d.", name,
+                   nrow(x), ncol(x)), call. = FALSE)
+    }
+    return(robot_pose(matrix = x))
+  }
   stop(sprintf("`%s` must be a robot_pose.", name), call. = FALSE)
 }
 
@@ -130,13 +136,16 @@ joint_motion <- function(j, q) {
 
 check_inertia <- function(I, name, tol = 1e-9) {
   I <- check_matrix(I, 3, 3, name)
-  if (max(abs(I - t(I))) > tol * max(1, max(abs(I)))) {
+  # Tolerances are relative to the tensor itself, so the checks behave the
+  # same for a micro robot and an industrial arm.
+  if (max(abs(I - t(I))) > tol * max(abs(I))) {
     stop(sprintf("Inertia of link '%s' is not symmetric.", name),
          call. = FALSE)
   }
   I <- (I + t(I)) / 2
   ev <- eigen(I, symmetric = TRUE, only.values = TRUE)$values
-  scale <- max(1, max(abs(ev)))
+  scale <- max(abs(ev))
+  if (scale == 0) return(I)
   if (min(ev) < -tol * scale) {
     stop(sprintf("Inertia of link '%s' is not positive semidefinite.", name),
          call. = FALSE)

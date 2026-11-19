@@ -34,8 +34,9 @@ with ROS tools first), documents declaring entities are refused,
 network access is disabled in the XML parser, the file content is
 parsed as XML text (never followed as a further path or URL), and mesh
 files are never opened. Every link named by a joint must be declared.
-A \code{velocity} or \code{effort} limit of 0, the usual placeholder for a
-required URDF attribute, is read as unspecified.
+Limit values are kept literally, as in the reference \code{urdfdom}
+parser: a \code{velocity} or \code{effort} of 0 is a zero limit, and an absent
+attribute is stored as unspecified (\code{NULL}).
 }
 \examples{
 robot <- robot_read_urdf(system.file("extdata", "planar2.urdf",

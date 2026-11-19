@@ -163,14 +163,14 @@ test_that("URDF parsing never follows file content and export round trips", {
     '<robot name="r"><link name="a"/><joint name="f" type="fixed">',
     '<parent link="a"/><child link="typo"/></joint></robot>')), "undeclared")
   a <- robot_example("planar1")
-  b <- robot_read_urdf(robot_write_urdf(a))
+  b <- robot_read_urdf(robot_write_urdf(a, fill_limits = c(effort = 100, velocity = 100)))
   expect_true(robot_traj_check(b, robot_traj_polynomial(0, 1, 1))$ok)
   named <- a
   named$name <- "R&D <arm>"
-  expect_equal(robot_read_urdf(robot_write_urdf(named))$name, "R&D <arm>")
+  expect_equal(robot_read_urdf(robot_write_urdf(named, fill_limits = c(effort = 100, velocity = 100)))$name, "R&D <arm>")
   clash <- robot_add_frame(robot_example("planar1"), "link1_motion", "base",
                            set_end_effector = FALSE)
-  expect_equal(robot_joint_names(robot_read_urdf(robot_write_urdf(clash))), "joint1")
+  expect_equal(robot_joint_names(robot_read_urdf(robot_write_urdf(clash, fill_limits = c(effort = 100, velocity = 100)))), "joint1")
   m <- robot_model(joints = list(
     robot_joint("ja", "continuous", "base", "a", post = robot_pose()),
     robot_joint("jb", "continuous", "base", "b"),
