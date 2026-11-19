@@ -11,15 +11,15 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 
 \item{fixed}{Index of the anchored node.}
 
-\item{max_iterations}{Maximum iterations.}
+\item{max_iterations}{Maximum iterations (0 only evaluates the graph).}
 
 \item{tol}{Relative cost decrease treated as no progress.}
 }
 \value{
 A list with the optimized \code{graph}, \code{cost} history, \code{iterations},
 \code{converged} (\code{TRUE} only for \code{status == "converged"}), \code{status} and
-\code{gradient}, the relative gradient norm at the start of the last
-iteration.
+\code{gradient}, the largest scaled gradient component at the start of
+the last iteration.
 }
 \description{
 Minimizes \eqn{\sum e_{ij}^\top \Omega_{ij} e_{ij}} over the node poses
@@ -40,9 +40,12 @@ connected to it through edges.
 }
 \details{
 Convergence means stationarity, not merely a small change: the
-optimizer stops with \code{status = "converged"} when the cost is zero to
-roundoff for the graph's scale or the gradient is negligible relative to the cost
-(\eqn{\|g\| \le 10^{-6} \sqrt{\max H_{kk}\, c}}). Other outcomes are
+optimizer stops with \code{status = "converged"} when every residual
+component is at roundoff level for the magnitudes involved, or every
+gradient component is negligible on its own scale
+(\eqn{|g_k| \le 10^{-6} \sqrt{H_{kk}} \sqrt{c}}). A very precise
+coordinate therefore cannot hide an error in another. A graph with a
+single node is returned unchanged as converged. Other outcomes are
 \code{"stalled"} (the relative decrease fell below \code{tol}, or no damped step
 decreased the cost, while the gradient is not negligible),
 \code{"max_iterations"}, \code{"linear_solve_failed"} and \code{"invalid_graph"}

@@ -134,9 +134,11 @@ se3_right_jacobian <- function(xi, h = 1e-6) {
   E0inv <- se3_exp(-xi)
   J <- matrix(0, 6, 6)
   for (k in 1:6) {
-    d <- replace(numeric(6), k, h)
+    # The step is relative to the component so a large translation does
+    # not round it away.
+    d <- replace(numeric(6), k, h * max(1, abs(xi[k])))
     J[, k] <- (se3_log(E0inv %*% se3_exp(xi + d)) -
-                 se3_log(E0inv %*% se3_exp(xi - d))) / (2 * h)
+                 se3_log(E0inv %*% se3_exp(xi - d))) / (2 * d[k])
   }
   J
 }
@@ -148,7 +150,14 @@ se3_right_jacobian <- function(xi, h = 1e-6) {
 # differencing residuals on opposite sides of the cut would not.
 edge_jacobians3 <- function(Xi, Xj, Z) {
   e <- edge_error3(Xi, Xj, Z)
-  B <- solve(se3_right_jacobian(e))
+  # J = [Jr Q; 0 Jr] (translation first): invert by blocks, which stays
+  # exact when Q is huge next to Jr (large translations).
+  J <- se3_right_jacobian(e)
+  Ai <- solve(J[4:6, 4:6])
+  B <- matrix(0, 6, 6)
+  B[1:3, 1:3] <- solve(J[1:3, 1:3])
+  B[4:6, 4:6] <- Ai
+  B[1:3, 4:6] <- -B[1:3, 1:3] %*% J[1:3, 4:6] %*% Ai
   A <- -B %*% se3_adjoint(se3_inverse_matrix(Xj) %*% Xi)
   list(A = A, B = B)
 }
@@ -172,9 +181,12 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 #' connected to it through edges.
 #'
 #' Convergence means stationarity, not merely a small change: the
-#' optimizer stops with `status = "converged"` when the cost is zero to
-#' roundoff for the graph's scale or the gradient is negligible relative to the cost
-#' (\eqn{\|g\| \le 10^{-6} \sqrt{\max H_{kk}\, c}}). Other outcomes are
+#' optimizer stops with `status = "converged"` when every residual
+#' component is at roundoff level for the magnitudes involved, or every
+#' gradient component is negligible on its own scale
+#' (\eqn{|g_k| \le 10^{-6} \sqrt{H_{kk}} \sqrt{c}}). A very precise
+#' coordinate therefore cannot hide an error in another. A graph with a
+#' single node is returned unchanged as converged. Other outcomes are
 #' `"stalled"` (the relative decrease fell below `tol`, or no damped step
 #' decreased the cost, while the gradient is not negligible),
 #' `"max_iterations"`, `"linear_solve_failed"` and `"invalid_graph"`
@@ -183,12 +195,12 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 #'
 #' @param graph A `robot_pose_graph`.
 #' @param fixed Index of the anchored node.
-#' @param max_iterations Maximum iterations.
+#' @param max_iterations Maximum iterations (0 only evaluates the graph).
 #' @param tol Relative cost decrease treated as no progress.
 #' @return A list with the optimized `graph`, `cost` history, `iterations`,
 #'   `converged` (`TRUE` only for `status == "converged"`), `status` and
-#'   `gradient`, the relative gradient norm at the start of the last
-#'   iteration.
+#'   `gradient`, the largest scaled gradient component at the start of
+#'   the last iteration.
 #' @examples
 #' g <- robot_pose_graph(rbind(c(0, 0, 0), c(1.2, 0.1, 0.1), c(1.9, 1.2, 1.7)))
 #' g <- pose_graph_add_edge(g, 1, 2, c(1, 0, pi / 2))
@@ -199,12 +211,17 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
                                 tol = 1e-12) {
   stopifnot(inherits(graph, "robot_pose_graph"))
-  if (!length(graph$edges)) stop("The graph has no edges.", call. = FALSE)
   se3 <- pose_graph_group(graph) == "SE3"
   bs <- if (se3) 6L else 3L
   n <- pose_graph_size(graph)
   fixed <- check_count(fixed, "fixed")
   if (fixed > n) stop("`fixed` must be an existing node.", call. = FALSE)
+  max_iterations <- check_count(max_iterations, "max_iterations", min = 0)
+  tol <- check_scalar(tol, "tol", nonnegative = TRUE)
+  if (n == 1L) {
+    return(list(graph = graph, cost = 0, iterations = 0L, converged = TRUE,
+                status = "converged", gradient = 0))
+  }
   X <- if (se3) lapply(graph$nodes, as_plain_matrix) else graph$nodes
   residual <- function(X, e) {
     if (se3) edge_error3(X[[e$i]], X[[e$j]], e$z)
@@ -229,18 +246,20 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     r <- residual(X, e)
     sum(r * (e$omega %*% r))
   }, 0))
-  # Every node must be tied to the anchor, or its gauge is free.
-  reach <- fixed
-  repeat {
-    nb <- unlist(lapply(graph$edges, function(e) {
-      if (e$i %in% reach) e$j else if (e$j %in% reach) e$i
-    }))
-    new <- setdiff(nb, reach)
-    if (!length(new)) break
-    reach <- c(reach, new)
+  # Every node must be tied to the anchor, or its gauge is free:
+  # breadth-first search over an adjacency list.
+  ei <- vapply(graph$edges, `[[`, 0, "i")
+  ej <- vapply(graph$edges, `[[`, 0, "j")
+  adj <- split(c(ej, ei), factor(c(ei, ej), levels = seq_len(n)))
+  seen <- replace(logical(n), fixed, TRUE)
+  frontier <- fixed
+  while (length(frontier)) {
+    nb <- unique(unlist(adj[frontier], use.names = FALSE))
+    frontier <- nb[!seen[nb]]
+    seen[frontier] <- TRUE
   }
-  if (length(reach) < n) {
-    lost <- setdiff(seq_len(n), reach)
+  if (!all(seen)) {
+    lost <- which(!seen)
     warning(sprintf("Node%s %s %s not connected to the fixed node %d.",
                     if (length(lost) > 1) "s" else "",
                     paste(lost, collapse = ", "),
@@ -249,52 +268,80 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
                 converged = FALSE, status = "invalid_graph",
                 gradient = NA_real_))
   }
+  # Residuals at roundoff level: each component is compared with about
+  # 1000 machine epsilons times the magnitudes it was computed from, so a
+  # precise coordinate never sets the tolerance of another.
+  position <- function(X, a) if (se3) X[[a]][1:3, 4] else X[a, 1:2]
+  at_roundoff <- function(X) all(vapply(graph$edges, function(e) {
+    r <- residual(X, e)
+    zt <- if (se3) e$z[1:3, 4] else e$z[1:2]
+    mag <- 1 + vnorm(zt) + vnorm(position(X, e$i)) + vnorm(position(X, e$j))
+    scale <- 1e3 * .Machine$double.eps *
+      (if (se3) c(rep(mag, 3), rep(1, 3)) else c(mag, mag, 1))
+    all(abs(r) <= scale)
+  }, logical(1)))
   cost <- cost_of(X)
   hist <- cost
-  # Cost of residuals at roundoff level for this graph's scale: a residual
-  # of about 1000 machine epsilons times (1 + |translation|) per edge.
-  zero_cost <- (1e3 * .Machine$double.eps)^2 * sum(vapply(graph$edges, function(e) {
-    t <- if (se3) e$z[1:3, 4] else e$z[1:2]
-    max(diag(e$omega)) * (1 + sum(t^2)) * nrow(e$omega)
-  }, numeric(1)))
   lambda <- 1e-6
   status <- "max_iterations"
   grad <- NA_real_
   prev_small <- FALSE
   it <- 0L
-  for (it in seq_len(max_iterations)) {
-    ii <- integer(0); jj <- integer(0); vv <- numeric(0)
+  nb2 <- 4L * bs * bs
+  keep <- setdiff(seq_len(bs * n), bs * (fixed - 1) + seq_len(bs))
+  while (it < max_iterations) {
+    it <- it + 1L
+    ii <- jj <- integer(nb2 * length(graph$edges))
+    vv <- numeric(nb2 * length(graph$edges))
+    pos <- 0L
     b <- numeric(bs * n)
+    lin_failed <- FALSE
     for (e in graph$edges) {
       r <- residual(X, e)
-      J <- jacobians(X, e)
+      J <- tryCatch(jacobians(X, e), error = function(err) NULL)
+      if (is.null(J) || any(!is.finite(J$A)) || any(!is.finite(J$B))) {
+        lin_failed <- TRUE
+        break
+      }
       blocks <- list(list(a = e$i, Ja = J$A), list(a = e$j, Ja = J$B))
       for (p in blocks) {
         ia <- bs * (p$a - 1) + seq_len(bs)
         b[ia] <- b[ia] + as.numeric(t(p$Ja) %*% e$omega %*% r)
         for (q in blocks) {
           ib <- bs * (q$a - 1) + seq_len(bs)
-          H <- t(p$Ja) %*% e$omega %*% q$Ja
-          ii <- c(ii, rep(ia, bs))
-          jj <- c(jj, rep(ib, each = bs))
-          vv <- c(vv, as.numeric(H))
+          idx <- pos + seq_len(bs * bs)
+          ii[idx] <- rep(ia, bs)
+          jj[idx] <- rep(ib, each = bs)
+          vv[idx] <- as.numeric(t(p$Ja) %*% e$omega %*% q$Ja)
+          pos <- pos + bs * bs
         }
       }
     }
+    if (lin_failed) {
+      status <- "linear_solve_failed"
+      break
+    }
     H <- Matrix::sparseMatrix(i = ii, j = jj, x = vv, dims = c(bs * n, bs * n))
-    keep <- setdiff(seq_len(bs * n), bs * (fixed - 1) + seq_len(bs))
     Hk <- H[keep, keep]
-    hmax <- max(Matrix::diag(Hk))
-    grad <- sqrt(sum(b[keep]^2)) / sqrt(max(hmax * cost, .Machine$double.xmin))
-    if (cost <= zero_cost || grad <= 1e-6) {
+    hd <- Matrix::diag(Hk)
+    # Componentwise scaled gradient, formed without squaring so extreme
+    # information neither overflows nor underflows.
+    sc <- sqrt(pmax(hd, .Machine$double.xmin)) * sqrt(max(cost, .Machine$double.xmin))
+    grad <- max(abs(b[keep]) / sc)
+    if (at_roundoff(X) || grad <= 1e-6) {
       status <- "converged"
       break
     }
     improved <- FALSE
     solve_failed <- FALSE
     for (attempt in 1:20) {
-      Hd <- Hk + Matrix::Diagonal(length(keep), lambda * hmax)
-      dx <- tryCatch(as.numeric(Matrix::solve(Hd, -b[keep])),
+      # Marquardt damping on each diagonal entry, solved after symmetric
+      # Jacobi equilibration so information spanning many orders of
+      # magnitude stays well conditioned.
+      dd <- ifelse(hd > 0, hd, 1)
+      Di <- Matrix::Diagonal(x = 1 / sqrt(dd))
+      Hs <- Di %*% Hk %*% Di + Matrix::Diagonal(length(keep), lambda)
+      dx <- tryCatch(as.numeric(Di %*% Matrix::solve(Hs, -as.numeric(Di %*% b[keep]))),
                      error = function(e) NULL)
       if (is.null(dx) || any(!is.finite(dx))) {
         solve_failed <- TRUE
@@ -315,7 +362,7 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
       break
     }
     if (!improved) {
-      status <- if (cost <= 100 * zero_cost) "converged" else "stalled"
+      status <- if (at_roundoff(X)) "converged" else "stalled"
       break
     }
     rel <- (cost - cn) / max(cost, .Machine$double.eps)
@@ -323,7 +370,7 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     cost <- cn
     hist <- c(hist, cost)
     lambda <- max(lambda / 10, 1e-12)
-    if (cost <= zero_cost) {
+    if (at_roundoff(X)) {
       status <- "converged"
       break
     }
