@@ -173,7 +173,7 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 #'
 #' Convergence means stationarity, not merely a small change: the
 #' optimizer stops with `status = "converged"` when the cost is zero to
-#' roundoff or the gradient is negligible relative to the cost
+#' roundoff for the graph's scale or the gradient is negligible relative to the cost
 #' (\eqn{\|g\| \le 10^{-6} \sqrt{\max H_{kk}\, c}}). Other outcomes are
 #' `"stalled"` (the relative decrease fell below `tol`, or no damped step
 #' decreased the cost, while the gradient is not negligible),
@@ -187,7 +187,8 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 #' @param tol Relative cost decrease treated as no progress.
 #' @return A list with the optimized `graph`, `cost` history, `iterations`,
 #'   `converged` (`TRUE` only for `status == "converged"`), `status` and
-#'   `gradient`, the relative gradient norm at the returned nodes.
+#'   `gradient`, the relative gradient norm at the start of the last
+#'   iteration.
 #' @examples
 #' g <- robot_pose_graph(rbind(c(0, 0, 0), c(1.2, 0.1, 0.1), c(1.9, 1.2, 1.7)))
 #' g <- pose_graph_add_edge(g, 1, 2, c(1, 0, pi / 2))
@@ -250,6 +251,12 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
   }
   cost <- cost_of(X)
   hist <- cost
+  # Cost of residuals at roundoff level for this graph's scale: a residual
+  # of about 1000 machine epsilons times (1 + |translation|) per edge.
+  zero_cost <- (1e3 * .Machine$double.eps)^2 * sum(vapply(graph$edges, function(e) {
+    t <- if (se3) e$z[1:3, 4] else e$z[1:2]
+    max(diag(e$omega)) * (1 + sum(t^2)) * nrow(e$omega)
+  }, numeric(1)))
   lambda <- 1e-6
   status <- "max_iterations"
   grad <- NA_real_
@@ -279,7 +286,7 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     Hk <- H[keep, keep]
     hmax <- max(Matrix::diag(Hk))
     grad <- sqrt(sum(b[keep]^2)) / sqrt(max(hmax * cost, .Machine$double.xmin))
-    if (cost <= 1e-24 || grad <= 1e-6) {
+    if (cost <= zero_cost || grad <= 1e-6) {
       status <- "converged"
       break
     }
@@ -308,7 +315,7 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
       break
     }
     if (!improved) {
-      status <- "stalled"
+      status <- if (cost <= 100 * zero_cost) "converged" else "stalled"
       break
     }
     rel <- (cost - cn) / max(cost, .Machine$double.eps)
@@ -316,7 +323,7 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     cost <- cn
     hist <- c(hist, cost)
     lambda <- max(lambda / 10, 1e-12)
-    if (cost <= 1e-24) {
+    if (cost <= zero_cost) {
       status <- "converged"
       break
     }

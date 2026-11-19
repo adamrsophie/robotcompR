@@ -18,7 +18,8 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 \value{
 A list with the optimized \code{graph}, \code{cost} history, \code{iterations},
 \code{converged} (\code{TRUE} only for \code{status == "converged"}), \code{status} and
-\code{gradient}, the relative gradient norm at the returned nodes.
+\code{gradient}, the relative gradient norm at the start of the last
+iteration.
 }
 \description{
 Minimizes \eqn{\sum e_{ij}^\top \Omega_{ij} e_{ij}} over the node poses
@@ -40,7 +41,7 @@ connected to it through edges.
 \details{
 Convergence means stationarity, not merely a small change: the
 optimizer stops with \code{status = "converged"} when the cost is zero to
-roundoff or the gradient is negligible relative to the cost
+roundoff for the graph's scale or the gradient is negligible relative to the cost
 (\eqn{\|g\| \le 10^{-6} \sqrt{\max H_{kk}\, c}}). Other outcomes are
 \code{"stalled"} (the relative decrease fell below \code{tol}, or no damped step
 decreased the cost, while the gradient is not negligible),

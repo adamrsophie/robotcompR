@@ -185,3 +185,19 @@ test_that("measurement tables are validated by every filter", {
     expect_error(pf_update(p, m), "easurements")
   }
 })
+
+test_that("noise-free graphs at large scale converge, not stall", {
+  set.seed(4)
+  truth <- list(diag(4))
+  for (k in 2:6) truth[[k]] <- truth[[k - 1]] %*% se3_exp(c(rnorm(3, 0, 100), rnorm(3)))
+  init <- lapply(1:6, function(k) {
+    if (k == 1) truth[[1]] else truth[[k]] %*% se3_exp(rnorm(6, 0, 0.05))
+  })
+  g <- robot_pose_graph(init)
+  rel <- function(a, b) se3_inverse_matrix(truth[[a]]) %*% truth[[b]]
+  for (k in 1:5) g <- pose_graph_add_edge(g, k, k + 1, rel(k, k + 1), diag(1e6, 6))
+  g <- pose_graph_add_edge(g, 1, 6, rel(1, 6), diag(1e6, 6))
+  r <- pose_graph_optimize(g)
+  expect_identical(r$status, "converged")
+  expect_true(r$converged)
+})
