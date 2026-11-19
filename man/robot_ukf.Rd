@@ -39,15 +39,26 @@ innovation squared in \code{nis}.
 }
 \description{
 A drop-in alternative to \code{\link[=robot_ekf]{robot_ekf()}} that propagates the planar pose
-with the unscented transform instead of Jacobians. \code{ukf_predict()}
-augments the state with the control noise, draws \eqn{2(3 + 2) + 1}
-sigma points, moves each through \code{\link[=unicycle_step]{unicycle_step()}} with its noisy
-control, and recombines them with the heading averaged on the circle.
-\code{ukf_update()} fuses range-bearing measurements of known landmarks one
-at a time with sigma points of the current estimate, a circular mean
-of the predicted bearings, and wrapped bearing innovations. The default
-scaling \verb{alpha = 1, beta = 2, kappa = 0} makes every weight
-nonnegative, so the predicted covariances stay positive semidefinite.
+with the unscented transform instead of Jacobians. The covariance lives
+in the local tangent chart of the pose: the heading deviation is an
+unwrapped angle, so a broad heading uncertainty is never folded back by
+wrapping. \code{ukf_predict()} augments the state with the control noise,
+draws \eqn{2(3 + 2) + 1} sigma points, moves each through
+\code{\link[=unicycle_step]{unicycle_step()}} with its noisy control and keeps its heading change
+unwrapped. \code{ukf_update()} fuses range-bearing measurements of known
+landmarks one at a time; predicted bearings are averaged as wrapped
+differences from the bearing of the central sigma point, so signed
+weights are handled exactly, and the state deviations used for the cross
+covariance are the sigma deviations themselves, consistent with \code{cov}.
+}
+\details{
+The default scaling \verb{alpha = 1, beta = 2, kappa = 0} makes every weight
+nonnegative, which keeps every covariance positive semidefinite. Other
+scalings (for example a small \code{alpha}) give a negative central weight; a
+result that is then indefinite stops with an error instead of being
+returned. \code{alpha} must be positive and \code{kappa > -3}, so that the
+transform is defined for both the 3 dimensional state and the
+5 dimensional augmented state.
 }
 \examples{
 L <- rbind(a = c(2, 0), b = c(0, 2))

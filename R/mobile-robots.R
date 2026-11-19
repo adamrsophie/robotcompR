@@ -85,8 +85,19 @@ NULL
 #' @rdname mobile_models
 #' @export
 robot_unicycle <- function(max_speed = Inf, max_turn_rate = Inf) {
-  structure(list(type = "unicycle", max_speed = max_speed,
-                 max_turn_rate = max_turn_rate), class = "robot_mobile")
+  structure(list(type = "unicycle",
+                 max_speed = check_limit(max_speed, "max_speed"),
+                 max_turn_rate = check_limit(max_turn_rate, "max_turn_rate")),
+            class = "robot_mobile")
+}
+
+# A magnitude limit: a single nonnegative number, possibly Inf.
+check_limit <- function(x, name) {
+  if (!is.numeric(x) || length(x) != 1L || is.na(x) || x < 0) {
+    stop(sprintf("`%s` must be a single nonnegative number (Inf for no limit).",
+                 name), call. = FALSE)
+  }
+  as.numeric(x)
 }
 
 #' @rdname mobile_models
@@ -98,8 +109,19 @@ robot_diffdrive <- function(wheel_radius = 0.05, track_width = 0.3,
                                              positive = TRUE),
                  track_width = check_scalar(track_width, "track_width",
                                             positive = TRUE),
-                 max_speed = max_speed, max_turn_rate = max_turn_rate),
+                 max_speed = check_limit(max_speed, "max_speed"),
+                 max_turn_rate = check_limit(max_turn_rate, "max_turn_rate")),
             class = "robot_mobile")
+}
+
+# The kinematic bicycle turns with tan(steer), which is singular at pi / 2.
+check_steer <- function(x) {
+  x <- check_scalar(x, "max_steer", positive = TRUE)
+  if (x >= pi / 2) {
+    stop("`max_steer` must be below pi / 2, where tan(steer) is singular.",
+         call. = FALSE)
+  }
+  x
 }
 
 #' @rdname mobile_models
@@ -108,8 +130,9 @@ robot_bicycle <- function(wheelbase = 2.5, max_steer = pi / 4,
                           max_speed = Inf) {
   structure(list(type = "bicycle",
                  wheelbase = check_scalar(wheelbase, "wheelbase", positive = TRUE),
-                 max_steer = check_scalar(max_steer, "max_steer", positive = TRUE),
-                 max_speed = max_speed, max_turn_rate = Inf),
+                 max_steer = check_steer(max_steer),
+                 max_speed = check_limit(max_speed, "max_speed"),
+                 max_turn_rate = Inf),
             class = "robot_mobile")
 }
 
@@ -151,6 +174,8 @@ NULL
 #' @export
 diffdrive_forward <- function(model, omega_left, omega_right) {
   stopifnot(inherits(model, "robot_mobile"), model$type == "diffdrive")
+  omega_left <- check_scalar(omega_left, "omega_left")
+  omega_right <- check_scalar(omega_right, "omega_right")
   r <- model$wheel_radius
   c(v = r * (omega_right + omega_left) / 2,
     omega = r * (omega_right - omega_left) / model$track_width)
@@ -160,6 +185,8 @@ diffdrive_forward <- function(model, omega_left, omega_right) {
 #' @export
 diffdrive_inverse <- function(model, v, omega) {
   stopifnot(inherits(model, "robot_mobile"), model$type == "diffdrive")
+  v <- check_scalar(v, "v")
+  omega <- check_scalar(omega, "omega")
   r <- model$wheel_radius
   b <- model$track_width
   c(left = (v - omega * b / 2) / r, right = (v + omega * b / 2) / r)
@@ -206,6 +233,10 @@ mobile_simulate <- function(model, pose, controls, dt, saturate = FALSE) {
   p <- check_pose2(pose)
   U <- check_matrix(controls, NULL, 2, "controls")
   dt <- check_per_item(dt, nrow(U), "dt")
+  if (any(dt < 0)) stop("`dt` must be nonnegative.", call. = FALSE)
+  if (!is.logical(saturate) || length(saturate) != 1L || is.na(saturate)) {
+    stop("`saturate` must be TRUE or FALSE.", call. = FALSE)
+  }
   out <- matrix(0, nrow(U) + 1, 4, dimnames = list(NULL, c("time", "x", "y",
                                                             "theta")))
   out[1, ] <- c(0, p)

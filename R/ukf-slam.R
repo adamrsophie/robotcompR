@@ -8,43 +8,70 @@ range_bearing <- function(x, lm) {
 }
 
 # Sigma points of the scaled unscented transform (Julier, 2002; Wan and
-# van der Merwe, 2000) as the columns of a matrix, with mean and
-# covariance weights.
+# van der Merwe, 2000). The state is a mean plus a covariance in the local
+# tangent chart (the heading deviation is an unwrapped real number), so the
+# sigma deviations `D` are returned directly and never wrapped.
 sigma_points <- function(m, P, alpha, beta, kappa) {
   n <- length(m)
   lam <- alpha^2 * (n + kappa) - n
   L <- t(psd_factor(P, "cov")) * sqrt(n + lam)
-  X <- cbind(m, m + L, m - L)
+  D <- cbind(0, L, -L)
   wm <- c(lam / (n + lam), rep(1 / (2 * (n + lam)), 2 * n))
   wc <- wm
   wc[1] <- wc[1] + 1 - alpha^2 + beta
-  list(X = X, wm = wm, wc = wc)
+  list(X = m + D, D = D, wm = wm, wc = wc)
 }
 
-# Weighted mean of sigma points whose rows `angular` are angles (circular
-# mean), and the deviations from that mean with those rows wrapped.
-sigma_mean <- function(Y, wm, angular) {
-  mu <- as.numeric(Y %*% wm)
-  for (r in angular) {
-    mu[r] <- atan2(sum(wm * sin(Y[r, ])), sum(wm * cos(Y[r, ])))
+# Weighted mean and centered deviations of sigma images. Rows `angular`
+# are angles: they are expressed as wrapped differences from the image of
+# the central sigma point, averaged linearly in that chart (which accepts
+# signed weights) and mapped back.
+sigma_mean <- function(Y, wm, angular = integer(0)) {
+  ref <- Y[, 1]
+  E <- Y - ref
+  for (r in angular) E[r, ] <- wrap_angle_internal(E[r, ])
+  e <- as.numeric(E %*% wm)
+  mu <- ref + e
+  for (r in angular) mu[r] <- wrap_angle_internal(mu[r])
+  list(mean = mu, dev = E - e)
+}
+
+# Unscented covariances use signed weights for some scalings, which can
+# make a result indefinite; that is reported, never clipped.
+check_ukf_cov <- function(P, what) {
+  ev <- eigen(P, symmetric = TRUE, only.values = TRUE)$values
+  if (any(!is.finite(ev)) || min(ev) < -1e-9 * max(abs(ev), .Machine$double.xmin)) {
+    stop(sprintf(paste0("The unscented %s produced an indefinite covariance ",
+                        "(smallest eigenvalue %.3g). Use scaling with ",
+                        "nonnegative weights (the default alpha = 1, ",
+                        "kappa = 0) or reduce the uncertainty."), what, min(ev)),
+         call. = FALSE)
   }
-  D <- Y - mu
-  for (r in angular) D[r, ] <- wrap_angle_internal(D[r, ])
-  list(mean = mu, dev = D)
+  (P + t(P)) / 2
 }
 
 #' Unscented Kalman filter localization
 #'
 #' A drop-in alternative to [robot_ekf()] that propagates the planar pose
-#' with the unscented transform instead of Jacobians. `ukf_predict()`
-#' augments the state with the control noise, draws \eqn{2(3 + 2) + 1}
-#' sigma points, moves each through [unicycle_step()] with its noisy
-#' control, and recombines them with the heading averaged on the circle.
-#' `ukf_update()` fuses range-bearing measurements of known landmarks one
-#' at a time with sigma points of the current estimate, a circular mean
-#' of the predicted bearings, and wrapped bearing innovations. The default
-#' scaling `alpha = 1, beta = 2, kappa = 0` makes every weight
-#' nonnegative, so the predicted covariances stay positive semidefinite.
+#' with the unscented transform instead of Jacobians. The covariance lives
+#' in the local tangent chart of the pose: the heading deviation is an
+#' unwrapped angle, so a broad heading uncertainty is never folded back by
+#' wrapping. `ukf_predict()` augments the state with the control noise,
+#' draws \eqn{2(3 + 2) + 1} sigma points, moves each through
+#' [unicycle_step()] with its noisy control and keeps its heading change
+#' unwrapped. `ukf_update()` fuses range-bearing measurements of known
+#' landmarks one at a time; predicted bearings are averaged as wrapped
+#' differences from the bearing of the central sigma point, so signed
+#' weights are handled exactly, and the state deviations used for the cross
+#' covariance are the sigma deviations themselves, consistent with `cov`.
+#'
+#' The default scaling `alpha = 1, beta = 2, kappa = 0` makes every weight
+#' nonnegative, which keeps every covariance positive semidefinite. Other
+#' scalings (for example a small `alpha`) give a negative central weight; a
+#' result that is then indefinite stops with an error instead of being
+#' returned. `alpha` must be positive and `kappa > -3`, so that the
+#' transform is defined for both the 3 dimensional state and the
+#' 5 dimensional augmented state.
 #'
 #' @inheritParams robot_ekf
 #' @param alpha,beta,kappa Unscented transform parameters.
@@ -62,14 +89,23 @@ sigma_mean <- function(Y, wm, angular) {
 robot_ukf <- function(mean, cov, landmarks, Q, R, alpha = 1, beta = 2,
                       kappa = 0) {
   structure(list(mean = check_pose2(mean, "mean"),
-                 cov = check_matrix(cov, 3, 3, "cov"),
+                 cov = check_cov(cov, 3, "cov"),
                  landmarks = check_landmarks(landmarks),
-                 Q = check_matrix(Q, 2, 2, "Q"), R = check_matrix(R, 2, 2, "R"),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R"),
                  alpha = check_scalar(alpha, "alpha", positive = TRUE),
                  beta = check_scalar(beta, "beta"),
-                 kappa = check_scalar(kappa, "kappa"),
+                 kappa = check_ukf_kappa(kappa),
                  nis = NA_real_),
             class = "robot_ukf")
+}
+
+check_ukf_kappa <- function(kappa) {
+  kappa <- check_scalar(kappa, "kappa")
+  if (kappa <= -3) {
+    stop("`kappa` must be greater than -3 (the state has 3 dimensions).",
+         call. = FALSE)
+  }
+  kappa
 }
 
 #' @rdname robot_ukf
@@ -82,12 +118,18 @@ ukf_predict <- function(filter, control, dt) {
   Pa[4:5, 4:5] <- filter$Q
   sp <- sigma_points(c(filter$mean, 0, 0), Pa, filter$alpha, filter$beta,
                      filter$kappa)
+  dt <- check_scalar(dt, "dt", nonnegative = TRUE)
   Y <- apply(sp$X, 2, function(z) unicycle_step(z[1:3], u[1] + z[4],
                                                u[2] + z[5], dt))
-  st <- sigma_mean(Y, sp$wm, 3)
+  # Heading in the tangent chart: the sigma deviation plus its exact,
+  # unwrapped change over the step.
+  Y[3, ] <- sp$D[3, ] + (u[2] + sp$X[5, ]) * dt
+  st <- sigma_mean(Y, sp$wm)
   P <- st$dev %*% (sp$wc * t(st$dev))
-  filter$mean <- stats::setNames(st$mean, c("x", "y", "theta"))
-  filter$cov <- (P + t(P)) / 2
+  m <- st$mean
+  m[3] <- wrap_angle_internal(filter$mean[3] + m[3])
+  filter$mean <- stats::setNames(m, c("x", "y", "theta"))
+  filter$cov <- check_ukf_cov(P, "prediction")
   filter
 }
 
@@ -104,9 +146,10 @@ ukf_update <- function(filter, measurements) {
                        filter$kappa)
     Z <- apply(sp$X, 2, function(x) range_bearing(x, lm))
     zs <- sigma_mean(Z, sp$wm, 2)
-    xs <- sigma_mean(sp$X, sp$wm, 3)
+    # State deviations in the tangent chart, consistent with filter$cov.
+    xdev <- sp$D - as.numeric(sp$D %*% sp$wm)
     S <- zs$dev %*% (sp$wc * t(zs$dev)) + filter$R
-    Pxz <- xs$dev %*% (sp$wc * t(zs$dev))
+    Pxz <- xdev %*% (sp$wc * t(zs$dev))
     K <- Pxz %*% solve(S)
     innov <- c(measurements$range[k] - zs$mean[1],
                wrap_angle_internal(measurements$bearing[k] - zs$mean[2]))
@@ -114,7 +157,7 @@ ukf_update <- function(filter, measurements) {
     m[3] <- wrap_angle_internal(m[3])
     P <- filter$cov - K %*% S %*% t(K)
     filter$mean <- stats::setNames(m, c("x", "y", "theta"))
-    filter$cov <- (P + t(P)) / 2
+    filter$cov <- check_ukf_cov((P + t(P)) / 2, "update")
     nis <- nis + sum(innov * solve(S, innov))
   }
   filter$nis <- nis
@@ -167,9 +210,9 @@ print.robot_ukf <- function(x, ...) {
 robot_ekf_slam <- function(mean, cov, Q, R) {
   structure(list(mean = stats::setNames(check_pose2(mean, "mean"),
                                         c("x", "y", "theta")),
-                 cov = check_matrix(cov, 3, 3, "cov"),
+                 cov = check_cov(cov, 3, "cov"),
                  ids = character(0),
-                 Q = check_matrix(Q, 2, 2, "Q"), R = check_matrix(R, 2, 2, "R"),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R"),
                  nis = NA_real_),
             class = "robot_ekf_slam")
 }

@@ -124,20 +124,32 @@ edge_error3 <- function(Xi, Xj, Z) {
   se3_log(se3_inverse_matrix(Z) %*% se3_inverse_matrix(Xi) %*% Xj)
 }
 
-# Jacobians of the SE(3) residual with respect to right perturbations
-# X exp(delta) of each endpoint, by central differences in the tangent
-# space.
-# ponytail: numerical 6 x 12 Jacobians; switch to the closed form with the
-# SE(3) right Jacobian if large graphs make this the bottleneck.
-edge_jacobians3 <- function(Xi, Xj, Z, h = 1e-7) {
-  A <- B <- matrix(0, 6, 6)
+# Right Jacobian of the SE(3) exponential, J with
+# exp(xi + d) = exp(xi) exp(J d) to first order. Only exponentials of xi
+# and logarithms near the identity are evaluated, so it is smooth even
+# when xi is a rotation by pi.
+# ponytail: central differences of exp (12 small logs); use the closed
+# form with the Q block if large graphs make this the bottleneck.
+se3_right_jacobian <- function(xi, h = 1e-6) {
+  E0inv <- se3_exp(-xi)
+  J <- matrix(0, 6, 6)
   for (k in 1:6) {
     d <- replace(numeric(6), k, h)
-    Ep <- se3_exp(d)
-    Em <- se3_exp(-d)
-    A[, k] <- (edge_error3(Xi %*% Ep, Xj, Z) - edge_error3(Xi %*% Em, Xj, Z)) / (2 * h)
-    B[, k] <- (edge_error3(Xi, Xj %*% Ep, Z) - edge_error3(Xi, Xj %*% Em, Z)) / (2 * h)
+    J[, k] <- (se3_log(E0inv %*% se3_exp(xi + d)) -
+                 se3_log(E0inv %*% se3_exp(xi - d))) / (2 * h)
   }
+  J
+}
+
+# Jacobians of e = log(Z^-1 Xi^-1 Xj) with respect to right perturbations
+# X exp(delta) of each endpoint: B = Jr(e)^-1 and A = -B Ad(Xj^-1 Xi).
+# They are taken in the chart of the residual actually returned by the
+# logarithm, so they stay consistent across the branch cut at pi, where
+# differencing residuals on opposite sides of the cut would not.
+edge_jacobians3 <- function(Xi, Xj, Z) {
+  e <- edge_error3(Xi, Xj, Z)
+  B <- solve(se3_right_jacobian(e))
+  A <- -B %*% se3_adjoint(se3_inverse_matrix(Xj) %*% Xi)
   list(A = A, B = B)
 }
 
@@ -152,15 +164,30 @@ edge_jacobians3 <- function(Xi, Xj, Z, h = 1e-7) {
 #' each update. For SE(3) graphs the residual is
 #' \eqn{e_{ij} = \log(Z_{ij}^{-1} X_i^{-1} X_j)} (translation first), nodes
 #' are updated on the manifold as \eqn{X \exp(\delta)}, and the
-#' Jacobians with respect to \eqn{\delta} are computed by central
-#' differences. Node `fixed` is held constant to remove the gauge freedom.
+#' Jacobians with respect to \eqn{\delta} are
+#' \eqn{J_r(e)^{-1}} and \eqn{-J_r(e)^{-1} \mathrm{Ad}(X_j^{-1} X_i)},
+#' taken in the chart of the residual returned by the logarithm so that
+#' they stay valid when a residual rotation is near \eqn{\pi}. Node
+#' `fixed` is held constant to remove the gauge freedom; every node must be
+#' connected to it through edges.
+#'
+#' Convergence means stationarity, not merely a small change: the
+#' optimizer stops with `status = "converged"` when the cost is zero to
+#' roundoff or the gradient is negligible relative to the cost
+#' (\eqn{\|g\| \le 10^{-6} \sqrt{\max H_{kk}\, c}}). Other outcomes are
+#' `"stalled"` (the relative decrease fell below `tol`, or no damped step
+#' decreased the cost, while the gradient is not negligible),
+#' `"max_iterations"`, `"linear_solve_failed"` and `"invalid_graph"`
+#' (nodes not connected to `fixed`; the graph is returned unchanged with a
+#' warning). A noisy graph converges to a positive cost.
 #'
 #' @param graph A `robot_pose_graph`.
 #' @param fixed Index of the anchored node.
 #' @param max_iterations Maximum iterations.
-#' @param tol Stop when the relative decrease of the cost is below `tol`.
-#' @return A list with the optimized `graph`, `cost` history, `iterations`
-#'   and `converged`.
+#' @param tol Relative cost decrease treated as no progress.
+#' @return A list with the optimized `graph`, `cost` history, `iterations`,
+#'   `converged` (`TRUE` only for `status == "converged"`), `status` and
+#'   `gradient`, the relative gradient norm at the returned nodes.
 #' @examples
 #' g <- robot_pose_graph(rbind(c(0, 0, 0), c(1.2, 0.1, 0.1), c(1.9, 1.2, 1.7)))
 #' g <- pose_graph_add_edge(g, 1, 2, c(1, 0, pi / 2))
@@ -201,10 +228,32 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     r <- residual(X, e)
     sum(r * (e$omega %*% r))
   }, 0))
+  # Every node must be tied to the anchor, or its gauge is free.
+  reach <- fixed
+  repeat {
+    nb <- unlist(lapply(graph$edges, function(e) {
+      if (e$i %in% reach) e$j else if (e$j %in% reach) e$i
+    }))
+    new <- setdiff(nb, reach)
+    if (!length(new)) break
+    reach <- c(reach, new)
+  }
+  if (length(reach) < n) {
+    lost <- setdiff(seq_len(n), reach)
+    warning(sprintf("Node%s %s %s not connected to the fixed node %d.",
+                    if (length(lost) > 1) "s" else "",
+                    paste(lost, collapse = ", "),
+                    if (length(lost) > 1) "are" else "is", fixed), call. = FALSE)
+    return(list(graph = graph, cost = cost_of(X), iterations = 0L,
+                converged = FALSE, status = "invalid_graph",
+                gradient = NA_real_))
+  }
   cost <- cost_of(X)
   hist <- cost
   lambda <- 1e-6
-  converged <- FALSE
+  status <- "max_iterations"
+  grad <- NA_real_
+  prev_small <- FALSE
   it <- 0L
   for (it in seq_len(max_iterations)) {
     ii <- integer(0); jj <- integer(0); vv <- numeric(0)
@@ -228,10 +277,22 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     H <- Matrix::sparseMatrix(i = ii, j = jj, x = vv, dims = c(bs * n, bs * n))
     keep <- setdiff(seq_len(bs * n), bs * (fixed - 1) + seq_len(bs))
     Hk <- H[keep, keep]
+    hmax <- max(Matrix::diag(Hk))
+    grad <- sqrt(sum(b[keep]^2)) / sqrt(max(hmax * cost, .Machine$double.xmin))
+    if (cost <= 1e-24 || grad <= 1e-6) {
+      status <- "converged"
+      break
+    }
     improved <- FALSE
+    solve_failed <- FALSE
     for (attempt in 1:20) {
-      Hd <- Hk + Matrix::Diagonal(length(keep), lambda * max(Matrix::diag(Hk)))
-      dx <- as.numeric(Matrix::solve(Hd, -b[keep]))
+      Hd <- Hk + Matrix::Diagonal(length(keep), lambda * hmax)
+      dx <- tryCatch(as.numeric(Matrix::solve(Hd, -b[keep])),
+                     error = function(e) NULL)
+      if (is.null(dx) || any(!is.finite(dx))) {
+        solve_failed <- TRUE
+        break
+      }
       step <- numeric(bs * n)
       step[keep] <- dx
       Xn <- retract(X, step)
@@ -242,20 +303,41 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
       }
       lambda <- lambda * 10
     }
-    if (!improved) break
+    if (solve_failed) {
+      status <- "linear_solve_failed"
+      break
+    }
+    if (!improved) {
+      status <- "stalled"
+      break
+    }
     rel <- (cost - cn) / max(cost, .Machine$double.eps)
     X <- Xn
     cost <- cn
     hist <- c(hist, cost)
     lambda <- max(lambda / 10, 1e-12)
-    if (rel < tol || cost < 1e-24) {
-      converged <- TRUE
+    if (cost <= 1e-24) {
+      status <- "converged"
       break
     }
+    if (rel < tol) {
+      # Tiny progress is success only at a stationary point; the next
+      # iteration's gradient test decides, otherwise the run has stalled.
+      status <- if (it < max_iterations) "pending" else "max_iterations"
+      if (identical(prev_small, TRUE)) {
+        status <- "stalled"
+        break
+      }
+      prev_small <- TRUE
+    } else {
+      prev_small <- FALSE
+    }
   }
+  if (identical(status, "pending")) status <- "max_iterations"
   graph$nodes <- if (se3) lapply(X, function(M) robot_pose(matrix = orthonormalize_pose(M)))
                  else X
-  list(graph = graph, cost = hist, iterations = it, converged = converged)
+  list(graph = graph, cost = hist, iterations = it,
+       converged = status == "converged", status = status, gradient = grad)
 }
 
 #' @export

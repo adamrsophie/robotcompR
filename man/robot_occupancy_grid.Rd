@@ -11,7 +11,7 @@ robot_occupancy_grid(xlim, ylim, resolution, prior = 0.5, occupied = NULL)
 
 \item{resolution}{Cell size (m).}
 
-\item{prior}{Prior occupancy probability.}
+\item{prior}{Prior occupancy probability, strictly between 0 and 1.}
 
 \item{occupied}{Optional logical matrix to initialize a known map
 (\code{TRUE} is occupied) with probabilities 0.99 and 0.01.}

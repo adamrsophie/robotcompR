@@ -2,6 +2,25 @@
 # particle filter. Measurements are range and bearing to landmarks with
 # known identities. Bearing innovations are wrapped to [-pi, pi).
 
+# Covariance inputs: finite, symmetric up to roundoff and positive
+# semidefinite, with tolerances relative to the matrix. Singular
+# covariances are allowed (a known state or a noiseless input). Returns
+# the exactly symmetric matrix.
+check_cov <- function(S, n, name, tol = 1e-9) {
+  S <- check_matrix(S, n, n, name)
+  scale <- max(abs(S))
+  if (max(abs(S - t(S))) > tol * scale) {
+    stop(sprintf("`%s` must be a symmetric covariance matrix.", name),
+         call. = FALSE)
+  }
+  S <- (S + t(S)) / 2
+  if (scale > 0 &&
+      min(eigen(S, symmetric = TRUE, only.values = TRUE)$values) < -tol * scale) {
+    stop(sprintf("`%s` must be positive semidefinite.", name), call. = FALSE)
+  }
+  S
+}
+
 # A factor F with crossprod(F) == S for a symmetric positive semidefinite S,
 # so that rows of Z %*% F are draws from N(0, S) even when S is singular.
 psd_factor <- function(S, name) {
@@ -54,7 +73,7 @@ landmark_measurements <- function(pose, landmarks, R = NULL, max_range = Inf,
   out <- data.frame(id = rownames(L)[keep], range = rng[keep],
                     bearing = brg[keep], stringsAsFactors = FALSE)
   if (!is.null(R) && nrow(out)) {
-    R <- check_matrix(R, 2, 2, "R")
+    R <- check_cov(R, 2, "R")
     with_seed_internal(seed, {
       Z <- matrix(stats::rnorm(2 * nrow(out)), ncol = 2) %*% psd_factor(R, "R")
       out$range <- out$range + Z[, 1]
@@ -97,9 +116,9 @@ landmark_measurements <- function(pose, landmarks, R = NULL, max_range = Inf,
 #' @export
 robot_ekf <- function(mean, cov, landmarks, Q, R) {
   structure(list(mean = check_pose2(mean, "mean"),
-                 cov = check_matrix(cov, 3, 3, "cov"),
+                 cov = check_cov(cov, 3, "cov"),
                  landmarks = check_landmarks(landmarks),
-                 Q = check_matrix(Q, 2, 2, "Q"), R = check_matrix(R, 2, 2, "R"),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R"),
                  nis = NA_real_),
             class = "robot_ekf")
 }
@@ -203,13 +222,13 @@ print.robot_ekf <- function(x, ...) {
 robot_particle_filter <- function(n, mean, cov, landmarks, Q, R, seed = NULL) {
   n <- check_count(n, "n")
   m <- check_pose2(mean, "mean")
-  C <- check_matrix(cov, 3, 3, "cov")
+  C <- check_cov(cov, 3, "cov")
   X <- with_seed_internal(seed,
     matrix(stats::rnorm(3 * n), n) %*% psd_factor(C, "cov") + matrix(m, n, 3, byrow = TRUE))
   X[, 3] <- wrap_angle_internal(X[, 3])
   structure(list(particles = X, weights = rep(1 / n, n),
                  landmarks = check_landmarks(landmarks),
-                 Q = check_matrix(Q, 2, 2, "Q"), R = check_matrix(R, 2, 2, "R")),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R")),
             class = "robot_particle_filter")
 }
 

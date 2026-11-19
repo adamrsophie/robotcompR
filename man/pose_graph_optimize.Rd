@@ -13,11 +13,12 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 
 \item{max_iterations}{Maximum iterations.}
 
-\item{tol}{Stop when the relative decrease of the cost is below \code{tol}.}
+\item{tol}{Relative cost decrease treated as no progress.}
 }
 \value{
-A list with the optimized \code{graph}, \code{cost} history, \code{iterations}
-and \code{converged}.
+A list with the optimized \code{graph}, \code{cost} history, \code{iterations},
+\code{converged} (\code{TRUE} only for \code{status == "converged"}), \code{status} and
+\code{gradient}, the relative gradient norm at the returned nodes.
 }
 \description{
 Minimizes \eqn{\sum e_{ij}^\top \Omega_{ij} e_{ij}} over the node poses
@@ -29,8 +30,23 @@ sparse linear algebra from 'Matrix', and headings are wrapped after
 each update. For SE(3) graphs the residual is
 \eqn{e_{ij} = \log(Z_{ij}^{-1} X_i^{-1} X_j)} (translation first), nodes
 are updated on the manifold as \eqn{X \exp(\delta)}, and the
-Jacobians with respect to \eqn{\delta} are computed by central
-differences. Node \code{fixed} is held constant to remove the gauge freedom.
+Jacobians with respect to \eqn{\delta} are
+\eqn{J_r(e)^{-1}} and \eqn{-J_r(e)^{-1} \mathrm{Ad}(X_j^{-1} X_i)},
+taken in the chart of the residual returned by the logarithm so that
+they stay valid when a residual rotation is near \eqn{\pi}. Node
+\code{fixed} is held constant to remove the gauge freedom; every node must be
+connected to it through edges.
+}
+\details{
+Convergence means stationarity, not merely a small change: the
+optimizer stops with \code{status = "converged"} when the cost is zero to
+roundoff or the gradient is negligible relative to the cost
+(\eqn{\|g\| \le 10^{-6} \sqrt{\max H_{kk}\, c}}). Other outcomes are
+\code{"stalled"} (the relative decrease fell below \code{tol}, or no damped step
+decreased the cost, while the gradient is not negligible),
+\code{"max_iterations"}, \code{"linear_solve_failed"} and \code{"invalid_graph"}
+(nodes not connected to \code{fixed}; the graph is returned unchanged with a
+warning). A noisy graph converges to a positive cost.
 }
 \examples{
 g <- robot_pose_graph(rbind(c(0, 0, 0), c(1.2, 0.1, 0.1), c(1.9, 1.2, 1.7)))

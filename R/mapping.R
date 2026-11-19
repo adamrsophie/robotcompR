@@ -10,7 +10,7 @@
 #'
 #' @param xlim,ylim World extents (m).
 #' @param resolution Cell size (m).
-#' @param prior Prior occupancy probability.
+#' @param prior Prior occupancy probability, strictly between 0 and 1.
 #' @param occupied Optional logical matrix to initialize a known map
 #'   (`TRUE` is occupied) with probabilities 0.99 and 0.01.
 #' @return A `robot_occupancy_grid`.
@@ -29,9 +29,15 @@ robot_occupancy_grid <- function(xlim, ylim, resolution, prior = 0.5,
   nc <- ceiling((xlim[2] - xlim[1]) / res - 1e-9)
   nr <- ceiling((ylim[2] - ylim[1]) / res - 1e-9)
   logit <- function(p) log(p / (1 - p))
-  L <- matrix(logit(check_scalar(prior, "prior")), nr, nc)
+  prior <- check_scalar(prior, "prior")
+  if (prior <= 0 || prior >= 1) {
+    stop("`prior` must be a probability strictly between 0 and 1.",
+         call. = FALSE)
+  }
+  L <- matrix(logit(prior), nr, nc)
   if (!is.null(occupied)) {
-    if (!is.matrix(occupied) || !all(dim(occupied) == c(nr, nc))) {
+    if (!is.matrix(occupied) || !is.logical(occupied) || anyNA(occupied) ||
+        !all(dim(occupied) == c(nr, nc))) {
       stop(sprintf("`occupied` must be a %d by %d logical matrix.", nr, nc),
            call. = FALSE)
     }
@@ -96,6 +102,7 @@ grid_probability <- function(grid) 1 / (1 + exp(-grid$logodds))
 #' @rdname grid_coordinates
 #' @export
 grid_occupied <- function(grid, threshold = 0.65) {
+  threshold <- check_probability(threshold, "threshold")
   grid_probability(grid) > threshold
 }
 
@@ -166,7 +173,10 @@ NULL
 #' @rdname grid_scans
 #' @export
 grid_raycast <- function(grid, pose, angles, max_range, threshold = 0.65) {
+  stopifnot(inherits(grid, "robot_occupancy_grid"))
   p <- check_pose2(pose)
+  angles <- check_numeric_vector(angles, name = "angles")
+  max_range <- check_scalar(max_range, "max_range", positive = TRUE)
   occ <- grid_occupied(grid, threshold)
   vapply(angles, function(a) {
     dir <- c(cos(p[3] + a), sin(p[3] + a))
@@ -191,8 +201,16 @@ grid_raycast <- function(grid, pose, angles, max_range, threshold = 0.65) {
 #' @export
 grid_update_scan <- function(grid, pose, angles, ranges, max_range,
                              l_occ = 0.85, l_free = -0.4, clamp = c(-5, 5)) {
+  stopifnot(inherits(grid, "robot_occupancy_grid"))
   p <- check_pose2(pose)
+  angles <- check_numeric_vector(angles, name = "angles")
   ranges <- check_numeric_vector(ranges, length(angles), "ranges")
+  max_range <- check_scalar(max_range, "max_range", positive = TRUE)
+  if (any(ranges < 0)) stop("`ranges` must be nonnegative.", call. = FALSE)
+  l_occ <- check_scalar(l_occ, "l_occ")
+  l_free <- check_scalar(l_free, "l_free")
+  clamp <- check_numeric_vector(clamp, 2, "clamp")
+  if (clamp[1] >= clamp[2]) stop("`clamp` must be increasing.", call. = FALSE)
   L <- grid$logodds
   for (k in seq_along(angles)) {
     dir <- c(cos(p[3] + angles[k]), sin(p[3] + angles[k]))
@@ -236,6 +254,7 @@ grid_update_scan <- function(grid, pose, angles, ranges, max_range,
 #' sum(grid_inflate(g, 0.15))
 #' @export
 grid_inflate <- function(grid, radius, threshold = 0.65) {
+  radius <- check_scalar(radius, "radius", nonnegative = TRUE)
   occ <- grid_occupied(grid, threshold)
   r <- ceiling(radius / grid$resolution + 0.5)
   out <- occ
