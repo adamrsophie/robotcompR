@@ -14,7 +14,9 @@ A \code{robot_environment}.
 }
 \description{
 An environment is a named list of world-frame obstacles. Geometry
-origins are interpreted in the world frame.
+origins are interpreted in the world frame. Names must be unique;
+unnamed obstacles get the name \verb{obstacle<i>} (with a suffix if that name
+is taken).
 }
 \examples{
 env <- robot_environment(wall = geom_box(c(0.2, 2, 1),

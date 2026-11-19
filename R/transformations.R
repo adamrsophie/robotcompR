@@ -471,22 +471,24 @@ robot_pose_interp <- function(a, b, s, method = c("decoupled", "screw")) {
   d <- a$dim
   rel <- robot_relative_pose(robot_pose(matrix = a$matrix),
                              robot_pose(matrix = b$matrix))
+  Ra <- pose_rotation_matrix(a)
+  # One logarithm, computed once, fixes the rotation branch for every
+  # sample (a half turn has two shortest paths), so the samples and
+  # rotation_delta() always agree.
+  xi <- if (method == "screw") {
+    if (d == 3) se3_log(rel$matrix) else se2_log(rel$matrix)
+  } else if (d == 3) {
+    rotation_delta(Ra, pose_rotation_matrix(b))
+  } else {
+    so2_log(pose_rotation_matrix(rel))
+  }
   one <- function(si) {
     if (method == "screw") {
-      xi <- if (d == 3) se3_log(rel$matrix) else se2_log(rel$matrix)
       E <- if (d == 3) se3_exp(si * xi) else se2_exp(si * xi)
       return(new_pose(a$matrix %*% E, a$parent, b$child))
     }
     p <- (1 - si) * pose_translation_vector(a) + si * pose_translation_vector(b)
-    if (d == 3) {
-      R <- quaternion_to_matrix(quaternion_slerp(
-        robot_quaternion(pose_rotation_matrix(a)),
-        robot_quaternion(pose_rotation_matrix(b)), si)$q)
-    } else {
-      th <- so2_log(pose_rotation_matrix(a)) +
-        si * so2_log(pose_rotation_matrix(rel))
-      R <- so2_exp(th)
-    }
+    R <- if (d == 3) so3_exp(si * xi) %*% Ra else so2_exp(so2_log(Ra) + si * xi)
     M <- diag(d + 1)
     M[1:d, 1:d] <- R
     M[1:d, d + 1] <- p
@@ -529,3 +531,7 @@ troty <- function(theta) robot_pose(roty(theta))
 #' @rdname elementary_transforms
 #' @export
 trotz <- function(theta) robot_pose(rotz(theta))
+
+# World-frame rotation vector phi with Rb = exp(phi) Ra: the branch used by
+# both pose interpolation and Cartesian angular velocities.
+rotation_delta <- function(Ra, Rb) so3_log(Rb %*% t(Ra))

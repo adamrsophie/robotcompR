@@ -65,9 +65,12 @@ parameter (from the joint displacements and fixed bounds on the lever
 arms of the kinematic chain). Advancing by \eqn{d / M} cannot create a
 contact, so the motion is collision-free when the steps reach the end
 of the segment and in collision as soon as a clearance drops to
-\code{margin}. The test is exact for the continuous straight-line motion,
-up to \code{tol}; unbounded prismatic joints below a link make its bound
-infinite, and the check then fails with an error.
+\code{margin}. Both ends of every segment are checked with the same contact
+rule as \code{\link[=robot_check_collision]{robot_check_collision()}}, so a path ending in contact is
+invalid. The lever-arm bounds use the prismatic extensions actually
+reached on each segment, so they hold with \code{check_limits = FALSE} and
+for joints without finite limits. The test is exact for the continuous
+straight-line motion, up to \code{tol}.
 }
 \examples{
 robot <- robot_capsule_links(robot_example("planar2"), 0.05)

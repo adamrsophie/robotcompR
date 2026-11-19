@@ -45,7 +45,12 @@ planner_algorithms <- c("rrt", "rrt_connect", "rrt_star", "prm")
 #'   \eqn{\min(\gamma (\log n / n)^{1/d}, \text{step\_size})}.
 #' @param prm_nodes,prm_neighbors Roadmap size and connectivity.
 #' @param time_limit Wall-clock budget in seconds for each call to
-#'   [robot_plan()]; planning stops with `success = FALSE` once it is spent.
+#'   [robot_plan()], covering start and goal validation, planning and
+#'   optional smoothing. The deadline is checked between configuration
+#'   checks, including inside edge checks, so planning stops with
+#'   `success = FALSE` and `termination = "time_limit"` once it is spent.
+#'   A single call of `validity` cannot be interrupted, so the overrun is
+#'   at most one such call (plus one distance matrix for PRM).
 #' @return A `robot_planner`.
 #' @examples
 #' planner <- robot_planner(validity = function(q) sum((q - c(0.5, 0.5))^2) > 0.04,
@@ -87,7 +92,7 @@ robot_planner <- function(robot = NULL, algorithm = c("rrt_connect", "rrt",
     validity = validity, bounds = bounds, self = self,
     margin = check_scalar(margin, "margin", nonnegative = TRUE),
     step_size = check_scalar(step_size, "step_size", positive = TRUE),
-    goal_bias = check_scalar(goal_bias, "goal_bias", nonnegative = TRUE),
+    goal_bias = check_probability(goal_bias, "goal_bias"),
     max_iterations = check_count(max_iterations, "max_iterations"),
     resolution = check_scalar(resolution, "resolution", positive = TRUE),
     rewire_factor = check_scalar(rewire_factor, "rewire_factor", positive = TRUE),
@@ -119,9 +124,12 @@ state_valid <- function(pl, q) {
   TRUE
 }
 
+# An edge whose check is cut short by the deadline is not valid.
 edge_valid <- function(pl, a, b) {
   S <- interpolate_segment(a, b, pl$resolution)
-  for (i in seq_len(nrow(S))[-1]) if (!state_valid(pl, S[i, ])) return(FALSE)
+  for (i in seq_len(nrow(S))[-1]) {
+    if (out_of_time(pl) || !state_valid(pl, S[i, ])) return(FALSE)
+  }
   TRUE
 }
 
@@ -303,13 +311,14 @@ grow_rrt_star <- function(pl, start, goal) {
   list(path = path, iterations = pl$max_iterations, nodes = n)
 }
 
-dijkstra <- function(adj, w, from, to) {
+dijkstra <- function(adj, w, from, to, pl) {
   nn <- length(adj)
   dist <- rep(Inf, nn)
   prev <- integer(nn)
   done <- logical(nn)
   dist[from] <- 0
   repeat {
+    if (out_of_time(pl)) return(NULL)
     cand <- which(!done & is.finite(dist))
     if (!length(cand)) break
     u <- cand[which.min(dist[cand])]
@@ -359,7 +368,7 @@ grow_prm <- function(pl, start, goal) {
       }
     }
   }
-  idx <- dijkstra(adj, w, 1L, 2L)
+  idx <- dijkstra(adj, w, 1L, 2L, pl)
   edges <- sum(lengths(adj)) / 2
   list(path = if (is.null(idx)) NULL else V[idx, , drop = FALSE],
        iterations = tries, nodes = nn, edges = edges,
@@ -382,8 +391,12 @@ grow_prm <- function(pl, start, goal) {
 #' @param seed Optional integer seed.
 #' @param smooth Apply [robot_shortcut()] to a successful path.
 #' @return A `robot_plan` with `path` (one waypoint per row, or `NULL`),
-#'   `success`, `message`, `algorithm`, `iterations`, `nodes`, `length`,
-#'   `seed` and `time` (elapsed seconds).
+#'   `success`, `termination` (one of `"success"`, `"invalid_start"`,
+#'   `"invalid_goal"`, `"iteration_limit"` or `"time_limit"`), `message`,
+#'   `algorithm`, `iterations`, `nodes`, `length`, `seed` and `time`
+#'   (elapsed seconds, including smoothing). When smoothing is cut short by
+#'   the time limit the path found is kept (it is valid), `success` stays
+#'   `TRUE` and the message says so.
 #' @examples
 #' planner <- robot_planner(validity = function(q) abs(q[1] - 0.5) > 0.1 || q[2] > 0.8,
 #'                          bounds = rbind(c(0, 1), c(0, 1)))
@@ -396,16 +409,22 @@ robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
   start <- check_numeric_vector(start, d, "start")
   goal <- check_numeric_vector(goal, d, "goal")
   t0 <- proc.time()[["elapsed"]]
-  fail <- function(msg) {
-    structure(list(path = NULL, success = FALSE, message = msg,
-                   algorithm = planner$algorithm, iterations = 0L, nodes = 0L,
-                   length = NA_real_, seed = seed, time = 0,
-                   start = start, goal = goal, planner = planner),
+  planner$deadline <- t0 + planner$time_limit
+  fail <- function(msg, why) {
+    structure(list(path = NULL, success = FALSE, termination = why,
+                   message = msg, algorithm = planner$algorithm,
+                   iterations = 0L, nodes = 0L, length = NA_real_, seed = seed,
+                   time = proc.time()[["elapsed"]] - t0, start = start,
+                   goal = goal,
+                   planner = utils::modifyList(planner, list(deadline = Inf))),
               class = "robot_plan")
   }
-  if (!state_valid(planner, start)) return(fail("start configuration is invalid"))
-  if (!state_valid(planner, goal)) return(fail("goal configuration is invalid"))
-  planner$deadline <- t0 + planner$time_limit
+  if (!state_valid(planner, start)) {
+    return(fail("start configuration is invalid", "invalid_start"))
+  }
+  if (!state_valid(planner, goal)) {
+    return(fail("goal configuration is invalid", "invalid_goal"))
+  }
   res <- with_seed_internal(seed, switch(planner$algorithm,
     rrt = grow_rrt(planner, start, goal),
     rrt_connect = grow_rrt_connect(planner, start, goal),
@@ -417,18 +436,23 @@ robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
     rownames(path) <- NULL
     if (!is.null(planner$robot)) colnames(path) <- robot_joint_names(planner$robot)
   }
+  why <- if (ok) "success" else if (out_of_time(planner)) "time_limit" else
+    "iteration_limit"
   plan <- structure(list(
-    path = path, success = ok,
-    message = if (ok) "path found" else if (out_of_time(planner))
-      "no path found within the time limit (this does not prove that none exists)" else
-      "no path found within the iteration budget (this does not prove that none exists)",
+    path = path, success = ok, termination = why,
+    message = switch(why, success = "path found",
+      time_limit = "no path found within the time limit (this does not prove that none exists)",
+      iteration_limit = "no path found within the iteration budget (this does not prove that none exists)"),
     algorithm = planner$algorithm, iterations = res$iterations,
     nodes = res$nodes, length = if (ok) path_length(path) else NA_real_,
     seed = seed, time = proc.time()[["elapsed"]] - t0, start = start,
     goal = goal, planner = utils::modifyList(planner, list(deadline = Inf)),
     roadmap = res$roadmap
   ), class = "robot_plan")
-  if (ok && smooth) plan <- robot_shortcut(plan, seed = seed)
+  if (ok && smooth) {
+    plan <- shortcut_internal(plan, 100, seed, planner)
+    plan$time <- proc.time()[["elapsed"]] - t0
+  }
   plan
 }
 
@@ -463,11 +487,20 @@ print.robot_plan <- function(x, ...) {
 #' @export
 robot_shortcut <- function(plan, iterations = 100, seed = NULL) {
   stopifnot(inherits(plan, "robot_plan"))
+  shortcut_internal(plan, check_count(iterations, "iterations"), seed,
+                    plan$planner)
+}
+
+shortcut_internal <- function(plan, iterations, seed, pl) {
   if (!plan$success) return(plan)
-  pl <- plan$planner
   P <- plan$path
+  stopped <- FALSE
   with_seed_internal(seed, {
-    for (it in seq_len(check_count(iterations, "iterations"))) {
+    for (it in seq_len(iterations)) {
+      if (out_of_time(pl)) {
+        stopped <- TRUE
+        break
+      }
       if (nrow(P) < 3) break
       ij <- sort(sample.int(nrow(P), 2))
       if (ij[2] - ij[1] < 2) next
@@ -478,7 +511,8 @@ robot_shortcut <- function(plan, iterations = 100, seed = NULL) {
   })
   plan$path <- P
   plan$length <- path_length(P)
-  plan$message <- paste(plan$message, "(shortcut smoothed)")
+  plan$message <- paste(plan$message, if (stopped)
+    "(shortcut smoothing stopped at the time limit)" else "(shortcut smoothed)")
   plan
 }
 

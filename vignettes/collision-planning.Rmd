@@ -28,8 +28,16 @@ support functions. When the cores of a GJK pair overlap, the expanding
 polytope algorithm (EPA) grows a polytope inside the Minkowski difference
 $A - B$ until its face nearest the origin is part of the boundary; the
 distance to that face is the penetration depth, the length of the shortest
-translation that separates the shapes. Negative distances are therefore
-always exact depths.
+translation that separates the shapes.
+
+EPA keeps two bounds on the depth: the nearest face of the polytope (a lower
+bound) and the smallest support value seen along a face normal (an upper
+bound). It stops when they agree to about $10^{-9}$ of the object size, and
+`depth_known` is then `TRUE`. Curved cores in symmetric positions can exhaust
+the iteration budget first. Two identical coaxial cylinders are the classic
+case, because every radial direction is equally deep. `depth_known` is then
+`FALSE`, `distance` is the shallower estimate and `distance_bounds` brackets
+the true value. The yes/no collision answer is exact in both cases.
 
 ```{r}
 geom_distance(geom_sphere(0.5), geom_sphere(0.3), robot_pose(), transl(2, 0, 0))$distance
@@ -41,6 +49,8 @@ geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(), transl(0
 geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(),
               robot_pose(rotz(pi / 4), c(0.9, 0, 0)))$distance
 0.9 - 0.5 - sqrt(2) / 2
+cyl <- geom_distance(geom_cylinder(0.5, 10), geom_cylinder(0.5, 10))
+cyl[c("depth_known", "distance", "distance_bounds")]
 ```
 
 Mesh geometry from URDF files is kept for reference but is not collidable.
@@ -93,7 +103,12 @@ the segment parameter. For a revolute joint, a point at distance $r$ from the
 joint axis moves at most $r$ per radian, and $r$ is bounded by the fixed
 frame offsets of the chain plus the size of the geometry. Moving by $d / M$
 cannot cause contact, so the check steps forward by that amount until it
-either reaches the end of the segment or a clearance reaches zero.
+either reaches the end of the segment or a clearance reaches zero. The end
+configuration of every segment is then checked with the same contact rule as
+`robot_check_collision()`, so a path that ends touching an obstacle is
+invalid. Prismatic joints enter the lever arms through the extension they
+actually reach on the segment, so the bound holds with
+`check_limits = FALSE` and for joints without finite limits.
 
 Here a thin post sits between two samples of a coarse discrete check:
 

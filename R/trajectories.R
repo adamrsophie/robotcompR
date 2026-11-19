@@ -176,8 +176,8 @@ robot_traj_trapezoidal <- function(q0, q1, vmax, amax, times = NULL,
   q0 <- check_numeric_vector(q0, name = "q0")
   m <- length(q0)
   q1 <- check_numeric_vector(q1, m, "q1")
-  vmax <- rep_len(check_numeric_vector(vmax, name = "vmax"), m)
-  amax <- rep_len(check_numeric_vector(amax, name = "amax"), m)
+  vmax <- check_per_item(vmax, m, "vmax")
+  amax <- check_per_item(amax, m, "amax")
   if (any(vmax <= 0) || any(amax <= 0)) {
     stop("`vmax` and `amax` must be positive.", call. = FALSE)
   }
@@ -318,7 +318,7 @@ robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
   sd <- as.numeric(sc$qd)
   sdd <- as.numeric(sc$qdd)
   dp <- pose_translation_vector(to) - pose_translation_vector(from)
-  phi <- so3_log(pose_rotation_matrix(to) %*% t(pose_rotation_matrix(from)))
+  phi <- rotation_delta(pose_rotation_matrix(from), pose_rotation_matrix(to))
   axis <- c(dp, phi)
   cols <- c("vx", "vy", "vz", "wx", "wy", "wz")
   V <- outer(sd, axis)
@@ -374,9 +374,7 @@ robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
 robot_traj_check <- function(robot, trajectory, tol = 1e-9) {
   check_robot(robot)
   stopifnot(inherits(trajectory, "robot_trajectory"))
-  if (ncol(trajectory$q) != robot$dof) {
-    stop("Trajectory dimension does not match the robot.", call. = FALSE)
-  }
+  check_trajectory_structure(trajectory, robot$dof)
   L <- robot_limits(robot)
   mv <- robot$joints[robot$movable]
   vl <- vapply(mv, function(j) j$velocity %||% Inf, 0)
@@ -393,4 +391,27 @@ robot_traj_check <- function(robot, trajectory, tol = 1e-9) {
              viol(trajectory$qd, -vl, vl, "velocity"),
              viol(trajectory$qdd, -al, al, "acceleration"))
   list(ok = is.null(v), violations = v)
+}
+
+# A malformed trajectory (missing or nonfinite samples, mismatched sizes,
+# unordered time) is rejected before any limit is checked, so it can never
+# be certified.
+check_trajectory_structure <- function(tr, dof) {
+  bad <- function(msg) stop(sprintf("Malformed trajectory: %s.", msg),
+                            call. = FALSE)
+  t <- tr$time
+  if (!is.numeric(t) || !length(t) || any(!is.finite(t))) {
+    bad("`time` must be a nonempty finite numeric vector")
+  }
+  if (is.unsorted(t)) bad("`time` must be nondecreasing")
+  for (f in c("q", "qd", "qdd")) {
+    M <- tr[[f]]
+    if (!is.matrix(M) || !is.numeric(M)) bad(sprintf("`%s` must be a numeric matrix", f))
+    if (nrow(M) != length(t)) bad(sprintf("`%s` needs one row per time", f))
+    if (ncol(M) != dof) {
+      stop("Trajectory dimension does not match the robot.", call. = FALSE)
+    }
+    if (any(!is.finite(M))) bad(sprintf("`%s` has missing or nonfinite values", f))
+  }
+  invisible(TRUE)
 }

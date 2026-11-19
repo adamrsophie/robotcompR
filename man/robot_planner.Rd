@@ -52,7 +52,12 @@ sampling bounds (see \code{\link[=robot_random_configuration]{robot_random_confi
 \item{prm_nodes, prm_neighbors}{Roadmap size and connectivity.}
 
 \item{time_limit}{Wall-clock budget in seconds for each call to
-\code{\link[=robot_plan]{robot_plan()}}; planning stops with \code{success = FALSE} once it is spent.}
+\code{\link[=robot_plan]{robot_plan()}}, covering start and goal validation, planning and
+optional smoothing. The deadline is checked between configuration
+checks, including inside edge checks, so planning stops with
+\code{success = FALSE} and \code{termination = "time_limit"} once it is spent.
+A single call of \code{validity} cannot be interrupted, so the overrun is
+at most one such call (plus one distance matrix for PRM).}
 }
 \value{
 A \code{robot_planner}.

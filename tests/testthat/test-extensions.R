@@ -46,8 +46,13 @@ test_that("continuous path checks catch thin obstacles between samples", {
     robot_joint("r", "revolute", "base", "l1", axis = c(0, 0, 1)),
     robot_joint("s", "prismatic", "l1", "l2", axis = c(1, 0, 0))))
   slide <- robot_attach_geometry(slide, "l2", geom_sphere(0.1, origin = transl(1, 0, 0)))
-  expect_error(robot_check_path(slide, rbind(c(0, 0), c(0.1, 0)), method = "continuous"),
-               "finite limits")
+  # Bounds come from the extensions reached on the segment, so joints
+  # without finite limits are supported.
+  far_post <- robot_environment(p = geom_sphere(0.1, origin = transl(0, 3, 0)))
+  expect_true(robot_check_path(slide, rbind(c(0, 0), c(0.1, 0)), far_post,
+                               method = "continuous")$valid)
+  expect_false(robot_check_path(slide, rbind(c(0, 0), c(pi / 2, 1.9)), far_post,
+                                method = "continuous")$valid)
 })
 
 test_that("Cartesian trajectories report consistent velocities", {

@@ -17,8 +17,12 @@ robot_plan(planner, start, goal, seed = NULL, smooth = FALSE)
 }
 \value{
 A \code{robot_plan} with \code{path} (one waypoint per row, or \code{NULL}),
-\code{success}, \code{message}, \code{algorithm}, \code{iterations}, \code{nodes}, \code{length},
-\code{seed} and \code{time} (elapsed seconds).
+\code{success}, \code{termination} (one of \code{"success"}, \code{"invalid_start"},
+\code{"invalid_goal"}, \code{"iteration_limit"} or \code{"time_limit"}), \code{message},
+\code{algorithm}, \code{iterations}, \code{nodes}, \code{length}, \code{seed} and \code{time}
+(elapsed seconds, including smoothing). When smoothing is cut short by
+the time limit the path found is kept (it is valid), \code{success} stays
+\code{TRUE} and the message says so.
 }
 \description{
 Runs the configured planner from \code{start} to \code{goal}. Start and goal are

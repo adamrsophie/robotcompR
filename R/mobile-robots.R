@@ -205,7 +205,7 @@ mobile_simulate <- function(model, pose, controls, dt, saturate = FALSE) {
   stopifnot(inherits(model, "robot_mobile"))
   p <- check_pose2(pose)
   U <- check_matrix(controls, NULL, 2, "controls")
-  dt <- rep_len(check_numeric_vector(dt, name = "dt"), nrow(U))
+  dt <- check_per_item(dt, nrow(U), "dt")
   out <- matrix(0, nrow(U) + 1, 4, dimnames = list(NULL, c("time", "x", "y",
                                                             "theta")))
   out[1, ] <- c(0, p)

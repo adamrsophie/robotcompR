@@ -50,7 +50,7 @@ gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, rel_tol = 1e-10) {
   lam <- 1
   for (it in seq_len(max_iter)) {
     vn2 <- sum(v * v)
-    if (vn2 < tol^2) {
+    if (vn2 <= tol^2) {
       return(list(distance = 0, pa = as.numeric(crossprod(A, lam)),
                   pb = as.numeric(crossprod(B, lam)), intersect = TRUE))
     }
@@ -82,7 +82,7 @@ gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, rel_tol = 1e-10) {
   pa <- as.numeric(crossprod(A, lam))
   pb <- as.numeric(crossprod(B, lam))
   dist <- vnorm(v)
-  list(distance = dist, pa = pa, pb = pb, intersect = dist < tol)
+  list(distance = dist, pa = pa, pb = pb, intersect = dist <= tol)
 }
 
 # Expanding polytope algorithm (van den Bergen, 2001) for the penetration
@@ -94,7 +94,10 @@ gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, rel_tol = 1e-10) {
 # the depth (distance from the origin to the boundary of A - B), the unit
 # direction `n` (moving A by -depth * n separates the cores) and the
 # extreme points of each core along that direction, or NULL when A - B is
-# flat (the cores only touch).
+# flat (the cores only touch). The nearest face distance is a lower bound
+# on the depth and the smallest support value seen along a face normal is
+# an upper bound; `converged` is TRUE when they agree to `tol`. Otherwise
+# the iteration budget ran out and only the bounds are certified.
 epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
   scale <- max(geometry_bound(gA), geometry_bound(gB), .Machine$double.xmin)
   tol <- rel_tol * scale
@@ -111,7 +114,7 @@ epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
   i1 <- 1L
   i2 <- which.max(colSums((t(W) - W[i1, ])^2))
   u <- W[i2, ] - W[i1, ]
-  if (sum(u * u) < tol^2) return(NULL)
+  if (sum(u * u) <= tol^2) return(NULL)
   dl <- apply(W, 1, function(x) vnorm(cross3(u, x - W[i1, ])))
   i3 <- which.max(dl)
   if (dl[i3] < tol * vnorm(u)) return(NULL)
@@ -139,13 +142,19 @@ epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
                                                c(1, 3, 4), c(2, 3, 4)),
                                           make_face))
   best <- NULL
+  upper <- Inf
+  converged <- FALSE
   for (it in seq_len(max_iter)) {
     cs <- vapply(faces, `[[`, 0, "c")
     f <- faces[[which.min(cs)]]
     s <- support(f$n)
+    upper <- min(upper, sum(f$n * s$w))
     gain <- sum(f$n * s$w) - f$c
     best <- f
-    if (gain <= tol) break
+    if (gain <= tol) {
+      converged <- TRUE
+      break
+    }
     # Add the support point: drop faces it can see, stitch the horizon.
     P <- rbind(P, s$w)
     V[[length(V) + 1]] <- s
@@ -171,7 +180,8 @@ epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
   lam <- lam / sum(lam)
   pa <- Reduce(`+`, Map(function(v, l) v$a * l, V[f$ids], lam))
   pb <- Reduce(`+`, Map(function(v, l) v$b * l, V[f$ids], lam))
-  list(depth = depth, n = f$n, pa = pa, pb = pb)
+  list(depth = depth, n = f$n, pa = pa, pb = pb, converged = converged,
+       iterations = it, bounds = c(depth, max(depth, upper)))
 }
 
 geometry_bound <- function(g) {
@@ -201,7 +211,9 @@ segment_closest <- function(p1, q1, p2, q2) {
   a <- sum(d1 * d1)
   e <- sum(d2 * d2)
   f <- sum(d2 * r)
-  eps <- 1e-15
+  # Degeneracy is judged relative to the configuration (a segment shorter
+  # than 1e-12 of the scene is a point), so the result is scale invariant.
+  eps <- 1e-24 * max(a, e, sum(r * r))
   if (a <= eps && e <= eps) {
     s <- 0; t <- 0
   } else if (a <= eps) {
@@ -215,7 +227,7 @@ segment_closest <- function(p1, q1, p2, q2) {
     } else {
       b <- sum(d1 * d2)
       den <- a * e - b * b
-      s <- if (den > eps * a * e) min(1, max(0, (b * f - c_ * e) / den)) else 0
+      s <- if (den > 1e-15 * a * e) min(1, max(0, (b * f - c_ * e) / den)) else 0
       t <- (b * s + f) / e
       if (t < 0) {
         t <- 0
@@ -237,7 +249,7 @@ core_distance <- function(gA, TA, gB, TB) {
     sa <- core_segment(gA, TA)
     sb <- core_segment(gB, TB)
     r <- segment_closest(sa$a, sa$b, sb$a, sb$b)
-    r$intersect <- r$distance < 1e-12
+    r$intersect <- r$distance <= 1e-12 * max(geometry_bound(gA), geometry_bound(gB))
     return(r)
   }
   gjk_distance(gA, TA, gB, TB)
@@ -255,17 +267,21 @@ geometry_pair <- function(gA, TA, gB, TB, depth = TRUE) {
                          gB$type %in% c("sphere", "capsule"))) NULL
           else epa_depth(gA, TA, gB, TB)
     if (is.null(ep)) {
-      return(list(distance = -(rA + rB), collision = TRUE, depth_known = TRUE,
+      d <- -(rA + rB)
+      return(list(distance = d, collision = TRUE, depth_known = depth,
+                  depth_bounds = if (depth) c(d, d) else c(NA_real_, NA_real_),
                   pa = core$pa, pb = core$pb))
     }
     return(list(distance = -(ep$depth + rA + rB), collision = TRUE,
-                depth_known = TRUE, pa = ep$pa + rA * ep$n,
-                pb = ep$pb - rB * ep$n))
+                depth_known = ep$converged,
+                depth_bounds = -(rev(ep$bounds) + rA + rB),
+                pa = ep$pa + rA * ep$n, pb = ep$pb - rB * ep$n))
   }
   n <- (core$pb - core$pa) / core$distance
   dist <- core$distance - rA - rB
   list(distance = dist, collision = dist <= 0, depth_known = TRUE,
-       pa = core$pa + rA * n, pb = core$pb - rB * n)
+       depth_bounds = c(dist, dist), pa = core$pa + rA * n,
+       pb = core$pb - rB * n)
 }
 
 #' Distance between two geometric primitives
@@ -280,15 +296,24 @@ geometry_pair <- function(gA, TA, gB, TB, depth = TRUE) {
 #' expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
 #' penetration depth of the cores, and the negative distance is that depth
 #' plus both radii: the length of the shortest translation that separates
-#' the shapes. For curved cores (cylinders) EPA converges to a relative
-#' tolerance of about \eqn{10^{-9}} of the object size. `depth_known` is
-#' `TRUE` for every result and kept for compatibility. Meshes are not
+#' the shapes. EPA stops when its lower and upper bounds on the depth
+#' agree to a relative tolerance of about \eqn{10^{-9}} of the object size,
+#' and `depth_known` is then `TRUE`. Curved cores in symmetric
+#' configurations (for example two identical coaxial cylinders) can exhaust
+#' the iteration budget first: `depth_known` is then `FALSE`, `distance`
+#' is the conservative (shallowest) estimate and `distance_bounds` brackets
+#' the true signed distance. The collision classification is exact either
+#' way. When the cores intersect, `point_a` and `point_b` are the extreme
+#' points of each shape along the separating direction; when only the
+#' radii overlap they are the deepest points of each shape. Meshes are not
 #' supported.
 #'
 #' @param a,b `robot_geometry` objects.
 #' @param pose_a,pose_b Poses of the frames the geometries are attached to.
-#' @return A list with `distance`, `collision`, `depth_known` and the
-#'   closest points `point_a` and `point_b`.
+#' @return A list with `distance`, `collision`, `depth_known`,
+#'   `distance_bounds` (a length-2 interval containing the exact signed
+#'   distance; both ends equal `distance` when it is exact) and the closest
+#'   points `point_a` and `point_b`.
 #' @examples
 #' geom_distance(geom_sphere(0.5), geom_box(c(1, 1, 1)),
 #'               transl(2, 0, 0), robot_pose())$distance
@@ -302,7 +327,8 @@ geom_distance <- function(a, b, pose_a = robot_pose(), pose_b = robot_pose()) {
   TB <- as_pose3(pose_b, "pose_b")$matrix %*% b$origin
   r <- geometry_pair(a, TA, b, TB)
   list(distance = r$distance, collision = r$collision,
-       depth_known = r$depth_known, point_a = r$pa, point_b = r$pb)
+       depth_known = r$depth_known, distance_bounds = r$depth_bounds,
+       point_a = r$pa, point_b = r$pb)
 }
 
 #' Attach collision geometry to a link
@@ -399,7 +425,9 @@ robot_capsule_links <- function(robot, radius) {
 #' Static environments
 #'
 #' An environment is a named list of world-frame obstacles. Geometry
-#' origins are interpreted in the world frame.
+#' origins are interpreted in the world frame. Names must be unique;
+#' unnamed obstacles get the name `obstacle<i>` (with a suffix if that name
+#' is taken).
 #'
 #' @param ... `robot_geometry` objects, optionally named.
 #' @return A `robot_environment`.
@@ -419,7 +447,14 @@ robot_environment <- function(...) {
   }
   nm <- names(obs)
   if (is.null(nm)) nm <- rep("", length(obs))
-  nm[!nzchar(nm)] <- paste0("obstacle", which(!nzchar(nm)))
+  nm[is.na(nm)] <- ""
+  given <- nm[nzchar(nm)]
+  if (anyDuplicated(given)) {
+    stop(sprintf("Obstacle names must be unique; duplicated: %s.",
+                 paste(unique(given[duplicated(given)]), collapse = ", ")),
+         call. = FALSE)
+  }
+  for (i in which(!nzchar(nm))) nm[i] <- unique_name(paste0("obstacle", i), nm)
   names(obs) <- nm
   structure(list(obstacles = obs), class = "robot_environment")
 }
@@ -515,8 +550,9 @@ robot_check_collision <- function(robot, q, environment = NULL, self = TRUE,
   if (!is.null(environment)) {
     stopifnot(inherits(environment, "robot_environment"))
     for (o in objs) {
-      for (nm in names(environment$obstacles)) {
-        ob <- environment$obstacles[[nm]]
+      for (oi in seq_along(environment$obstacles)) {
+        nm <- names(environment$obstacles)[oi]
+        ob <- environment$obstacles[[oi]]
         if (!collidable(ob)) next
         r <- eval_pair(o$geometry, o$T, ob, ob$origin)
         if (is.null(r)) next
@@ -616,9 +652,10 @@ interpolate_segment <- function(a, b, resolution) {
 # k. A revolute joint moves a point at distance r from its axis origin by
 # at most r per radian, and r is bounded by the triangle inequality over the
 # fixed frame offsets between the joint and the link (prismatic joints in
-# between add their largest extension). A prismatic joint moves points by
-# at most one meter per meter.
-motion_bounds <- function(robot) {
+# between add their largest extension over the segment from qa to qb,
+# which is reached at an endpoint because the motion is linear). A
+# prismatic joint moves points by at most one meter per meter.
+motion_bounds <- function(robot, qa, qb) {
   nl <- length(robot$links)
   rho <- matrix(0, length(robot$joints), nl)
   tnorm <- function(M) if (is.null(M)) 0 else vnorm(M[1:3, 4])
@@ -635,7 +672,10 @@ motion_bounds <- function(robot) {
       } else if (J$type != "fixed") {
         rho[jm, k] <- tnorm(J$post) + acc
       }
-      ext <- if (J$type == "prismatic") max(abs(J$limits + J$offset)) else 0
+      ext <- if (J$type == "prismatic") {
+        i <- robot$q_index[jm]
+        max(abs(c(qa[i], qb[i]) + J$offset))
+      } else 0
       acc <- tnorm(J$origin) + ext + tnorm(J$post) + acc
       l <- robot$parent_index[l]
     }
@@ -648,7 +688,8 @@ motion_bounds <- function(robot) {
 # is free, otherwise the first parameter s in [0, 1] at which the clearance
 # reaches the margin.
 segment_conservative <- function(robot, qa, qb, environment, self, margin,
-                                 rho, tol, max_steps) {
+                                 tol, max_steps) {
+  rho <- motion_bounds(robot, qa, qb)
   dq <- abs(qb - qa)
   jm <- which(robot$movable)
   # Motion bound per link for s running over [0, 1].
@@ -666,7 +707,9 @@ segment_conservative <- function(robot, qa, qb, environment, self, margin,
       } else {
         lb <- vnorm(TA[1:3, 4] - TB[1:3, 4]) - geometry_bound(ga) -
           geometry_bound(gb) - margin
-        if (lb / motion >= remaining) return(lb / motion)
+        # The bound only skips the exact query when the pair cannot come
+        # within `tol` of contact before the end of the segment.
+        if (lb > tol && lb / motion > remaining) return(lb / motion)
       }
       d <- geometry_pair(ga, TA, gb, TB, FALSE)$distance - margin
       if (d <= tol) return(-1)
@@ -691,8 +734,10 @@ segment_conservative <- function(robot, qa, qb, environment, self, margin,
         adv <- min(adv, a)
       }
     }
-    if (adv >= remaining) return(NULL)
-    s <- s + adv
+    # The final configuration is always checked explicitly: an advance
+    # that exactly reaches the end of the segment may end in contact.
+    if (remaining <= 0) return(NULL)
+    s <- if (adv >= remaining) 1 else s + adv
   }
   warning("Conservative advancement reached `max_steps`; the segment is ",
           "reported as invalid.", call. = FALSE)
@@ -716,9 +761,12 @@ segment_conservative <- function(robot, qa, qb, environment, self, margin,
 #' arms of the kinematic chain). Advancing by \eqn{d / M} cannot create a
 #' contact, so the motion is collision-free when the steps reach the end
 #' of the segment and in collision as soon as a clearance drops to
-#' `margin`. The test is exact for the continuous straight-line motion,
-#' up to `tol`; unbounded prismatic joints below a link make its bound
-#' infinite, and the check then fails with an error.
+#' `margin`. Both ends of every segment are checked with the same contact
+#' rule as [robot_check_collision()], so a path ending in contact is
+#' invalid. The lever-arm bounds use the prismatic extensions actually
+#' reached on each segment, so they hold with `check_limits = FALSE` and
+#' for joints without finite limits. The test is exact for the continuous
+#' straight-line motion, up to `tol`.
 #'
 #' @inheritParams robot_check_collision
 #' @param path Matrix of waypoints (one per row) or a `robot_plan`.
@@ -753,11 +801,8 @@ robot_check_path <- function(robot, path, environment = NULL, self = TRUE,
   if (method == "continuous") {
     margin <- check_scalar(margin, "margin", nonnegative = TRUE)
     if (!is.null(environment)) stopifnot(inherits(environment, "robot_environment"))
-    rho <- motion_bounds(robot)
-    if (any(!is.finite(rho))) {
-      stop("Continuous checking needs finite limits on prismatic joints.",
-           call. = FALSE)
-    }
+    tol <- check_scalar(tol, "tol", nonnegative = TRUE)
+    max_steps <- check_count(max_steps, "max_steps")
     for (i in seq_len(nrow(P))) {
       if (check_limits && !robot_within_limits(robot, P[i, ])) {
         # Limits form a box, so a segment respects them iff its ends do.
@@ -768,7 +813,7 @@ robot_check_path <- function(robot, path, environment = NULL, self = TRUE,
     if (nrow(P) == 1) P <- rbind(P, P)
     for (i in seq_len(nrow(P) - 1)) {
       s <- segment_conservative(robot, P[i, ], P[i + 1, ], environment, self,
-                                margin, rho, tol, max_steps)
+                                margin, tol, max_steps)
       if (!is.null(s)) {
         return(list(valid = FALSE, first_invalid = i,
                     q = P[i, ] + s * (P[i + 1, ] - P[i, ]), samples = NA_integer_))

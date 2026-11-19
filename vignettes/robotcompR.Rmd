@@ -142,7 +142,8 @@ degrees of freedom and thousands (not millions) of samples. Specific limits:
   mimic joints are rejected.
 * Collision geometry is convex (spheres, boxes, cylinders, capsules and
   convex hulls). Meshes are kept as metadata but are not used for queries.
-  Penetration depths are exact (EPA for general pairs).
+  Penetration depths come from closed forms or EPA; when EPA runs out of
+  iterations the result says so (`depth_known = FALSE`) and gives bounds.
 * Path collision checks are discrete at a user-chosen resolution or
   continuous by conservative advancement.
 * Sampling-based planners are probabilistically complete at best; a failure

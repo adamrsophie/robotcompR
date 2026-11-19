@@ -25,8 +25,9 @@
 * Occupancy grid mapping, ray casting, inflation and A* search.
 * EKF-SLAM with known data association.
 * SE(2) and SE(3) pose graph optimization.
-* EPA penetration depth for every convex pair and continuous path collision
-  checking by conservative advancement.
+* EPA penetration depth for every convex pair, with certified bounds and a
+  `depth_known` flag, and continuous path collision checking by
+  conservative advancement.
 * Cartesian trajectories report spatial velocities and accelerations and can
   be converted to joint trajectories.
 * Nine vignettes and a pkgdown site.

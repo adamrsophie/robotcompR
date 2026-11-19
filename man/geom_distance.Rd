@@ -12,8 +12,10 @@ geom_distance(a, b, pose_a = robot_pose(), pose_b = robot_pose())
 \item{pose_a, pose_b}{Poses of the frames the geometries are attached to.}
 }
 \value{
-A list with \code{distance}, \code{collision}, \code{depth_known} and the
-closest points \code{point_a} and \code{point_b}.
+A list with \code{distance}, \code{collision}, \code{depth_known},
+\code{distance_bounds} (a length-2 interval containing the exact signed
+distance; both ends equal \code{distance} when it is exact) and the closest
+points \code{point_a} and \code{point_b}.
 }
 \description{
 Computes the separation distance and closest points between two convex
@@ -26,9 +28,16 @@ the exact penetration depth. When the cores themselves overlap, the
 expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
 penetration depth of the cores, and the negative distance is that depth
 plus both radii: the length of the shortest translation that separates
-the shapes. For curved cores (cylinders) EPA converges to a relative
-tolerance of about \eqn{10^{-9}} of the object size. \code{depth_known} is
-\code{TRUE} for every result and kept for compatibility. Meshes are not
+the shapes. EPA stops when its lower and upper bounds on the depth
+agree to a relative tolerance of about \eqn{10^{-9}} of the object size,
+and \code{depth_known} is then \code{TRUE}. Curved cores in symmetric
+configurations (for example two identical coaxial cylinders) can exhaust
+the iteration budget first: \code{depth_known} is then \code{FALSE}, \code{distance}
+is the conservative (shallowest) estimate and \code{distance_bounds} brackets
+the true signed distance. The collision classification is exact either
+way. When the cores intersect, \code{point_a} and \code{point_b} are the extreme
+points of each shape along the separating direction; when only the
+radii overlap they are the deepest points of each shape. Meshes are not
 supported.
 }
 \examples{

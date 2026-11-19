@@ -132,3 +132,23 @@ deg2rad <- function(x) x * pi / 180
 #' @rdname angle_units
 #' @export
 rad2deg <- function(x) x * 180 / pi
+
+# A physical constraint given as one value for all items or exactly one
+# value per item; other lengths are an error, never recycled.
+check_per_item <- function(x, n, name) {
+  x <- check_numeric_vector(x, name = name)
+  if (length(x) == 1L) return(rep(x, n))
+  if (length(x) != n) {
+    stop(sprintf("`%s` must have length 1 or %d, not %d.", name, n, length(x)),
+         call. = FALSE)
+  }
+  x
+}
+
+check_probability <- function(x, name) {
+  x <- check_scalar(x, name)
+  if (x < 0 || x > 1) {
+    stop(sprintf("`%s` must be a probability in [0, 1].", name), call. = FALSE)
+  }
+  x
+}
