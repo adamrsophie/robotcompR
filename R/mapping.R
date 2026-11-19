@@ -78,6 +78,7 @@ NULL
 #' @rdname grid_coordinates
 #' @export
 grid_world_to_cell <- function(grid, points) {
+  check_grid(grid)
   P <- if (is.matrix(points)) points else matrix(points, 1)
   col <- floor((P[, 1] - grid$xlim[1]) / grid$resolution) + 1
   row <- floor((P[, 2] - grid$ylim[1]) / grid$resolution) + 1
@@ -90,6 +91,7 @@ grid_world_to_cell <- function(grid, points) {
 #' @rdname grid_coordinates
 #' @export
 grid_cell_to_world <- function(grid, cells) {
+  check_grid(grid)
   C <- if (is.matrix(cells)) cells else matrix(cells, 1)
   cbind(x = grid$xlim[1] + (C[, 2] - 0.5) * grid$resolution,
         y = grid$ylim[1] + (C[, 1] - 0.5) * grid$resolution)
@@ -97,7 +99,39 @@ grid_cell_to_world <- function(grid, cells) {
 
 #' @rdname grid_coordinates
 #' @export
-grid_probability <- function(grid) 1 / (1 + exp(-grid$logodds))
+grid_probability <- function(grid) {
+  check_grid(grid)
+  1 / (1 + exp(-grid$logodds))
+}
+
+check_grid <- function(grid) {
+  if (!inherits(grid, "robot_occupancy_grid")) {
+    stop("`grid` must be a robot_occupancy_grid.", call. = FALSE)
+  }
+  invisible(grid)
+}
+
+# Clip the segment a-b to the map rectangle (Liang and Barsky); NULL when
+# it misses the map.
+clip_to_grid <- function(grid, a, b) {
+  d <- b - a
+  t0 <- 0
+  t1 <- 1
+  lo <- c(grid$xlim[1], grid$ylim[1])
+  hi <- c(grid$xlim[1] + ncol(grid$logodds) * grid$resolution,
+          grid$ylim[1] + nrow(grid$logodds) * grid$resolution)
+  for (k in 1:2) {
+    if (d[k] == 0) {
+      if (a[k] < lo[k] || a[k] > hi[k]) return(NULL)
+      next
+    }
+    u <- sort(c((lo[k] - a[k]) / d[k], (hi[k] - a[k]) / d[k]))
+    t0 <- max(t0, u[1])
+    t1 <- min(t1, u[2])
+    if (t0 > t1) return(NULL)
+  }
+  list(a = a + t0 * d, b = a + t1 * d)
+}
 
 #' @rdname grid_coordinates
 #' @export
@@ -109,6 +143,12 @@ grid_occupied <- function(grid, threshold = 0.65) {
 # Exact grid traversal (Amanatides and Woo, 1987). Returns the cells
 # crossed by the segment from a to b, in order, excluding cells outside.
 grid_traverse <- function(grid, a, b) {
+  # Only the part inside the map is walked, so a long beam on a small map
+  # costs no more than the map.
+  seg <- clip_to_grid(grid, a, b)
+  if (is.null(seg)) return(matrix(0L, 0, 2))
+  a <- seg$a
+  b <- seg$b
   res <- grid$resolution
   x0 <- (a[1] - grid$xlim[1]) / res
   y0 <- (a[2] - grid$ylim[1]) / res
@@ -173,7 +213,7 @@ NULL
 #' @rdname grid_scans
 #' @export
 grid_raycast <- function(grid, pose, angles, max_range, threshold = 0.65) {
-  stopifnot(inherits(grid, "robot_occupancy_grid"))
+  check_grid(grid)
   p <- check_pose2(pose)
   angles <- check_numeric_vector(angles, name = "angles")
   max_range <- check_scalar(max_range, "max_range", positive = TRUE)
@@ -201,7 +241,7 @@ grid_raycast <- function(grid, pose, angles, max_range, threshold = 0.65) {
 #' @export
 grid_update_scan <- function(grid, pose, angles, ranges, max_range,
                              l_occ = 0.85, l_free = -0.4, clamp = c(-5, 5)) {
-  stopifnot(inherits(grid, "robot_occupancy_grid"))
+  check_grid(grid)
   p <- check_pose2(pose)
   angles <- check_numeric_vector(angles, name = "angles")
   ranges <- check_numeric_vector(ranges, length(angles), "ranges")
@@ -215,15 +255,15 @@ grid_update_scan <- function(grid, pose, angles, ranges, max_range,
   for (k in seq_along(angles)) {
     dir <- c(cos(p[3] + angles[k]), sin(p[3] + angles[k]))
     hit <- ranges[k] < max_range
-    # A hit point usually lies on the face of the occupied cell; nudging it
-    # a hair along the beam assigns it to that cell for either direction.
-    reach <- min(ranges[k], max_range) + if (hit) 1e-6 * grid$resolution else 0
-    end <- p[1:2] + reach * dir
+    end <- p[1:2] + min(ranges[k], max_range) * dir
     cells <- grid_traverse(grid, p[1:2], end)
     if (!nrow(cells)) next
-    hit_cell <- if (hit) grid_world_to_cell(grid, end) else matrix(NA, 1, 2)
+    hit_cell <- if (hit) hit_cell_of(grid, end, dir) else matrix(NA, 1, 2)
     if (hit && !anyNA(hit_cell)) {
-      free <- cells[!(cells[, 1] == hit_cell[1] & cells[, 2] == hit_cell[2]), ,
+      at <- which(cells[, 1] == hit_cell[1] & cells[, 2] == hit_cell[2])
+      # Cells before the hit cell are free. A beam ending on the far face
+      # of the hit cell stops just short of it, so then all are free.
+      free <- cells[seq_len(if (length(at)) at[1] - 1 else nrow(cells)), ,
                     drop = FALSE]
       L[hit_cell] <- L[hit_cell] + l_occ
     } else {
@@ -234,6 +274,20 @@ grid_update_scan <- function(grid, pose, angles, ranges, max_range,
   }
   grid$logodds <- pmin(pmax(L, clamp[1]), clamp[2])
   grid
+}
+
+# The cell containing a measured endpoint. An endpoint on a cell face
+# (to roundoff) belongs to the cell the beam enters there, so a hit on the
+# far face of a cell is not assigned to the cell beyond it.
+hit_cell_of <- function(grid, end, dir) {
+  u <- (end - c(grid$xlim[1], grid$ylim[1])) / grid$resolution
+  r <- round(u)
+  on_face <- abs(u - r) <= 64 * .Machine$double.eps * pmax(1, abs(u))
+  idx <- ifelse(on_face, r - (dir < 0), floor(u))
+  cell <- matrix(c(idx[2] + 1, idx[1] + 1), 1)
+  if (cell[1] < 1 || cell[1] > nrow(grid$logodds) || cell[2] < 1 ||
+      cell[2] > ncol(grid$logodds)) cell[] <- NA
+  cell
 }
 
 #' Inflate obstacles
@@ -254,6 +308,7 @@ grid_update_scan <- function(grid, pose, angles, ranges, max_range,
 #' sum(grid_inflate(g, 0.15))
 #' @export
 grid_inflate <- function(grid, radius, threshold = 0.65) {
+  check_grid(grid)
   radius <- check_scalar(radius, "radius", nonnegative = TRUE)
   occ <- grid_occupied(grid, threshold)
   r <- ceiling(radius / grid$resolution + 0.5)
@@ -295,7 +350,15 @@ grid_inflate <- function(grid, radius, threshold = 0.65) {
 #' nrow(path)
 #' @export
 grid_astar <- function(grid, start, goal, occupied = NULL) {
+  check_grid(grid)
   occ <- occupied %||% grid_occupied(grid)
+  if (!is.logical(occ) || !is.matrix(occ) || anyNA(occ) ||
+      !identical(dim(occ), dim(grid$logodds))) {
+    stop(sprintf("`occupied` must be a logical %d by %d matrix without NA.",
+                 nrow(grid$logodds), ncol(grid$logodds)), call. = FALSE)
+  }
+  start <- check_numeric_vector(start, 2, "start")
+  goal <- check_numeric_vector(goal, 2, "goal")
   s <- grid_world_to_cell(grid, start)
   g <- grid_world_to_cell(grid, goal)
   if (anyNA(s) || anyNA(g)) stop("Start or goal is outside the map.", call. = FALSE)
@@ -307,6 +370,10 @@ grid_astar <- function(grid, start, goal, occupied = NULL) {
   came <- integer(nr * nc)
   closed <- logical(nr * nc)
   open <- logical(nr * nc)
+  # The open set is also kept as a list of ids, so selecting the next cell
+  # scans the frontier, not the whole map.
+  # ponytail: linear frontier scan; a binary heap if maps get very large.
+  frontier <- integer(0)
   h <- function(r, c) sqrt((r - g[1])^2 + (c - g[2])^2)
   si <- id(s[1], s[2])
   gi <- id(g[1], g[2])
@@ -314,12 +381,14 @@ grid_astar <- function(grid, start, goal, occupied = NULL) {
   fscore <- rep(Inf, nr * nc)
   fscore[si] <- h(s[1], s[2])
   open[si] <- TRUE
+  frontier <- si
   moves <- rbind(c(1, 0), c(-1, 0), c(0, 1), c(0, -1), c(1, 1), c(1, -1),
                  c(-1, 1), c(-1, -1))
-  while (any(open)) {
-    cand <- which(open)
-    cur <- cand[which.min(fscore[cand])]
+  while (length(frontier)) {
+    k <- which.min(fscore[frontier])
+    cur <- frontier[k]
     if (cur == gi) break
+    frontier <- frontier[-k]
     open[cur] <- FALSE
     closed[cur] <- TRUE
     r <- (cur - 1) %% nr + 1
@@ -336,6 +405,7 @@ grid_astar <- function(grid, start, goal, occupied = NULL) {
         came[ni] <- cur
         gscore[ni] <- tentative
         fscore[ni] <- tentative + h(rr, cc)
+        if (!open[ni]) frontier <- c(frontier, ni)
         open[ni] <- TRUE
       }
     }

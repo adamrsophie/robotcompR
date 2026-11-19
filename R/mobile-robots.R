@@ -303,9 +303,12 @@ world_to_body_velocity <- function(velocity, theta) {
 #' \eqn{\kappa = 2 y_L / \ell^2}, the circle through the robot and the
 #' target, where \eqn{(x_L, y_L)} is the target in the body frame and
 #' \eqn{\ell^2 = x_L^2 + y_L^2} its squared distance (Coulter, 1992). On a
-#' straight path \eqn{\ell} is close to `lookahead`, but it is shorter when
-#' the robot is off the path. Near the end
-#' of the path the last point is used as the goal.
+#' straight path with cross-track error \eqn{e} (and the closest point
+#' inside the path), \eqn{\ell = \sqrt{L_d^2 + e^2}}. Near the end of the
+#' path the last point is used as the goal. When the target is behind the
+#' robot (\eqn{x_L < 0}) the arc would drive away from it, so the command
+#' turns in place instead: `v = 0` and `omega = 2 |speed| / lookahead`
+#' toward the side of the target.
 #'
 #' @param pose Current pose.
 #' @param path Matrix of 2D waypoints (one per row).
@@ -349,6 +352,11 @@ pure_pursuit <- function(pose, path, lookahead, speed) {
   }
   local <- world_to_body_velocity(target - p[1:2], p[3])
   L2 <- sum(local^2)
+  if (local[1] < 0) {
+    side <- if (local[2] < 0) -1 else 1
+    return(list(v = 0, omega = side * 2 * abs(speed) / Ld, target = target,
+                done = FALSE))
+  }
   kappa <- if (L2 > 0) 2 * local[2] / L2 else 0
   list(v = speed, omega = speed * kappa, target = target, done = FALSE)
 }
