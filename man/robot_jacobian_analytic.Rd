@@ -21,7 +21,8 @@ robot_jacobian_analytic(
 
 \item{representation}{\code{"rpy"} or \code{"rotvec"}.}
 
-\item{tol}{Singularity tolerance on \eqn{|\cos p|}.}
+\item{tol}{Singularity tolerance on \eqn{|\cos p|} (RPY) or on
+\eqn{\pi - \theta} (rotation vector).}
 }
 \value{
 A 6 by n matrix.
@@ -36,7 +37,9 @@ orientation is the roll-pitch-yaw triple \eqn{(r, p, y)} with
 \eqn{J_a = \mathrm{diag}(I, E^{-1}) J}. \code{E} is singular when
 \eqn{\cos p = 0}; the function stops there. With
 \code{representation = "rotvec"} the orientation is the rotation vector
-\eqn{\phi} and \eqn{\dot\phi = J_l(\phi)^{-1}\omega}.
+\eqn{\phi} and \eqn{\dot\phi = J_l(\phi)^{-1}\omega}; the principal
+rotation vector jumps at a half turn, so the function stops when the
+rotation angle is within \code{tol} of \eqn{\pi}.
 }
 \examples{
 robot <- robot_example("puma560")

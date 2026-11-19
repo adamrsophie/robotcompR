@@ -41,6 +41,7 @@ plot.robot_trajectory <- function(x, what = c("q", "qd", "qdd"), ...) {
 time_grid <- function(duration, times, n) {
   if (!is.null(times)) {
     times <- check_numeric_vector(times, name = "times")
+    if (!length(times)) stop("`times` must not be empty.", call. = FALSE)
     if (any(diff(times) < 0)) stop("`times` must be nondecreasing.",
                                    call. = FALSE)
     return(times)
@@ -184,7 +185,7 @@ robot_traj_trapezoidal <- function(q0, q1, vmax, amax, times = NULL,
   h <- q1 - q0
   moving <- abs(h) > 0
   if (!any(moving)) {
-    t <- if (is.null(times)) 0 else times
+    t <- if (is.null(times)) 0 else time_grid(NULL, times, 2)
     Z <- matrix(0, length(t), m)
     tr <- new_trajectory(t, matrix(q0, length(t), m, byrow = TRUE), Z, Z,
                          names(q0), "trapezoidal")
@@ -335,21 +336,34 @@ robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
   Q <- Qd <- Qdd <- matrix(0, m, robot$dof)
   ok <- logical(m)
   q <- initial
+  # Continuous joints are lifted to the angle nearest the previous sample
+  # (or `initial`), so the joint path follows the short Cartesian motion
+  # instead of jumping across the angle cut.
+  types <- vapply(robot$joints[robot$movable], `[[`, "", "type")
+  cont <- which(types == "continuous")
+  # The velocity law qd = F(q, v) = J(q)^+ v; its time derivative,
+  # including the change of the pseudoinverse along qd, is the
+  # acceleration, so qdd is consistent with qd for redundant arms too.
+  vel <- function(q, v) pinv_solve(sw * robot_jacobian(robot, q, frame), sw * v)
   for (i in seq_len(m)) {
     sol <- robot_ik(robot, out$poses[[i]], initial = q, frame = frame,
                     weights = weights, ...)
-    q <- sol$q
+    qn <- sol$q
+    prev <- if (i > 1) Q[i - 1, ] else initial
+    if (length(cont) && !is.null(prev)) {
+      qn[cont] <- prev[cont] + wrap_angle_internal(qn[cont] - prev[cont])
+    }
+    q <- qn
     ok[i] <- sol$converged
-    J <- robot_jacobian(robot, q, frame)
-    qd <- pinv_solve(sw * J, sw * V[i, ])
-    h <- 1e-6
-    Jdqd <- if (any(qd != 0)) {
-      as.numeric((robot_jacobian(robot, q + h * qd, frame) -
-                    robot_jacobian(robot, q - h * qd, frame)) %*% qd) / (2 * h)
-    } else numeric(6)
     Q[i, ] <- q
+    if (!robot$dof) next
+    qd <- vel(q, V[i, ])
+    h <- 1e-6
+    dF <- if (any(qd != 0)) {
+      (vel(q + h * qd, V[i, ]) - vel(q - h * qd, V[i, ])) / (2 * h)
+    } else numeric(robot$dof)
     Qd[i, ] <- qd
-    Qdd[i, ] <- pinv_solve(sw * J, sw * (A[i, ] - Jdqd))
+    Qdd[i, ] <- vel(q, A[i, ]) + dF
   }
   out$joint <- new_trajectory(sc$time, Q, Qd, Qdd, robot_joint_names(robot),
                               "cartesian")
@@ -372,6 +386,7 @@ robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
 #' robot_traj_check(robot, tr)$ok
 #' @export
 robot_traj_check <- function(robot, trajectory, tol = 1e-9) {
+  tol <- check_scalar(tol, "tol", nonnegative = TRUE)
   check_robot(robot)
   stopifnot(inherits(trajectory, "robot_trajectory"))
   check_trajectory_structure(trajectory, robot$dof)

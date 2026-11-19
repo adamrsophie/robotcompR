@@ -14,7 +14,8 @@ robot_simulate(
   f_ext = NULL,
   method = "lsoda",
   rtol = 1e-08,
-  atol = 1e-10
+  atol = 1e-10,
+  ...
 )
 }
 \arguments{
@@ -35,6 +36,9 @@ zero torque.}
 \item{method}{Integration method passed to \code{\link[deSolve:ode]{deSolve::ode()}}.}
 
 \item{rtol, atol}{Integration tolerances.}
+
+\item{...}{Further arguments to \code{\link[deSolve:ode]{deSolve::ode()}}, such as \code{maxsteps}.
+An integration that stops before the last time is an error.}
 }
 \value{
 A \code{robot_trajectory} with \code{time}, \code{q}, \code{qd} and \code{qdd}.

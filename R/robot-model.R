@@ -253,12 +253,22 @@ check_robot <- function(robot) {
 }
 
 check_q <- function(robot, q, name = "q") {
+  nms <- names(q)
   q <- check_numeric_vector(q, name = name)
   if (length(q) != robot$dof) {
     stop(sprintf("`%s` must have length %d (the number of degrees of freedom).",
                  name, robot$dof), call. = FALSE)
   }
-  q
+  # A named configuration is matched to the joints by name, never used by
+  # position in a different order.
+  jn <- robot_joint_names(robot)
+  if (!is.null(nms) && all(nzchar(nms)) && setequal(nms, jn) && !anyDuplicated(nms)) {
+    q <- q[match(jn, nms)]
+  } else if (!is.null(nms) && any(nms %in% jn) && !identical(nms, jn)) {
+    stop(sprintf("Names of `%s` must be exactly the joint names (%s).", name,
+                 paste(jn, collapse = ", ")), call. = FALSE)
+  }
+  unname(q)
 }
 
 frame_index <- function(robot, frame) {

@@ -468,6 +468,10 @@ robot_pose_interp <- function(a, b, s, method = c("decoupled", "screw")) {
             a$dim == b$dim)
   s <- check_numeric_vector(s, name = "s")
   if (any(s < 0 | s > 1)) stop("`s` must lie in [0, 1].", call. = FALSE)
+  if (!is.null(a$parent) && !is.null(b$parent) && !identical(a$parent, b$parent)) {
+    stop(sprintf("Cannot interpolate poses in different frames ('%s' and '%s').",
+                 a$parent, b$parent), call. = FALSE)
+  }
   d <- a$dim
   rel <- robot_relative_pose(robot_pose(matrix = a$matrix),
                              robot_pose(matrix = b$matrix))

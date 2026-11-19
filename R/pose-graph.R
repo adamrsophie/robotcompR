@@ -158,7 +158,7 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
   B[1:3, 1:3] <- solve(J[1:3, 1:3])
   B[4:6, 4:6] <- Ai
   B[1:3, 4:6] <- -B[1:3, 1:3] %*% J[1:3, 4:6] %*% Ai
-  A <- -B %*% se3_adjoint(se3_inverse_matrix(Xj) %*% Xi)
+  A <- -B %*% se3_adjoint_matrix(se3_inverse_matrix(Xj) %*% Xi)
   list(A = A, B = B)
 }
 

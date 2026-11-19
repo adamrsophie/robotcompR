@@ -69,7 +69,11 @@ robot_dh <- function(a, alpha, d, theta, joint_type = "revolute",
     stop("`joint_type` must be 'revolute' or 'prismatic' for each link.",
          call. = FALSE)
   }
-  if (!is.null(limits)) limits <- check_matrix(limits, n, 2, "limits")
+  # Rows are validated by robot_joint(), which allows one-sided limits.
+  if (!is.null(limits) && (!is.matrix(limits) || !is.numeric(limits) ||
+                           !identical(dim(limits), c(as.integer(n), 2L)))) {
+    stop(sprintf("`limits` must be a %d by 2 numeric matrix.", n), call. = FALSE)
+  }
   links <- list(robot_link("base"))
   joints <- list()
   for (i in seq_len(n)) {

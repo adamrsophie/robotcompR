@@ -88,9 +88,10 @@ robot_quaternion <- function(x, canonical = TRUE) {
     return(new_quaternion(matrix_to_quaternion(R)))
   }
   q <- check_numeric_vector(x, 4, "x")
-  n <- vnorm(q)
-  if (n < 1e-12) stop("`x` must be a nonzero quaternion.", call. = FALSE)
-  q <- q / n
+  m <- max(abs(q))
+  if (!(m > 0)) stop("`x` must be a nonzero quaternion.", call. = FALSE)
+  q <- q / m
+  q <- q / vnorm(q)
   if (canonical) q <- canonical_quaternion(q)
   new_quaternion(q)
 }

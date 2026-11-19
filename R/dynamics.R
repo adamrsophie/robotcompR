@@ -34,7 +34,7 @@ spatial_inertia <- function(link) {
 motion_subspace <- function(j) {
   S <- if (j$type == "prismatic") c(j$axis, 0, 0, 0)
        else if (j$type == "fixed") rep(0, 6) else c(0, 0, 0, j$axis)
-  if (!is.null(j$post)) S <- as.numeric(se3_adjoint(pose_inverse_matrix(j$post)) %*% S)
+  if (!is.null(j$post)) S <- as.numeric(se3_adjoint_matrix(pose_inverse_matrix(j$post)) %*% S)
   S
 }
 
@@ -61,7 +61,7 @@ link_transforms <- function(robot, q) {
     qi <- if (robot$movable[ji]) q[robot$q_index[ji]] else 0
     T <- j$origin %*% joint_motion(j, qi)
     if (!is.null(j$post)) T <- T %*% j$post
-    X[[k]] <- se3_adjoint(pose_inverse_matrix(T))
+    X[[k]] <- se3_adjoint_matrix(pose_inverse_matrix(T))
   }
   list(X = X, S = robot$motion_subspace %||% c(list(NULL),
                                                lapply(robot$joints, motion_subspace)))
@@ -81,11 +81,12 @@ external_forces <- function(robot, f_ext, q) {
     stop("`f_ext` must be a named list of length-6 wrenches.", call. = FALSE)
   }
   fk <- fk_internal(robot, q)
-  for (nm in names(f_ext)) {
-    k <- frame_index(robot, nm)
-    w <- check_numeric_vector(f_ext[[nm]], 6, "f_ext")
+  # By position, so several wrenches on one link add up.
+  for (i in seq_along(f_ext)) {
+    k <- frame_index(robot, names(f_ext)[i])
+    w <- check_numeric_vector(f_ext[[i]], 6, "f_ext")
     R <- fk$link[[k]][1:3, 1:3]
-    F[[k]] <- c(crossprod(R, w[1:3]), crossprod(R, w[4:6]))
+    F[[k]] <- F[[k]] + c(crossprod(R, w[1:3]), crossprod(R, w[4:6]))
   }
   F
 }
@@ -281,7 +282,7 @@ aba_internal <- function(robot, q, qd, tau, gravity, Fext, tr = NULL) {
       U[[k]] <- as.numeric(IA[[k]] %*% S)
       D[k] <- sum(S * U[[k]])
       Dref <- sum(S * (IC[[k]] %*% S))
-      if (!(Dref > 0) || D[k] <= 1e-12 * Dref) {
+      if (!(Dref > 0) || D[k] <= 32 * .Machine$double.eps * Dref) {
         stop(sprintf(paste0("Joint '%s' drives no inertia; forward dynamics ",
                             "is undefined (add mass or inertia)."),
                      robot$joint_names[ji]), call. = FALSE)
@@ -417,6 +418,8 @@ robot_energy <- function(robot, q, qd, gravity = c(0, 0, -9.81)) {
 #'   zero torque.
 #' @param method Integration method passed to [deSolve::ode()].
 #' @param rtol,atol Integration tolerances.
+#' @param ... Further arguments to [deSolve::ode()], such as `maxsteps`.
+#'   An integration that stops before the last time is an error.
 #' @return A `robot_trajectory` with `time`, `q`, `qd` and `qdd`.
 #' @examples
 #' robot <- robot_example("planar1")
@@ -426,7 +429,7 @@ robot_energy <- function(robot, q, qd, gravity = c(0, 0, -9.81)) {
 #' @export
 robot_simulate <- function(robot, q0, qd0 = NULL, times, torque = NULL,
                            gravity = c(0, 0, -9.81), f_ext = NULL,
-                           method = "lsoda", rtol = 1e-8, atol = 1e-10) {
+                           method = "lsoda", rtol = 1e-8, atol = 1e-10, ...) {
   check_robot(robot)
   q0 <- check_q(robot, q0, "q0")
   qd0 <- qvec(robot, qd0, "qd0")
@@ -453,7 +456,14 @@ robot_simulate <- function(robot, q0, qd0 = NULL, times, torque = NULL,
     list(c(qd, qdd))
   }
   out <- deSolve::ode(c(q0, qd0), times, rhs, NULL, method = method,
-                      rtol = rtol, atol = atol)
+                      rtol = rtol, atol = atol, ...)
+  if (nrow(out) < length(times)) {
+    stop(sprintf(paste0("The ODE solver stopped at t = %g before reaching ",
+                        "t = %g (divergent or stiff dynamics, or too few ",
+                        "steps; see `...`)."),
+                 out[nrow(out), 1], times[length(times)]), call. = FALSE)
+  }
+  times <- as.numeric(out[, 1])
   Y <- unclass(out)[, -1, drop = FALSE]
   Q <- Y[, seq_len(n), drop = FALSE]
   Qd <- Y[, n + seq_len(n), drop = FALSE]

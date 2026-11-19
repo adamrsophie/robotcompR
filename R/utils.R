@@ -59,13 +59,16 @@ check_string <- function(x, name = deparse(substitute(x))) {
   x
 }
 
-unit_vector <- function(v, name = "axis", tol = 1e-12) {
+# Scaling by the largest component first keeps the norm from overflowing
+# or underflowing; only an exactly zero vector is rejected.
+unit_vector <- function(v, name = "axis") {
   v <- check_numeric_vector(v, name = name)
-  n <- sqrt(sum(v^2))
-  if (n < tol) {
+  m <- max(abs(v))
+  if (!(m > 0)) {
     stop(sprintf("`%s` must be a nonzero vector.", name), call. = FALSE)
   }
-  v / n
+  u <- v / m
+  u / sqrt(sum(u * u))
 }
 
 vnorm <- function(v) sqrt(sum(v * v))
@@ -76,9 +79,19 @@ cross3 <- function(a, b) {
     a[1] * b[2] - a[2] * b[1])
 }
 
-# Wrap angles to the half-open interval [-pi, pi).
+# Wrap angles to the half-open interval [-pi, pi). Values already in the
+# interval are returned unchanged; very large ones are reduced through
+# sin and cos, whose argument reduction is exact, instead of subtracting a
+# huge multiple of 2 pi.
 wrap_angle_internal <- function(theta) {
-  theta - 2 * pi * floor((theta + pi) / (2 * pi))
+  out <- theta - 2 * pi * floor((theta + pi) / (2 * pi))
+  keep <- which(theta >= -pi & theta < pi)
+  out[keep] <- theta[keep]
+  big <- which(abs(theta) > 1e6)
+  out[big] <- atan2(sin(theta[big]), cos(theta[big]))
+  out[which(out >= pi)] <- -pi
+  out[which(out < -pi)] <- -pi
+  out
 }
 
 # Run `code` with a temporary RNG seed while restoring the caller's state.

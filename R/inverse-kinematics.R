@@ -43,6 +43,10 @@ ik_single <- function(robot, k, q0, target_p, target_R, W, method, tol,
   while (it < max_iterations && err > tol) {
     it <- it + 1L
     J <- jacobian_internal(robot, q, k, fk = fk)
+    # The orientation residual is log(Rt Rc'); a world angular velocity w
+    # changes it by -Jr(e)^-1 w, so the rows that the weights select see
+    # their true derivative (not w itself) even far from the solution.
+    if (!is.null(target_R)) J[4:6, ] <- so3_jacobian_right_inverse(e[4:6]) %*% J[4:6, ]
     Jw <- sw * J
     ew <- sw * e
     step_for <- function(Jw) {
@@ -315,11 +319,12 @@ ik_planar2 <- function(x, y, l1, l2, tol = 1e-12) {
   y <- check_scalar(y, "y")
   l1 <- check_scalar(l1, "l1", positive = TRUE)
   l2 <- check_scalar(l2, "l2", positive = TRUE)
-  c2 <- (x^2 + y^2 - l1^2 - l2^2) / (2 * l1 * l2)
-  if (abs(c2) > 1 + tol) {
+  r <- sqrt(x^2 + y^2)
+  # Reachability as a distance test on the radius, which does not cancel
+  # the way the cosine law does for unequal links.
+  if (r > (l1 + l2) * (1 + tol) || r < abs(l1 - l2) - tol * (l1 + l2)) {
     return(matrix(numeric(0), 0, 2, dimnames = list(NULL, c("q1", "q2"))))
   }
-  r <- sqrt(x^2 + y^2)
   # Positional degeneracy is a distance test, so it scales linearly with
   # the arm, unlike the dimensionless reachability slack above.
   if (r <= tol * (l1 + l2) && abs(l1 - l2) <= tol * (l1 + l2)) {

@@ -78,6 +78,12 @@ robot_joint <- function(name, type = c("revolute", "continuous", "prismatic",
       stop(sprintf("Joint '%s' has lower limit %g above upper limit %g.",
                    name, limits[1], limits[2]), call. = FALSE)
     }
+    # Only the lower limit may be -Inf and only the upper +Inf, so the
+    # interval always holds a finite configuration.
+    if (limits[1] == Inf || limits[2] == -Inf) {
+      stop(sprintf("Joint '%s' has limits with no finite configuration.", name),
+           call. = FALSE)
+    }
   }
   chk <- function(v, nm) {
     if (is.null(v)) return(NULL)
@@ -214,9 +220,18 @@ print.robot_link <- function(x, ...) {
 #' @name inertia_solids
 NULL
 
+# Mass and dimensions of the primitive inertia helpers: single finite
+# nonnegative numbers, so the result is always a physical 3 by 3 tensor.
+check_solid <- function(...) {
+  args <- list(...)
+  for (nm in names(args)) check_scalar(args[[nm]], nm, nonnegative = TRUE)
+  invisible(NULL)
+}
+
 #' @rdname inertia_solids
 #' @export
 inertia_rod <- function(mass, length, axis = c("x", "y", "z")) {
+  check_solid(mass = mass, length = length)
   axis <- match.arg(axis)
   v <- mass * length^2 / 12
   d <- c(v, v, v)
@@ -228,12 +243,15 @@ inertia_rod <- function(mass, length, axis = c("x", "y", "z")) {
 #' @export
 inertia_box <- function(mass, size) {
   s <- check_numeric_vector(size, 3, "size")
+  check_solid(mass = mass)
+  if (any(s < 0)) stop("`size` must be nonnegative.", call. = FALSE)
   mass / 12 * diag(c(s[2]^2 + s[3]^2, s[1]^2 + s[3]^2, s[1]^2 + s[2]^2))
 }
 
 #' @rdname inertia_solids
 #' @export
 inertia_cylinder <- function(mass, radius, length) {
+  check_solid(mass = mass, radius = radius, length = length)
   a <- mass * (3 * radius^2 + length^2) / 12
   diag(c(a, a, mass * radius^2 / 2))
 }
@@ -241,5 +259,6 @@ inertia_cylinder <- function(mass, radius, length) {
 #' @rdname inertia_solids
 #' @export
 inertia_sphere <- function(mass, radius) {
+  check_solid(mass = mass, radius = radius)
   diag(rep(2 * mass * radius^2 / 5, 3))
 }

@@ -35,7 +35,9 @@ so3_coefficients <- function(theta) {
     C <- 1 / 6 - t2 / 120 + t2 * t2 / 5040
   } else {
     A <- sin(theta) / theta
-    B <- (1 - cos(theta)) / t2
+    # Half-angle form of (1 - cos t) / t^2, free of cancellation.
+    h <- sin(theta / 2) / (theta / 2)
+    B <- 0.5 * h * h
     C <- (theta - sin(theta)) / (t2 * theta)
   }
   list(A = A, B = B, C = C)
@@ -248,7 +250,9 @@ so2_exp <- function(x) {
 so2_log <- function(x, tol = 1e-6) {
   R <- check_matrix(as_plain_matrix(x), 2, 2, "x")
   check_rotation_matrix(R, tol, "x")
-  atan2(R[2, 1], R[1, 1])
+  th <- atan2(R[2, 1], R[1, 1])
+  # atan2(-0, -1) is -pi; the documented interval is (-pi, pi].
+  if (th == -pi) pi else th
 }
 
 se2_V <- function(theta) {
@@ -258,7 +262,7 @@ se2_V <- function(theta) {
     b <- theta / 2 - theta * t2 / 24
   } else {
     a <- sin(theta) / theta
-    b <- (1 - cos(theta)) / theta
+    b <- sin(theta / 2)^2 / (theta / 2)
   }
   matrix(c(a, b, -b, a), 2, 2)
 }
@@ -352,6 +356,12 @@ so3_jacobian_right_inverse <- function(x) {
 #' @export
 se3_adjoint <- function(x) {
   T <- check_matrix(as_plain_matrix(x), 4, 4, "x")
+  check_transform_matrix(T, 1e-6, "x")
+  se3_adjoint_matrix(T)
+}
+
+# Adjoint of an already validated transform (used in inner loops).
+se3_adjoint_matrix <- function(T) {
   R <- T[1:3, 1:3]
   p <- T[1:3, 4]
   Ad <- matrix(0, 6, 6)
@@ -365,6 +375,7 @@ se3_adjoint <- function(x) {
 #' @export
 se2_adjoint <- function(x) {
   T <- check_matrix(as_plain_matrix(x), 3, 3, "x")
+  check_transform_matrix(T, 1e-6, "x")
   Ad <- matrix(0, 3, 3)
   Ad[1:2, 1:2] <- T[1:2, 1:2]
   Ad[1:2, 3] <- c(T[2, 3], -T[1, 3])

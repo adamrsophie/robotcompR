@@ -48,6 +48,10 @@ robot_manipulability <- function(robot, q, frame = NULL,
                                  rows = NULL, tol = 1e-8) {
   measure <- match.arg(measure)
   J <- robot_jacobian(robot, q, frame)
+  if (!is.null(rows) && (!is.numeric(rows) || !length(rows) || anyNA(rows) ||
+                         any(rows != round(rows)) || any(rows < 1 | rows > 6))) {
+    stop("`rows` must be whole numbers between 1 and 6.", call. = FALSE)
+  }
   Js <- if (is.null(rows)) jacobian_rows(J, measure) else J[rows, , drop = FALSE]
   if (ncol(Js) == 0) stop("The robot has no movable joints.", call. = FALSE)
   s <- svd(Js)
