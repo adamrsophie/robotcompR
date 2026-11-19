@@ -156,7 +156,12 @@ sampling bounds (see <code><a href="robot_configurations.html">robot_random_conf
 
 <dt id="arg-time-limit">time_limit<a class="anchor" aria-label="anchor" href="#arg-time-limit"></a></dt>
 <dd><p>Wall-clock budget in seconds for each call to
-<code><a href="robot_plan.html">robot_plan()</a></code>; planning stops with <code>success = FALSE</code> once it is spent.</p></dd>
+<code><a href="robot_plan.html">robot_plan()</a></code>, covering start and goal validation, planning and
+optional smoothing. The deadline is checked between configuration
+checks, including inside edge checks, so planning stops with
+<code>success = FALSE</code> and <code>termination = "time_limit"</code> once it is spent.
+A single call of <code>validity</code> cannot be interrupted, so the overrun is
+at most one such call (plus one distance matrix for PRM).</p></dd>
 
 </dl></div>
     <div class="section level2">

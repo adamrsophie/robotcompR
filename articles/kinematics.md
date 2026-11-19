@@ -183,9 +183,9 @@ rbind(s1$q, s2$q)
 #> [1,] -3.376762e-14  1.570796
 #> [2,]  1.570796e+00 -1.570796
 ik_planar2(1, 1, 1, 1)
-#>                   q1        q2
-#> q2_positive 0.000000  1.570796
-#> q2_negative 1.570796 -1.570796
+#>                       q1        q2
+#> q2_positive 1.110223e-16  1.570796
+#> q2_negative 1.570796e+00 -1.570796
 ```
 
 Unreachable targets are reported, not hidden. The solver returns the

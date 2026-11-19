@@ -166,7 +166,7 @@ res$converged
 res$iterations
 #> [1] 5
 signif(res$cost, 3)
-#> [1] 763.00   6.08   4.64   4.64   4.64   4.64
+#> [1] 763.00   6.08   4.64   4.64   4.64
 plot(odom[, 1:2], type = "l", col = "grey50", lty = 2, asp = 1,
      xlab = "x (m)", ylab = "y (m)")
 lines(truth[, 1:2], lwd = 3, col = "grey80")
@@ -218,7 +218,7 @@ err <- function(nodes) max(vapply(seq_along(nodes), function(k)
 c(odometry = err(lapply(odom3, function(M) robot_pose(matrix = M))),
   optimized = err(res3$graph$nodes))
 #>   odometry  optimized 
-#> 0.41548311 0.07660563
+#> 0.41548311 0.07660564
 ```
 
 ## EKF-SLAM

@@ -149,7 +149,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
 plan
 #> <robot_plan> rrt_connect: success
 #> path found (shortcut smoothed) 
-#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 0.277 s
+#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 1.67 s
 #> seed: 1
 traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
 robot_traj_check(robot, traj)$ok
@@ -199,7 +199,9 @@ samples. Specific limits:
   and mimic joints are rejected.
 - Collision geometry is convex (spheres, boxes, cylinders, capsules and
   convex hulls). Meshes are kept as metadata but are not used for
-  queries. Penetration depths are exact (EPA for general pairs).
+  queries. Penetration depths come from closed forms or EPA; when EPA
+  runs out of iterations the result says so (`depth_known = FALSE`) and
+  gives bounds.
 - Path collision checks are discrete at a user-chosen resolution or
   continuous by conservative advancement.
 - Sampling-based planners are probabilistically complete at best; a

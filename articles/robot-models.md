@@ -191,11 +191,16 @@ robot_joints(pt)[, c("name", "type", "lower", "upper")]
 
 Exporting writes a URDF that reproduces the same kinematics and inertia.
 Joint offsets are folded into the origin, and DH post transforms become
-an extra fixed joint:
+an extra fixed joint. URDF requires effort and velocity limits on
+revolute and prismatic joints, and every URDF reader treats a value of 0
+literally as “no motion”. The example models leave these limits
+unspecified, so the export asks for the values to write through
+`fill_limits`:
 
 ``` r
 
-xml <- robot_write_urdf(robot_example("planar3"))
+xml <- robot_write_urdf(robot_example("planar3"),
+                        fill_limits = c(effort = 50, velocity = 5))
 cat(substr(xml, 1, 600))
 #> <?xml version="1.0"?>
 #> <robot name="planar3">

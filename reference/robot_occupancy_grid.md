@@ -24,7 +24,7 @@ robot_occupancy_grid(xlim, ylim, resolution, prior = 0.5, occupied = NULL)
 
 - prior:
 
-  Prior occupancy probability.
+  Prior occupancy probability, strictly between 0 and 1.
 
 - occupied:
 

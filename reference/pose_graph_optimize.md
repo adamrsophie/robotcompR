@@ -9,8 +9,11 @@ linear algebra from 'Matrix', and headings are wrapped after each
 update. For SE(3) graphs the residual is \\e\_{ij} = \log(Z\_{ij}^{-1}
 X_i^{-1} X_j)\\ (translation first), nodes are updated on the manifold
 as \\X \exp(\delta)\\, and the Jacobians with respect to \\\delta\\ are
-computed by central differences. Node `fixed` is held constant to remove
-the gauge freedom.
+\\J_r(e)^{-1}\\ and \\-J_r(e)^{-1} \mathrm{Ad}(X_j^{-1} X_i)\\, taken in
+the chart of the residual returned by the logarithm so that they stay
+valid when a residual rotation is near \\\pi\\. Node `fixed` is held
+constant to remove the gauge freedom; every node must be connected to it
+through edges.
 
 ## Usage
 
@@ -34,12 +37,25 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 
 - tol:
 
-  Stop when the relative decrease of the cost is below `tol`.
+  Relative cost decrease treated as no progress.
 
 ## Value
 
-A list with the optimized `graph`, `cost` history, `iterations` and
-`converged`.
+A list with the optimized `graph`, `cost` history, `iterations`,
+`converged` (`TRUE` only for `status == "converged"`), `status` and
+`gradient`, the relative gradient norm at the returned nodes.
+
+## Details
+
+Convergence means stationarity, not merely a small change: the optimizer
+stops with `status = "converged"` when the cost is zero to roundoff or
+the gradient is negligible relative to the cost (\\\\g\\ \le 10^{-6}
+\sqrt{\max H\_{kk}\\ c}\\). Other outcomes are `"stalled"` (the relative
+decrease fell below `tol`, or no damped step decreased the cost, while
+the gradient is not negligible), `"max_iterations"`,
+`"linear_solve_failed"` and `"invalid_graph"` (nodes not connected to
+`fixed`; the graph is returned unchanged with a warning). A noisy graph
+converges to a positive cost.
 
 ## Examples
 

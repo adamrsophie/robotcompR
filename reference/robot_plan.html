@@ -109,8 +109,12 @@ edge-checking resolution; verify it with
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A <code>robot_plan</code> with <code>path</code> (one waypoint per row, or <code>NULL</code>),
-<code>success</code>, <code>message</code>, <code>algorithm</code>, <code>iterations</code>, <code>nodes</code>, <code>length</code>,
-<code>seed</code> and <code>time</code> (elapsed seconds).</p>
+<code>success</code>, <code>termination</code> (one of <code>"success"</code>, <code>"invalid_start"</code>,
+<code>"invalid_goal"</code>, <code>"iteration_limit"</code> or <code>"time_limit"</code>), <code>message</code>,
+<code>algorithm</code>, <code>iterations</code>, <code>nodes</code>, <code>length</code>, <code>seed</code> and <code>time</code>
+(elapsed seconds, including smoothing). When smoothing is cut short by
+the time limit the path found is kept (it is valid), <code>success</code> stays
+<code>TRUE</code> and the message says so.</p>
     </div>
 
     <div class="section level2">
@@ -121,7 +125,7 @@ edge-checking resolution; verify it with
 <span class="r-in"><span><span class="va">plan</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> &lt;robot_plan&gt; rrt_connect: success</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> path found </span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.006 s</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.014 s</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> seed: 2 </span>
 </code></pre></div>
     </div>

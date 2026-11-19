@@ -89,8 +89,13 @@ robot_planner(
 - time_limit:
 
   Wall-clock budget in seconds for each call to
-  [`robot_plan()`](https://adamrsophie.github.io/robotcompR/reference/robot_plan.md);
-  planning stops with `success = FALSE` once it is spent.
+  [`robot_plan()`](https://adamrsophie.github.io/robotcompR/reference/robot_plan.md),
+  covering start and goal validation, planning and optional smoothing.
+  The deadline is checked between configuration checks, including inside
+  edge checks, so planning stops with `success = FALSE` and
+  `termination = "time_limit"` once it is spent. A single call of
+  `validity` cannot be interrupted, so the overrun is at most one such
+  call (plus one distance matrix for PRM).
 
 ## Value
 

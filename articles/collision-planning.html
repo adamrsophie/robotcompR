@@ -107,8 +107,17 @@ of a GJK pair overlap, the expanding polytope algorithm (EPA) grows a
 polytope inside the Minkowski difference <span class="math inline">A -
 B</span> until its face nearest the origin is part of the boundary; the
 distance to that face is the penetration depth, the length of the
-shortest translation that separates the shapes. Negative distances are
-therefore always exact depths.</p>
+shortest translation that separates the shapes.</p>
+<p>EPA keeps two bounds on the depth: the nearest face of the polytope
+(a lower bound) and the smallest support value seen along a face normal
+(an upper bound). It stops when they agree to about <span class="math inline">10^{-9}</span> of the object size, and
+<code>depth_known</code> is then <code>TRUE</code>. Curved cores in
+symmetric positions can exhaust the iteration budget first. Two
+identical coaxial cylinders are the classic case, because every radial
+direction is equally deep. <code>depth_known</code> is then
+<code>FALSE</code>, <code>distance</code> is the shallower estimate and
+<code>distance_bounds</code> brackets the true value. The yes/no
+collision answer is exact in both cases.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/geom_distance.html">geom_distance</a></span><span class="op">(</span><span class="fu"><a href="../reference/geometry.html">geom_sphere</a></span><span class="op">(</span><span class="fl">0.5</span><span class="op">)</span>, <span class="fu"><a href="../reference/geometry.html">geom_sphere</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span>, <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="op">)</span>, <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">distance</span></span>
 <span><span class="co">#&gt; [1] 1.2</span></span>
@@ -124,7 +133,17 @@ therefore always exact depths.</p>
 <span>              <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_rotations.html">rotz</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">4</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">distance</span></span>
 <span><span class="co">#&gt; [1] -0.3071068</span></span>
 <span><span class="fl">0.9</span> <span class="op">-</span> <span class="fl">0.5</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="fl">2</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2</span></span>
-<span><span class="co">#&gt; [1] -0.3071068</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] -0.3071068</span></span>
+<span><span class="va">cyl</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/geom_distance.html">geom_distance</a></span><span class="op">(</span><span class="fu"><a href="../reference/geometry.html">geom_cylinder</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">10</span><span class="op">)</span>, <span class="fu"><a href="../reference/geometry.html">geom_cylinder</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">10</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">cyl</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"depth_known"</span>, <span class="st">"distance"</span>, <span class="st">"distance_bounds"</span><span class="op">)</span><span class="op">]</span></span>
+<span><span class="co">#&gt; $depth_known</span></span>
+<span><span class="co">#&gt; [1] FALSE</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $distance</span></span>
+<span><span class="co">#&gt; [1] -0.9993224</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; $distance_bounds</span></span>
+<span><span class="co">#&gt; [1] -1.0000000 -0.9993224</span></span></code></pre></div>
 <p>Mesh geometry from URDF files is kept for reference but is not
 collidable.</p>
 </div>
@@ -183,7 +202,13 @@ point at distance <span class="math inline">r</span> from the joint axis
 moves at most <span class="math inline">r</span> per radian, and <span class="math inline">r</span> is bounded by the fixed frame offsets of
 the chain plus the size of the geometry. Moving by <span class="math inline">d / M</span> cannot cause contact, so the check
 steps forward by that amount until it either reaches the end of the
-segment or a clearance reaches zero.</p>
+segment or a clearance reaches zero. The end configuration of every
+segment is then checked with the same contact rule as
+<code><a href="../reference/robot_check_collision.html">robot_check_collision()</a></code>, so a path that ends touching an
+obstacle is invalid. Prismatic joints enter the lever arms through the
+extension they actually reach on the segment, so the bound holds with
+<code>check_limits = FALSE</code> and for joints without finite
+limits.</p>
 <p>Here a thin post sits between two samples of a coarse discrete
 check:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
@@ -247,7 +272,7 @@ to the tolerance <code>tol</code>.</p>
 <span><span class="va">plan</span></span>
 <span><span class="co">#&gt; &lt;robot_plan&gt; rrt_connect: success</span></span>
 <span><span class="co">#&gt; path found </span></span>
-<span><span class="co">#&gt; 24 waypoints, length 6.671, 67 nodes, 97 iterations, 0.493 s</span></span>
+<span><span class="co">#&gt; 24 waypoints, length 6.671, 67 nodes, 97 iterations, 0.76 s</span></span>
 <span><span class="co">#&gt; seed: 1</span></span>
 <span><span class="fu"><a href="../reference/robot_check_path.html">robot_check_path</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">plan</span><span class="op">$</span><span class="va">path</span>, <span class="va">env</span>, resolution <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span><span class="op">$</span><span class="va">valid</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>

@@ -1,7 +1,9 @@
 # Static environments
 
 An environment is a named list of world-frame obstacles. Geometry
-origins are interpreted in the world frame.
+origins are interpreted in the world frame. Names must be unique;
+unnamed obstacles get the name `obstacle<i>` (with a suffix if that name
+is taken).
 
 ## Usage
 

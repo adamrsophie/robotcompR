@@ -3,16 +3,18 @@
 A drop-in alternative to
 [`robot_ekf()`](https://adamrsophie.github.io/robotcompR/reference/robot_ekf.md)
 that propagates the planar pose with the unscented transform instead of
-Jacobians. `ukf_predict()` augments the state with the control noise,
-draws \\2(3 + 2) + 1\\ sigma points, moves each through
+Jacobians. The covariance lives in the local tangent chart of the pose:
+the heading deviation is an unwrapped angle, so a broad heading
+uncertainty is never folded back by wrapping. `ukf_predict()` augments
+the state with the control noise, draws \\2(3 + 2) + 1\\ sigma points,
+moves each through
 [`unicycle_step()`](https://adamrsophie.github.io/robotcompR/reference/unicycle_step.md)
-with its noisy control, and recombines them with the heading averaged on
-the circle. `ukf_update()` fuses range-bearing measurements of known
-landmarks one at a time with sigma points of the current estimate, a
-circular mean of the predicted bearings, and wrapped bearing
-innovations. The default scaling `alpha = 1, beta = 2, kappa = 0` makes
-every weight nonnegative, so the predicted covariances stay positive
-semidefinite.
+with its noisy control and keeps its heading change unwrapped.
+`ukf_update()` fuses range-bearing measurements of known landmarks one
+at a time; predicted bearings are averaged as wrapped differences from
+the bearing of the central sigma point, so signed weights are handled
+exactly, and the state deviations used for the cross covariance are the
+sigma deviations themselves, consistent with `cov`.
 
 ## Usage
 
@@ -72,6 +74,16 @@ ukf_update(filter, measurements)
 A `robot_ukf`. `ukf_update()` also records the normalized innovation
 squared in `nis`.
 
+## Details
+
+The default scaling `alpha = 1, beta = 2, kappa = 0` makes every weight
+nonnegative, which keeps every covariance positive semidefinite. Other
+scalings (for example a small `alpha`) give a negative central weight; a
+result that is then indefinite stops with an error instead of being
+returned. `alpha` must be positive and `kappa > -3`, so that the
+transform is defined for both the 3 dimensional state and the 5
+dimensional augmented state.
+
 ## Examples
 
 ``` r
@@ -81,6 +93,6 @@ f <- robot_ukf(c(0, 0, 0), diag(0.1, 3), L, Q = diag(c(0.01, 0.01)),
 f <- ukf_predict(f, c(1, 0), 0.1)
 f <- ukf_update(f, landmark_measurements(c(0.1, 0, 0), L))
 f$mean
-#>            x            y        theta 
-#>  0.112416303 -0.006250566  0.005088623 
+#>           x           y       theta 
+#>  0.11239768 -0.00626806  0.00510093 
 ```

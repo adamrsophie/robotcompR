@@ -19,8 +19,17 @@ support functions. When the cores of a GJK pair overlap, the expanding
 polytope algorithm (EPA) grows a polytope inside the Minkowski
 difference A - B until its face nearest the origin is part of the
 boundary; the distance to that face is the penetration depth, the length
-of the shortest translation that separates the shapes. Negative
-distances are therefore always exact depths.
+of the shortest translation that separates the shapes.
+
+EPA keeps two bounds on the depth: the nearest face of the polytope (a
+lower bound) and the smallest support value seen along a face normal (an
+upper bound). It stops when they agree to about 10^{-9} of the object
+size, and `depth_known` is then `TRUE`. Curved cores in symmetric
+positions can exhaust the iteration budget first. Two identical coaxial
+cylinders are the classic case, because every radial direction is
+equally deep. `depth_known` is then `FALSE`, `distance` is the shallower
+estimate and `distance_bounds` brackets the true value. The yes/no
+collision answer is exact in both cases.
 
 ``` r
 
@@ -39,6 +48,16 @@ geom_distance(geom_box(c(1, 1, 1)), geom_box(c(1, 1, 1)), robot_pose(),
 #> [1] -0.3071068
 0.9 - 0.5 - sqrt(2) / 2
 #> [1] -0.3071068
+cyl <- geom_distance(geom_cylinder(0.5, 10), geom_cylinder(0.5, 10))
+cyl[c("depth_known", "distance", "distance_bounds")]
+#> $depth_known
+#> [1] FALSE
+#> 
+#> $distance
+#> [1] -0.9993224
+#> 
+#> $distance_bounds
+#> [1] -1.0000000 -0.9993224
 ```
 
 Mesh geometry from URDF files is kept for reference but is not
@@ -107,7 +126,13 @@ distance r from the joint axis moves at most r per radian, and r is
 bounded by the fixed frame offsets of the chain plus the size of the
 geometry. Moving by d / M cannot cause contact, so the check steps
 forward by that amount until it either reaches the end of the segment or
-a clearance reaches zero.
+a clearance reaches zero. The end configuration of every segment is then
+checked with the same contact rule as
+[`robot_check_collision()`](https://adamrsophie.github.io/robotcompR/reference/robot_check_collision.md),
+so a path that ends touching an obstacle is invalid. Prismatic joints
+enter the lever arms through the extension they actually reach on the
+segment, so the bound holds with `check_limits = FALSE` and for joints
+without finite limits.
 
 Here a thin post sits between two samples of a coarse discrete check:
 
@@ -150,7 +175,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1)
 plan
 #> <robot_plan> rrt_connect: success
 #> path found 
-#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 0.493 s
+#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 0.76 s
 #> seed: 1
 robot_check_path(arm, plan$path, env, resolution = 0.01)$valid
 #> [1] TRUE

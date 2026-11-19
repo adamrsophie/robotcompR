@@ -83,10 +83,13 @@ any point of the pair can move per unit of the segment parameter (from
 the joint displacements and fixed bounds on the lever arms of the
 kinematic chain). Advancing by \\d / M\\ cannot create a contact, so the
 motion is collision-free when the steps reach the end of the segment and
-in collision as soon as a clearance drops to `margin`. The test is exact
-for the continuous straight-line motion, up to `tol`; unbounded
-prismatic joints below a link make its bound infinite, and the check
-then fails with an error.
+in collision as soon as a clearance drops to `margin`. Both ends of
+every segment are checked with the same contact rule as
+[`robot_check_collision()`](https://adamrsophie.github.io/robotcompR/reference/robot_check_collision.md),
+so a path ending in contact is invalid. The lever-arm bounds use the
+prismatic extensions actually reached on each segment, so they hold with
+`check_limits = FALSE` and for joints without finite limits. The test is
+exact for the continuous straight-line motion, up to `tol`.
 
 ## Examples
 

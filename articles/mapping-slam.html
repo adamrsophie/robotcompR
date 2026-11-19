@@ -232,7 +232,7 @@ remove the gauge freedom.</p>
 <span><span class="va">res</span><span class="op">$</span><span class="va">iterations</span></span>
 <span><span class="co">#&gt; [1] 5</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">signif</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">cost</span>, <span class="fl">3</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 763.00   6.08   4.64   4.64   4.64   4.64</span></span>
+<span><span class="co">#&gt; [1] 763.00   6.08   4.64   4.64   4.64</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">odom</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, col <span class="op">=</span> <span class="st">"grey50"</span>, lty <span class="op">=</span> <span class="fl">2</span>, asp <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>     xlab <span class="op">=</span> <span class="st">"x (m)"</span>, ylab <span class="op">=</span> <span class="st">"y (m)"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/lines.html" class="external-link">lines</a></span><span class="op">(</span><span class="va">truth</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>, lwd <span class="op">=</span> <span class="fl">3</span>, col <span class="op">=</span> <span class="st">"grey80"</span><span class="op">)</span></span>
@@ -274,7 +274,7 @@ manifold as <span class="math inline">X \exp(\delta)</span>.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>odometry <span class="op">=</span> <span class="fu">err</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">odom3</span>, <span class="kw">function</span><span class="op">(</span><span class="va">M</span><span class="op">)</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span>matrix <span class="op">=</span> <span class="va">M</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  optimized <span class="op">=</span> <span class="fu">err</span><span class="op">(</span><span class="va">res3</span><span class="op">$</span><span class="va">graph</span><span class="op">$</span><span class="va">nodes</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   odometry  optimized </span></span>
-<span><span class="co">#&gt; 0.41548311 0.07660563</span></span></code></pre></div>
+<span><span class="co">#&gt; 0.41548311 0.07660564</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
