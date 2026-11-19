@@ -103,3 +103,27 @@ test_that("planners respect deadlines, progress and trivial queries", {
     expect_identical(z$length, 0)
   }
 })
+
+test_that("a tool fixed to a link is still checked against the link before it", {
+  r <- robot_model(joints = list(
+    robot_joint("j1", "revolute", "base", "l1"),
+    robot_joint("j2", "revolute", "l1", "l2", origin = transl(1, 0, 0)),
+    robot_joint("t", "fixed", "l2", "tool", origin = transl(1, 0, 0)),
+    robot_joint("f", "fixed", "base", "mount"),
+    robot_joint("j3", "revolute", "mount", "l3", origin = transl(0, 0, 5))))
+  for (k in c("base", "l1", "l2", "tool", "mount", "l3")) {
+    r <- robot_attach_geometry(r, k, geom_sphere(0.1))
+  }
+  objs <- robotcompR:::robot_collision_objects(r, robotcompR:::fk_internal(r, c(0, 0, 0)))
+  links <- r$link_names[vapply(objs, function(o) o$link, integer(1))]
+  pairs <- vapply(robotcompR:::default_self_pairs(r, objs), function(p)
+    paste(sort(links[p]), collapse = "-"), "")
+  expect_true("l1-tool" %in% pairs)
+  expect_true("base-l3" %in% pairs)
+  expect_false("l1-l2" %in% pairs)
+  expect_false("l2-tool" %in% pairs)
+  expect_false("base-mount" %in% pairs)
+  expect_false("l3-mount" %in% pairs)
+  # Folding the second joint back puts the tool on the first link.
+  expect_true(robot_check_collision(r, c(0, pi, 0))$in_collision)
+})

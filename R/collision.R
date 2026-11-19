@@ -529,22 +529,32 @@ robot_collision_objects <- function(robot, fk) {
 default_self_pairs <- function(robot, objs) {
   pairs <- list()
   if (length(objs) < 2) return(pairs)
-  # Links joined by fixed joints form one rigid body; bodies joined by a
-  # movable joint are adjacent. Pairs within a body or across a joint are
-  # excluded, so inserting fixed frames (as URDF export does) changes
-  # nothing.
-  body <- seq_along(robot$link_names)
-  for (k in seq_along(body)[-1]) {
-    if (!robot$movable[k - 1L]) body[k] <- body[robot$parent_index[k]]
+  # A link pair is excluded when no movable joint separates the links
+  # (their relative pose never changes), or when exactly one movable joint
+  # does and every link between them carries no collision geometry. The
+  # second case covers joint neighbors and the geometry-free fixed frames
+  # that URDF export inserts, while a link with geometry in between (a tool
+  # fixed to the link after a joint) keeps its pair with the far link.
+  has_geom <- logical(length(robot$link_names))
+  has_geom[vapply(objs, function(o) o$link, integer(1))] <- TRUE
+  chain <- function(k) {
+    out <- k
+    while (robot$parent_index[k] > 0) {
+      k <- robot$parent_index[k]
+      out <- c(out, k)
+    }
+    out
   }
-  parent_body <- vapply(body, function(b) {
-    p <- robot$parent_index[b]
-    if (p > 0) body[p] else 0L
-  }, integer(1))
   adjacent <- function(a, b) {
-    ba <- body[a]
-    bb <- body[b]
-    ba == bb || parent_body[ba] == bb || parent_body[bb] == ba
+    ca <- chain(a)
+    cb <- chain(b)
+    top <- ca[ca %in% cb][1]
+    up_a <- ca[seq_len(match(top, ca))]
+    up_b <- cb[seq_len(match(top, cb))]
+    below <- c(up_a[-length(up_a)], up_b[-length(up_b)])
+    n_movable <- sum(robot$movable[below - 1L])
+    inner <- setdiff(c(up_a, up_b), c(a, b))
+    n_movable == 0 || (n_movable == 1 && !any(has_geom[inner]))
   }
   for (i in seq_len(length(objs) - 1)) {
     for (j in (i + 1):length(objs)) {
@@ -561,8 +571,11 @@ default_self_pairs <- function(robot, objs) {
 #'
 #' Checks the robot's collision geometry against the obstacles of an
 #' environment and, with `self = TRUE`, against itself. Self-collision
-#' skips geometry pairs within one rigid body (links joined by fixed
-#' joints) and between bodies connected by a movable joint; further link
+#' skips link pairs that no movable joint separates, and pairs separated
+#' by one movable joint when no link between them carries collision
+#' geometry (joint neighbors, possibly through geometry-free fixed frames);
+#' a tool fixed to a link is still checked against the link before that
+#' link's joint. Further link
 #' pairs can be excluded with `ignore_pairs`. A cheap
 #' bounding-sphere test prunes pairs that are farther apart than `margin`.
 #' This checks one configuration only: a collision-free start and goal do
