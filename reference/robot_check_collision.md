@@ -2,12 +2,14 @@
 
 Checks the robot's collision geometry against the obstacles of an
 environment and, with `self = TRUE`, against itself. Self-collision
-skips geometry pairs within one rigid body (links joined by fixed
-joints) and between bodies connected by a movable joint; further link
-pairs can be excluded with `ignore_pairs`. A cheap bounding-sphere test
-prunes pairs that are farther apart than `margin`. This checks one
-configuration only: a collision-free start and goal do not imply that
-the motion between them is collision-free; use
+skips link pairs that no movable joint separates, and pairs separated by
+one movable joint when no link between them carries collision geometry
+(joint neighbors, possibly through geometry-free fixed frames); a tool
+fixed to a link is still checked against the link before that link's
+joint. Further link pairs can be excluded with `ignore_pairs`. A cheap
+bounding-sphere test prunes pairs that are farther apart than `margin`.
+This checks one configuration only: a collision-free start and goal do
+not imply that the motion between them is collision-free; use
 [`robot_check_path()`](https://adamrsophie.github.io/robotcompR/reference/robot_check_path.md)
 for that.
 

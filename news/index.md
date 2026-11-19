@@ -44,6 +44,9 @@
 - Collision distances never report clearance that thin, nearly parallel
   or degenerate geometry cannot prove, and do not depend on scale,
   rotation or where a hull’s local origin lies.
+- Self-collision skips joint neighbors even across geometry-free fixed
+  frames, and still checks a tool fixed to a link against the link
+  before that link’s joint.
 - Pose graph optimization tests convergence per residual component with
   equilibrated damping, so graphs with mixed scales converge.
 - URDF export writes numbers that read back exactly in any locale and

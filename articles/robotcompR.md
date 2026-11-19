@@ -149,7 +149,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
 plan
 #> <robot_plan> rrt_connect: success
 #> path found (shortcut smoothed) 
-#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.76 s
+#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.47 s
 #> seed: 1
 traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
 robot_traj_check(robot, traj)$ok
