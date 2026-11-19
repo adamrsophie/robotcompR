@@ -27,7 +27,15 @@
   filter.
 - Occupancy grid mapping, ray casting, inflation and A\* search.
 - EKF-SLAM with known data association.
-- SE(2) and SE(3) pose graph optimization.
+- SE(2) and SE(3) pose graph optimization with Jacobians that stay valid
+  for residual rotations near pi and a termination `status`.
+- The unscented Kalman filter works in a local tangent chart, so heading
+  statistics stay consistent across the angle cut; every filter requires
+  symmetric positive semidefinite covariances and validated
+  measurements.
+- Particle filter prediction, EKF-SLAM updates and rigid-body dynamics
+  use faster kernels (vectorized motion, a rank-two Joseph update and
+  cached spatial inertias) with identical results.
 - EPA penetration depth for every convex pair, with certified bounds and
   a `depth_known` flag, and continuous path collision checking by
   conservative advancement.

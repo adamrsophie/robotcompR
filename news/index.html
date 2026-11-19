@@ -69,7 +69,9 @@
 <li>Localization with extended and unscented Kalman filters and a particle filter.</li>
 <li>Occupancy grid mapping, ray casting, inflation and A* search.</li>
 <li>EKF-SLAM with known data association.</li>
-<li>SE(2) and SE(3) pose graph optimization.</li>
+<li>SE(2) and SE(3) pose graph optimization with Jacobians that stay valid for residual rotations near pi and a termination <code>status</code>.</li>
+<li>The unscented Kalman filter works in a local tangent chart, so heading statistics stay consistent across the angle cut; every filter requires symmetric positive semidefinite covariances and validated measurements.</li>
+<li>Particle filter prediction, EKF-SLAM updates and rigid-body dynamics use faster kernels (vectorized motion, a rank-two Joseph update and cached spatial inertias) with identical results.</li>
 <li>EPA penetration depth for every convex pair, with certified bounds and a <code>depth_known</code> flag, and continuous path collision checking by conservative advancement.</li>
 <li>Cartesian trajectories report spatial velocities and accelerations and can be converted to joint trajectories.</li>
 <li>Nine vignettes and a pkgdown site.</li>
