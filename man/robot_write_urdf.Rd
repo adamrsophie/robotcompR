@@ -12,7 +12,8 @@ robot_write_urdf(robot, file = NULL, fill_limits = NULL)
 \item{file}{Output path, or \code{NULL} to return the XML string.}
 
 \item{fill_limits}{\code{NULL} (the default) to require every revolute and
-prismatic joint to carry effort and velocity limits, or
+prismatic joint, and every continuous joint with one of the two, to
+carry effort and velocity limits, or
 \code{c(effort = , velocity = )} giving the values written for joints that
 leave them unspecified. These values are read back literally.}
 }
@@ -39,7 +40,13 @@ values to write. Joint damping and friction are written as a
 \verb{<dynamics>} element, although the dynamics functions do not apply them.
 Forward kinematics of every original frame is preserved; the exported
 model has extra frames. Convex-hull geometry has no URDF equivalent and
-is omitted with a warning.
+is omitted with a warning. Capsules are a URDF 1.1 primitive: a model
+with capsules is written with \code{version="1.1"}, which parsers that only
+know URDF 1.0 reject; replace capsules (for example with cylinders) for
+such readers. Numbers are written with enough digits to read back
+exactly, and the export stops if the written text does not read back.
+A continuous joint may omit both effort and velocity, but if it has
+only one of them the other must come from \code{fill_limits}.
 }
 \examples{
 robot <- robot_example("planar2")

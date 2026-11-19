@@ -99,7 +99,7 @@ compile_model <- function(m) {
          call. = FALSE)
   }
   joints <- joints[order_j]
-  link_order <- c(roots, vapply(joints, `[[`, "", "child"))
+  link_order <- unname(c(roots, vapply(joints, `[[`, "", "child")))
   links <- links[link_order]
   nl <- length(links)
   parent_index <- c(0L, match(vapply(joints, `[[`, "", "parent"), link_order))

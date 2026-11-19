@@ -37,6 +37,11 @@ files are never opened. Every link named by a joint must be declared.
 Limit values are kept literally, as in the reference \code{urdfdom}
 parser: a \code{velocity} or \code{effort} of 0 is a zero limit, and an absent
 attribute is stored as unspecified (\code{NULL}).
+
+URDF versions 1.0, 1.1 and 1.2 are accepted (any other \code{version} is an
+error). Origins may give their orientation as \code{quat_xyzw} (1.1) instead
+of \code{rpy}. The 1.2 \code{acceleration}, \code{deceleration} and \code{jerk} limits are
+not modeled; they are ignored with a warning.
 }
 \examples{
 robot <- robot_read_urdf(system.file("extdata", "planar2.urdf",

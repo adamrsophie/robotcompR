@@ -21,6 +21,19 @@ urdf_origin <- function(node) {
   o <- xml2::xml_find_first(node, "./origin")
   if (inherits(o, "xml_missing")) return(robot_pose())
   xyz <- parse_xyz(xml2::xml_attr(o, "xyz"), what = "origin xyz")
+  quat <- xml2::xml_attr(o, "quat_xyzw")
+  if (!is.na(quat)) {
+    # URDF 1.1 orientation as a quaternion with the scalar last.
+    if (!is.na(xml2::xml_attr(o, "rpy"))) {
+      stop("An URDF <origin> cannot have both rpy and quat_xyzw.", call. = FALSE)
+    }
+    q <- parse_xyz(quat, c(0, 0, 0, 1), "origin quat_xyzw")
+    m <- max(abs(q))
+    if (!(m > 0)) stop("URDF quat_xyzw must be nonzero.", call. = FALSE)
+    q <- q / m
+    q <- q / vnorm(q)
+    return(robot_pose(quaternion_to_matrix(q[c(4, 1, 2, 3)]), xyz))
+  }
   rpy <- parse_xyz(xml2::xml_attr(o, "rpy"), what = "origin rpy")
   robot_pose(euler_to_matrix(rev(rpy), "ZYX"), xyz)
 }
@@ -79,6 +92,11 @@ urdf_geometry <- function(node, origin) {
 #' parser: a `velocity` or `effort` of 0 is a zero limit, and an absent
 #' attribute is stored as unspecified (`NULL`).
 #'
+#' URDF versions 1.0, 1.1 and 1.2 are accepted (any other `version` is an
+#' error). Origins may give their orientation as `quat_xyzw` (1.1) instead
+#' of `rpy`. The 1.2 `acceleration`, `deceleration` and `jerk` limits are
+#' not modeled; they are ignored with a warning.
+#'
 #' @param file Path to a URDF file, or a character string with URDF XML.
 #' @param end_effector Optional end-effector link name.
 #' @return A `robot_model`.
@@ -117,6 +135,11 @@ robot_read_urdf <- function(file, end_effector = NULL) {
   }
   rname <- xml2::xml_attr(root, "name")
   if (is.na(rname)) rname <- "urdf_robot"
+  ver <- xml2::xml_attr(root, "version")
+  if (!is.na(ver) && !ver %in% c("1.0", "1.1", "1.2")) {
+    stop(sprintf("Unsupported URDF version '%s' (supported: 1.0, 1.1, 1.2).",
+                 ver), call. = FALSE)
+  }
 
   link_nodes <- xml2::xml_find_all(root, "./link")
   links <- lapply(link_nodes, function(ln) {
@@ -149,6 +172,7 @@ robot_read_urdf <- function(file, end_effector = NULL) {
 
   joint_nodes <- xml2::xml_find_all(root, "./joint")
   warned_dyn <- FALSE
+  warned_ext <- FALSE
   joints <- lapply(joint_nodes, function(jn) {
     nm <- xml2::xml_attr(jn, "name")
     type <- xml2::xml_attr(jn, "type")
@@ -183,6 +207,13 @@ robot_read_urdf <- function(file, end_effector = NULL) {
     if (!inherits(lim, "xml_missing")) {
       vel <- parse_num(xml2::xml_attr(lim, "velocity"), NULL, "velocity")
       eff <- parse_num(xml2::xml_attr(lim, "effort"), NULL, "effort")
+      ext <- vapply(c("acceleration", "deceleration", "jerk"),
+                    function(a) parse_num(xml2::xml_attr(lim, a), NA_real_, a), 0)
+      if (any(!is.na(ext)) && !warned_ext) {
+        warned_ext <<- TRUE
+        warning("Joint acceleration, deceleration and jerk limits (URDF 1.2) ",
+                "are not modeled and were ignored.", call. = FALSE)
+      }
       # Values are kept literally, as urdfdom does: zero means zero. An
       # absent attribute is stored as NULL (unspecified).
       if (type %in% c("revolute", "prismatic")) {
@@ -222,9 +253,13 @@ robot_read_urdf <- function(file, end_effector = NULL) {
   robot_model(links, joints, end_effector = end_effector, name = rname)
 }
 
+# Shortest of 15 or 17 significant digits that reads back exactly. sprintf
+# always writes a decimal point, whatever options(OutDec) says.
 fmt_num <- function(x) {
-  x[abs(x) < 1e-15] <- 0
-  paste(formatC(x, digits = 15, format = "g"), collapse = " ")
+  s <- sprintf("%.15g", x)
+  bad <- as.numeric(s) != x
+  s[bad] <- sprintf("%.17g", x[bad])
+  paste(s, collapse = " ")
 }
 
 # Escape a value for use inside a double-quoted XML attribute.
@@ -289,12 +324,19 @@ urdf_geometry_xml <- function(g, tag) {
 #' `<dynamics>` element, although the dynamics functions do not apply them.
 #' Forward kinematics of every original frame is preserved; the exported
 #' model has extra frames. Convex-hull geometry has no URDF equivalent and
-#' is omitted with a warning.
+#' is omitted with a warning. Capsules are a URDF 1.1 primitive: a model
+#' with capsules is written with `version="1.1"`, which parsers that only
+#' know URDF 1.0 reject; replace capsules (for example with cylinders) for
+#' such readers. Numbers are written with enough digits to read back
+#' exactly, and the export stops if the written text does not read back.
+#' A continuous joint may omit both effort and velocity, but if it has
+#' only one of them the other must come from `fill_limits`.
 #'
 #' @param robot A `robot_model`.
 #' @param file Output path, or `NULL` to return the XML string.
 #' @param fill_limits `NULL` (the default) to require every revolute and
-#'   prismatic joint to carry effort and velocity limits, or
+#'   prismatic joint, and every continuous joint with one of the two, to
+#'   carry effort and velocity limits, or
 #'   `c(effort = , velocity = )` giving the values written for joints that
 #'   leave them unspecified. These values are read back literally.
 #' @return The URDF text, invisibly when written to a file.
@@ -314,21 +356,30 @@ robot_write_urdf <- function(robot, file = NULL, fill_limits = NULL) {
                   "with finite nonnegative values."), call. = FALSE)
     }
   }
+  # A continuous joint may omit <limit>, but one known limit must not be
+  # dropped, and URDF needs both attributes when the element is written.
   needs <- vapply(robot$joints, function(j) {
-    j$type %in% c("revolute", "prismatic") &&
-      (is.null(j$effort) || is.null(j$velocity))
+    known <- !c(is.null(j$effort), is.null(j$velocity))
+    (j$type %in% c("revolute", "prismatic") && !all(known)) ||
+      (j$type == "continuous" && sum(known) == 1)
   }, TRUE)
   if (any(needs) && is.null(fill_limits)) {
     stop(sprintf(paste0(
-      "URDF requires effort and velocity limits, which are unspecified for ",
-      "joint%s %s. Set them with robot_joint(), or pass fill_limits = ",
+      "URDF requires both effort and velocity limits, which are unspecified ",
+      "for joint%s %s. Set them with robot_joint(), or pass fill_limits = ",
       "c(effort = , velocity = ) to write explicit values."),
       if (sum(needs) > 1) "s" else "",
       paste(sprintf("'%s'", robot$joint_names[needs]), collapse = ", ")),
       call. = FALSE)
   }
   esc <- xml_attr_escape
-  out <- sprintf('<?xml version="1.0"?>\n<robot name="%s">', esc(robot$name))
+  # Capsules are URDF 1.1; older parsers reject the version, so it is only
+  # declared when needed.
+  has_capsule <- any(vapply(robot$links, function(lk) {
+    any(vapply(c(lk$visual, lk$collision), function(g) g$type == "capsule", TRUE))
+  }, TRUE))
+  out <- sprintf('<?xml version="1.0"?>\n<robot name="%s"%s>', esc(robot$name),
+                 if (has_capsule) ' version="1.1"' else "")
   extra_links <- character(0)
   taken <- c(robot$link_names, robot$joint_names)
   convex_dropped <- FALSE
@@ -338,7 +389,7 @@ robot_write_urdf <- function(robot, file = NULL, fill_limits = NULL) {
   }
   for (lk in robot$links) {
     body <- character(0)
-    if (lk$mass > 0) {
+    if (lk$mass > 0 || any(lk$inertia != 0)) {
       I <- lk$inertia
       body <- c(body, sprintf(paste0(
         '    <inertial><origin xyz="%s" rpy="0 0 0"/><mass value="%s"/>',
@@ -412,8 +463,11 @@ robot_write_urdf <- function(robot, file = NULL, fill_limits = NULL) {
   txt <- paste(out, collapse = "\n")
   # Extra fixed joints change the breadth-first order of the tree, which can
   # reorder the configuration vector of the reimported model.
-  back <- tryCatch(suppressWarnings(robot_read_urdf(txt)), error = function(e) NULL)
-  if (!is.null(back) && !identical(robot_joint_names(back), robot_joint_names(robot))) {
+  back <- tryCatch(suppressWarnings(robot_read_urdf(txt)), error = function(e) {
+    stop("The exported URDF does not read back: ", conditionMessage(e),
+         call. = FALSE)
+  })
+  if (!identical(robot_joint_names(back), robot_joint_names(robot))) {
     warning(sprintf(paste0("The exported model orders its configuration as ",
                            "%s instead of %s; reorder q accordingly."),
                     paste(robot_joint_names(back), collapse = ", "),
