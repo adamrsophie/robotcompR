@@ -171,7 +171,7 @@ test_that("map inputs are validated before the map changes", {
 
 test_that("measurement tables are validated by every filter", {
   L <- rbind(a = c(1, 0))
-  bad <- list(data.frame(id = "a", range = -1, bearing = 0),
+  bad <- list(data.frame(id = "a", range = Inf, bearing = 0),
               data.frame(id = "a", range = NA_real_, bearing = 0),
               data.frame(id = "a", bearing = 0))
   f <- robot_ekf(c(0, 0, 0), diag(3), L, diag(2), diag(2))
@@ -200,4 +200,46 @@ test_that("noise-free graphs at large scale converge, not stall", {
   r <- pose_graph_optimize(g)
   expect_identical(r$status, "converged")
   expect_true(r$converged)
+})
+
+test_that("noise models are consistent between simulation and inference", {
+  L <- rbind(a = c(0.01, 0))
+  m <- landmark_measurements(c(0, 0, 0), L, diag(c(1, 0.01)), seed = 4)
+  expect_lt(m$range, 0)
+  f <- robot_ekf(c(0, 0, 0), diag(0.1, 3), L, diag(0, 2), diag(c(1, 0.01)))
+  expect_true(all(is.finite(ekf_update(f, m)$mean)))
+  expect_error(robot_ekf(numeric(3), diag(0, 3), L, diag(0, 2), diag(0, 2)),
+               "positive definite")
+  expect_error(robot_particle_filter(5, numeric(3), diag(3), L, diag(2),
+                                     diag(c(1, 0))), "positive definite")
+  expect_error(robot_ekf(numeric(3), diag(c(1e16, -1, 1)), L, diag(2), diag(2)),
+               "semidefinite")
+  expect_error(robot_ekf(numeric(3), diag(3), rbind(A = c(1, 0), A = c(2, 0)),
+                         diag(2), diag(2)), "unique")
+  expect_error(landmark_measurements(c(0, 0, 0), L, max_range = NA), "max_range")
+  expect_error(ekf_slam_predict(robot_ekf_slam(c(0, 0, 0), diag(1e-4, 3), diag(2),
+                                               diag(2)), c(1, 0), c(1, 2)), "dt")
+  p <- robot_particle_filter(5, c(0, 0, 0), diag(3), L, diag(2), diag(2), seed = 1)
+  expect_error(pf_update(p, landmark_measurements(c(0, 0, 0), L),
+                         resample_threshold = NA), "resample_threshold")
+})
+
+test_that("a landmark on the estimate carries no heading information", {
+  f <- robot_ukf(numeric(3), diag(c(0, 0, 1)), rbind(A = c(0, 0)), diag(2),
+                 0.1 * diag(2))
+  expect_warning(u <- ukf_update(f, data.frame(id = "A", range = 0, bearing = 1)),
+                 "coincides")
+  expect_equal(unname(u$mean[3]), 0)
+  expect_equal(u$cov[3, 3], 1)
+})
+
+test_that("UKF spread survives a tiny alpha and SLAM stays semidefinite", {
+  f <- robot_ukf(c(0, 0, 0), diag(3), rbind(a = c(1, 0)), diag(0, 2), diag(2),
+                 alpha = 1e-9)
+  expect_equal(unname(ukf_predict(f, c(0, 0), 0)$cov), diag(3), tolerance = 1e-10)
+  z <- data.frame(id = "L", range = 1, bearing = 0)
+  s <- robot_ekf_slam(c(0, 0, 0), diag(0, 3), diag(2), diag(1e-20, 2))
+  s <- ekf_slam_predict(ekf_slam_update(s, z), c(0, 0), 1)
+  P <- ekf_slam_update(s, z)$cov
+  expect_gte(min(eigen(P, symmetric = TRUE, only.values = TRUE)$values), -1e-30)
 })

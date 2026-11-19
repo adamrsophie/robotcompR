@@ -3,10 +3,13 @@
 # known identities. Bearing innovations are wrapped to [-pi, pi).
 
 # Covariance inputs: finite, symmetric up to roundoff and positive
-# semidefinite, with tolerances relative to the matrix. Singular
-# covariances are allowed (a known state or a noiseless input). Returns
-# the exactly symmetric matrix.
-check_cov <- function(S, n, name, tol = 1e-9) {
+# semidefinite. Definiteness is judged on the correlation scale (each
+# coordinate divided by its own standard deviation), so a large variance
+# cannot excuse a negative or inconsistent one elsewhere. Singular
+# covariances are allowed (a known state or a noiseless input) unless
+# `definite = TRUE`, which measurement noise needs because the filters
+# invert it. Returns the exactly symmetric matrix.
+check_cov <- function(S, n, name, tol = 1e-9, definite = FALSE) {
   S <- check_matrix(S, n, n, name)
   scale <- max(abs(S))
   if (max(abs(S - t(S))) > tol * scale) {
@@ -14,9 +17,27 @@ check_cov <- function(S, n, name, tol = 1e-9) {
          call. = FALSE)
   }
   S <- (S + t(S)) / 2
-  if (scale > 0 &&
-      min(eigen(S, symmetric = TRUE, only.values = TRUE)$values) < -tol * scale) {
+  dg <- diag(S)
+  if (any(dg < 0)) {
+    stop(sprintf("`%s` must be positive semidefinite (negative variance).", name),
+         call. = FALSE)
+  }
+  pos <- dg > 0
+  # A coordinate with zero variance must be uncorrelated with the rest.
+  if (any(!pos) && max(abs(S[!pos, ])) > tol * scale) {
     stop(sprintf("`%s` must be positive semidefinite.", name), call. = FALSE)
+  }
+  ev <- if (any(pos)) {
+    s <- sqrt(dg[pos])
+    eigen(S[pos, pos, drop = FALSE] / outer(s, s), symmetric = TRUE,
+          only.values = TRUE)$values
+  } else 0
+  if (min(ev) < -tol) {
+    stop(sprintf("`%s` must be positive semidefinite.", name), call. = FALSE)
+  }
+  if (definite && (any(!pos) || min(ev) <= 1e-12)) {
+    stop(sprintf("`%s` must be positive definite (the filters invert it).", name),
+         call. = FALSE)
   }
   S
 }
@@ -32,17 +53,17 @@ psd_factor <- function(S, name) {
   t(e$vectors %*% diag(sqrt(pmax(e$values, 0)), nrow(S)))
 }
 
-# Range-bearing measurements: a data frame with id, finite nonnegative
-# range and finite bearing.
+# Range-bearing measurements: a data frame with id, finite range and
+# finite bearing. Ranges may be negative: the sensor model is the true
+# range plus Gaussian noise, as landmark_measurements() simulates.
 check_measurements <- function(m) {
   if (!is.data.frame(m) || !all(c("id", "range", "bearing") %in% names(m))) {
     stop("`measurements` must be a data frame with columns id, range and bearing.",
          call. = FALSE)
   }
   if (!is.numeric(m$range) || !is.numeric(m$bearing) ||
-      any(!is.finite(m$range)) || any(!is.finite(m$bearing)) ||
-      any(m$range < 0) || anyNA(m$id)) {
-    stop("Measurements need ids and finite ranges (nonnegative) and bearings.",
+      any(!is.finite(m$range)) || any(!is.finite(m$bearing)) || anyNA(m$id)) {
+    stop("Measurements need ids and finite ranges and bearings.",
          call. = FALSE)
   }
   m
@@ -59,6 +80,9 @@ check_landmark_ids <- function(ids, L) {
 check_landmarks <- function(L) {
   L <- check_matrix(L, NULL, 2, "landmarks")
   if (is.null(rownames(L))) rownames(L) <- as.character(seq_len(nrow(L)))
+  if (anyNA(rownames(L)) || any(rownames(L) == "") || anyDuplicated(rownames(L))) {
+    stop("Landmark ids (row names) must be unique and nonempty.", call. = FALSE)
+  }
   L
 }
 
@@ -82,6 +106,11 @@ landmark_measurements <- function(pose, landmarks, R = NULL, max_range = Inf,
                                   seed = NULL) {
   p <- check_pose2(pose)
   L <- check_landmarks(landmarks)
+  if (!is.numeric(max_range) || length(max_range) != 1L || is.na(max_range) ||
+      max_range < 0) {
+    stop("`max_range` must be a single nonnegative number (Inf for no limit).",
+         call. = FALSE)
+  }
   d <- sweep(L, 2, p[1:2])
   rng <- sqrt(rowSums(d^2))
   brg <- wrap_angle_internal(atan2(d[, 2], d[, 1]) - p[3])
@@ -115,7 +144,7 @@ landmark_measurements <- function(pose, landmarks, R = NULL, max_range = Inf,
 #' @param cov Initial 3 by 3 covariance.
 #' @param landmarks Matrix of landmark positions with row names as ids.
 #' @param Q Control noise covariance (2 by 2).
-#' @param R Measurement noise covariance (2 by 2).
+#' @param R Measurement noise covariance (2 by 2, positive definite).
 #' @param filter A `robot_ekf`.
 #' @param control `c(v, omega)`.
 #' @param dt Duration (s).
@@ -134,7 +163,7 @@ robot_ekf <- function(mean, cov, landmarks, Q, R) {
   structure(list(mean = check_pose2(mean, "mean"),
                  cov = check_cov(cov, 3, "cov"),
                  landmarks = check_landmarks(landmarks),
-                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R"),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R", definite = TRUE),
                  nis = NA_real_),
             class = "robot_ekf")
 }
@@ -219,7 +248,8 @@ print.robot_ekf <- function(x, ...) {
 #' @param n Number of particles.
 #' @param mean,cov Initial Gaussian.
 #' @param landmarks Landmark matrix with row names as ids.
-#' @param Q,R Control and measurement noise covariances.
+#' @param Q,R Control and measurement noise covariances (`R` positive
+#'   definite).
 #' @param filter A `robot_particle_filter`.
 #' @param control `c(v, omega)`.
 #' @param dt Duration.
@@ -245,7 +275,7 @@ robot_particle_filter <- function(n, mean, cov, landmarks, Q, R, seed = NULL) {
   X[, 3] <- wrap_angle_internal(X[, 3])
   structure(list(particles = X, weights = rep(1 / n, n),
                  landmarks = check_landmarks(landmarks),
-                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R")),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R", definite = TRUE)),
             class = "robot_particle_filter")
 }
 
@@ -279,6 +309,7 @@ pf_predict <- function(filter, control, dt, seed = NULL) {
 pf_update <- function(filter, measurements, resample_threshold = 0.5,
                       seed = NULL) {
   stopifnot(inherits(filter, "robot_particle_filter"))
+  resample_threshold <- check_probability(resample_threshold, "resample_threshold")
   measurements <- check_measurements(measurements)
   if (!nrow(measurements)) return(filter)
   check_landmark_ids(measurements$id, filter$landmarks)
@@ -289,11 +320,16 @@ pf_update <- function(filter, measurements, resample_threshold = 0.5,
     lm <- filter$landmarks[as.character(measurements$id[k]), ]
     dx <- lm[1] - X[, 1]
     dy <- lm[2] - X[, 2]
-    er <- measurements$range[k] - sqrt(dx^2 + dy^2)
+    rr <- sqrt(dx^2 + dy^2)
+    er <- measurements$range[k] - rr
     eb <- wrap_angle_internal(measurements$bearing[k] -
                                 (atan2(dy, dx) - X[, 3]))
-    logw <- logw - 0.5 * (Rinv[1, 1] * er^2 + 2 * Rinv[1, 2] * er * eb +
-                            Rinv[2, 2] * eb^2)
+    ll <- Rinv[1, 1] * er^2 + 2 * Rinv[1, 2] * er * eb + Rinv[2, 2] * eb^2
+    # A particle on the landmark has no defined bearing: use the range
+    # likelihood alone.
+    on <- rr < 1e-9
+    ll[on] <- er[on]^2 / filter$R[1, 1]
+    logw <- logw - 0.5 * ll
   }
   w <- exp(logw - max(logw))
   w <- w / sum(w)

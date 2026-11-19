@@ -13,10 +13,12 @@ range_bearing <- function(x, lm) {
 # sigma deviations `D` are returned directly and never wrapped.
 sigma_points <- function(m, P, alpha, beta, kappa) {
   n <- length(m)
-  lam <- alpha^2 * (n + kappa) - n
-  L <- t(psd_factor(P, "cov")) * sqrt(n + lam)
+  # The spread n + lambda = alpha^2 (n + kappa), formed directly so a small
+  # alpha does not cancel it to zero.
+  s <- alpha^2 * (n + kappa)
+  L <- t(psd_factor(P, "cov")) * sqrt(s)
   D <- cbind(0, L, -L)
-  wm <- c(lam / (n + lam), rep(1 / (2 * (n + lam)), 2 * n))
+  wm <- c(1 - n / s, rep(1 / (2 * s), 2 * n))
   wc <- wm
   wc[1] <- wc[1] + 1 - alpha^2 + beta
   list(X = m + D, D = D, wm = wm, wc = wc)
@@ -91,7 +93,7 @@ robot_ukf <- function(mean, cov, landmarks, Q, R, alpha = 1, beta = 2,
   structure(list(mean = check_pose2(mean, "mean"),
                  cov = check_cov(cov, 3, "cov"),
                  landmarks = check_landmarks(landmarks),
-                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R"),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R", definite = TRUE),
                  alpha = check_scalar(alpha, "alpha", positive = TRUE),
                  beta = check_scalar(beta, "beta"),
                  kappa = check_ukf_kappa(kappa),
@@ -142,7 +144,13 @@ ukf_update <- function(filter, measurements) {
   check_landmark_ids(measurements$id, filter$landmarks)
   nis <- 0
   for (k in seq_len(nrow(measurements))) {
-    lm <- filter$landmarks[as.character(measurements$id[k]), ]
+    id <- as.character(measurements$id[k])
+    lm <- filter$landmarks[id, ]
+    if (vnorm(lm - filter$mean[1:2]) < 1e-9) {
+      warning(sprintf("Skipped landmark '%s': the estimate coincides with it, so its bearing is undefined.",
+                      id), call. = FALSE)
+      next
+    }
     sp <- sigma_points(filter$mean, filter$cov, filter$alpha, filter$beta,
                        filter$kappa)
     Z <- apply(sp$X, 2, function(x) range_bearing(x, lm))
@@ -190,7 +198,8 @@ print.robot_ukf <- function(x, ...) {
 #' @param mean Initial pose estimate.
 #' @param cov Initial 3 by 3 pose covariance.
 #' @param Q Control noise covariance (2 by 2) on `c(v, omega)`.
-#' @param R Measurement noise covariance (2 by 2, range then bearing).
+#' @param R Measurement noise covariance (2 by 2, range then bearing,
+#'   positive definite).
 #' @param filter A `robot_ekf_slam`.
 #' @param control `c(v, omega)`.
 #' @param dt Duration (s).
@@ -213,7 +222,7 @@ robot_ekf_slam <- function(mean, cov, Q, R) {
                                         c("x", "y", "theta")),
                  cov = check_cov(cov, 3, "cov"),
                  ids = character(0),
-                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R"),
+                 Q = check_cov(Q, 2, "Q"), R = check_cov(R, 2, "R", definite = TRUE),
                  nis = NA_real_),
             class = "robot_ekf_slam")
 }
@@ -223,6 +232,7 @@ robot_ekf_slam <- function(mean, cov, Q, R) {
 ekf_slam_predict <- function(filter, control, dt) {
   stopifnot(inherits(filter, "robot_ekf_slam"))
   u <- check_numeric_vector(control, 2, "control")
+  dt <- check_scalar(dt, "dt", nonnegative = TRUE)
   x <- filter$mean[1:3]
   m <- unicycle_motion(x, u[1], u[2], dt)
   P <- filter$cov
@@ -286,8 +296,11 @@ ekf_slam_update <- function(filter, measurements) {
     K <- U %*% solve(S)
     filter$mean <- filter$mean + as.numeric(K %*% innov)
     filter$mean[3] <- wrap_angle_internal(filter$mean[3])
-    KU <- tcrossprod(K, U)
-    P <- P - KU - t(KU) + K %*% tcrossprod(S, K)
+    # Factored Joseph form, evaluated in two sparse stages:
+    # M = (I - K H) P, then M (I - K H)' + K R K'.
+    M <- P - tcrossprod(K, U)
+    P <- M - tcrossprod(M[, active, drop = FALSE] %*% t(Ha), K) +
+      K %*% tcrossprod(filter$R, K)
     filter$cov <- (P + t(P)) / 2
     nis <- nis + sum(innov * solve(S, innov))
   }

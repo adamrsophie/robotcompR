@@ -21,7 +21,7 @@ ukf_update(filter, measurements)
 
 \item{Q}{Control noise covariance (2 by 2).}
 
-\item{R}{Measurement noise covariance (2 by 2).}
+\item{R}{Measurement noise covariance (2 by 2, positive definite).}
 
 \item{alpha, beta, kappa}{Unscented transform parameters.}
 

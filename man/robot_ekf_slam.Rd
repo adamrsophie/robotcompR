@@ -22,7 +22,8 @@ ekf_slam_landmarks(filter)
 
 \item{Q}{Control noise covariance (2 by 2) on \code{c(v, omega)}.}
 
-\item{R}{Measurement noise covariance (2 by 2, range then bearing).}
+\item{R}{Measurement noise covariance (2 by 2, range then bearing,
+positive definite).}
 
 \item{filter}{A \code{robot_ekf_slam}.}
 

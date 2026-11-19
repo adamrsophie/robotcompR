@@ -22,7 +22,8 @@ pf_estimate(filter)
 
 \item{landmarks}{Landmark matrix with row names as ids.}
 
-\item{Q, R}{Control and measurement noise covariances.}
+\item{Q, R}{Control and measurement noise covariances (\code{R} positive
+definite).}
 
 \item{seed}{Optional seed.}
 
