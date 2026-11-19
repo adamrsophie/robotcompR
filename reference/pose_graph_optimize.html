@@ -131,13 +131,14 @@ connected to it through edges.</p>
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list with the optimized <code>graph</code>, <code>cost</code> history, <code>iterations</code>,
 <code>converged</code> (<code>TRUE</code> only for <code>status == "converged"</code>), <code>status</code> and
-<code>gradient</code>, the relative gradient norm at the returned nodes.</p>
+<code>gradient</code>, the relative gradient norm at the start of the last
+iteration.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Convergence means stationarity, not merely a small change: the
 optimizer stops with <code>status = "converged"</code> when the cost is zero to
-roundoff or the gradient is negligible relative to the cost
+roundoff for the graph's scale or the gradient is negligible relative to the cost
 (\(\|g\| \le 10^{-6} \sqrt{\max H_{kk}\, c}\)). Other outcomes are
 <code>"stalled"</code> (the relative decrease fell below <code>tol</code>, or no damped step
 decreased the cost, while the gradient is not negligible),
