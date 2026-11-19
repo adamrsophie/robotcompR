@@ -13,10 +13,13 @@ simplex_closest <- function(W) {
     if (length(idx) == 1) {
       lam <- 1
     } else {
+      # Least squares on the edge vectors themselves (QR), not the normal
+      # equations, so thin but genuine faces are kept: squaring the
+      # conditioning used to discard them.
       D <- t(P[-1, , drop = FALSE]) - P[1, ]
-      G <- crossprod(D)
-      if (rcond(G) < 1e-14) next
-      mu <- -solve(G, crossprod(D, P[1, ]))
+      qd <- qr(D, tol = 1e-13)
+      if (qd$rank < ncol(D)) next
+      mu <- qr.coef(qd, -P[1, ])
       lam <- c(1 - sum(mu), mu)
       if (any(lam < -1e-12)) next
     }
@@ -36,9 +39,7 @@ simplex_closest <- function(W) {
 gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, rel_tol = 1e-10) {
   cA <- TA[1:3, 4]
   cB <- TB[1:3, 4]
-  scale <- max(geometry_bound(gA) - geometry_radius(gA),
-               geometry_bound(gB) - geometry_radius(gB),
-               .Machine$double.xmin)
+  scale <- max(geometry_extent(gA), geometry_extent(gB), .Machine$double.xmin)
   tol <- rel_tol * scale
   d <- cA - cB
   if (vnorm(d) < tol) d <- c(1, 0, 0)
@@ -94,12 +95,13 @@ gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, rel_tol = 1e-10) {
 # the depth (distance from the origin to the boundary of A - B), the unit
 # direction `n` (moving A by -depth * n separates the cores) and the
 # extreme points of each core along that direction, or NULL when A - B is
-# flat (the cores only touch). The nearest face distance is a lower bound
+# flat to tolerance (then the depth is bounded by its thickness and flagged
+# as not converged unless that is zero). The nearest face distance is a lower bound
 # on the depth and the smallest support value seen along a face normal is
 # an upper bound; `converged` is TRUE when they agree to `tol`. Otherwise
 # the iteration budget ran out and only the bounds are certified.
 epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
-  scale <- max(geometry_bound(gA), geometry_bound(gB), .Machine$double.xmin)
+  scale <- max(geometry_extent(gA), geometry_extent(gB), .Machine$double.xmin)
   tol <- rel_tol * scale
   support <- function(d) {
     a <- geometry_support(gA, TA, d)
@@ -120,9 +122,20 @@ epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
   if (dl[i3] < tol * vnorm(u)) return(NULL)
   nrm <- cross3(u, W[i3, ] - W[i1, ])
   nrm <- nrm / vnorm(nrm)
-  dp <- abs(as.numeric(sweep(W, 2, W[i1, ]) %*% nrm))
-  i4 <- which.max(dp)
-  if (dp[i4] < tol) return(NULL)
+  # Query both sides of the plane: fixed directions can miss the apex of
+  # a full-dimensional difference.
+  pts <- c(pts, list(support(nrm), support(-nrm)))
+  W <- rbind(W, pts[[length(pts) - 1]]$w, pts[[length(pts)]]$w)
+  off <- as.numeric(sweep(W, 2, W[i1, ]) %*% nrm)
+  i4 <- which.max(abs(off))
+  if (abs(off[i4]) < tol) {
+    # A - B is flat to tolerance: the depth lies between 0 and the
+    # smaller of its two half thicknesses along the normal.
+    up <- max(0, min(max(off), -min(off)))
+    return(list(depth = 0, n = nrm, pa = pts[[i1]]$a, pb = pts[[i1]]$b,
+                converged = up == 0, iterations = 0L, bounds = c(0, up),
+                flat = TRUE))
+  }
   V <- pts[c(i1, i2, i3, i4)]
   P <- t(vapply(V, `[[`, numeric(3), "w"))
   inside <- colMeans(P)
@@ -184,6 +197,22 @@ epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
        iterations = it, bounds = c(depth, max(depth, upper)))
 }
 
+# Half the diameter of the core, independent of where its local origin is:
+# the length scale for numerical tolerances.
+geometry_extent <- function(g) {
+  switch(g$type,
+    sphere = 0,
+    capsule = g$params$length / 2,
+    box = vnorm(g$params$size) / 2,
+    cylinder = sqrt(g$params$radius^2 + (g$params$length / 2)^2),
+    convex = {
+      V <- g$params$vertices
+      ctr <- (apply(V, 2, max) + apply(V, 2, min)) / 2
+      sqrt(max(rowSums(sweep(V, 2, ctr)^2)))
+    },
+    0) + geometry_radius(g)
+}
+
 geometry_bound <- function(g) {
   r <- geometry_radius(g)
   r + switch(g$type,
@@ -211,36 +240,31 @@ segment_closest <- function(p1, q1, p2, q2) {
   a <- sum(d1 * d1)
   e <- sum(d2 * d2)
   f <- sum(d2 * r)
-  # Degeneracy is judged relative to the configuration (a segment shorter
-  # than 1e-12 of the scene is a point), so the result is scale invariant.
-  eps <- 1e-24 * max(a, e, sum(r * r))
-  if (a <= eps && e <= eps) {
-    s <- 0; t <- 0
-  } else if (a <= eps) {
-    s <- 0
-    t <- min(1, max(0, f / e))
-  } else {
-    c_ <- sum(d1 * r)
-    if (e <= eps) {
-      t <- 0
-      s <- min(1, max(0, -c_ / a))
-    } else {
-      b <- sum(d1 * d2)
-      den <- a * e - b * b
-      s <- if (den > 1e-15 * a * e) min(1, max(0, (b * f - c_ * e) / den)) else 0
-      t <- (b * s + f) / e
-      if (t < 0) {
-        t <- 0
-        s <- min(1, max(0, -c_ / a))
-      } else if (t > 1) {
-        t <- 1
-        s <- min(1, max(0, (b - c_) / a))
-      }
-    }
+  # The minimum is either an interior critical point of both segments or
+  # lies on an endpoint of one of them. All candidates are evaluated; the
+  # interior point uses the cross product |d1 x d2|^2, which does not
+  # cancel for nearly parallel segments the way a e - b^2 does.
+  proj <- function(p, o, d, len2) {
+    if (len2 <= 0) 0 else min(1, max(0, sum((p - o) * d) / len2))
   }
-  pa <- p1 + d1 * s
-  pb <- p2 + d2 * t
-  list(distance = vnorm(pa - pb), pa = pa, pb = pb)
+  cand <- list(c(0, proj(p1, p2, d2, e)), c(1, proj(q1, p2, d2, e)),
+               c(proj(p2, p1, d1, a), 0), c(proj(q2, p1, d1, a), 1))
+  nx <- cross3(d1, d2)
+  den <- sum(nx * nx)
+  if (den > 0) {
+    w <- p2 - p1
+    s <- sum(cross3(w, d2) * nx) / den
+    t <- sum(cross3(w, d1) * nx) / den
+    if (s >= 0 && s <= 1 && t >= 0 && t <= 1) cand <- c(cand, list(c(s, t)))
+  }
+  best <- NULL
+  for (st in cand) {
+    pa <- p1 + d1 * st[1]
+    pb <- p2 + d2 * st[2]
+    dd <- vnorm(pa - pb)
+    if (is.null(best) || dd < best$distance) best <- list(distance = dd, pa = pa, pb = pb)
+  }
+  best
 }
 
 core_distance <- function(gA, TA, gB, TB) {
@@ -249,10 +273,29 @@ core_distance <- function(gA, TA, gB, TB) {
     sa <- core_segment(gA, TA)
     sb <- core_segment(gB, TB)
     r <- segment_closest(sa$a, sa$b, sb$a, sb$b)
-    r$intersect <- r$distance <= 1e-12 * max(geometry_bound(gA), geometry_bound(gB))
+    r$intersect <- r$distance <= 1e-12 * max(geometry_extent(gA), geometry_extent(gB))
     return(r)
   }
   gjk_distance(gA, TA, gB, TB)
+}
+
+# A deterministic unit normal for cores that touch or overlap at a point:
+# the direction between the core witnesses when they differ, otherwise
+# perpendicular to the capsule axes, otherwise the world x axis.
+touch_normal <- function(gA, TA, gB, TB, core) {
+  d <- core$pb - core$pa
+  if (vnorm(d) > 0) return(d / vnorm(d))
+  axes <- list(TA[1:3, 3], TB[1:3, 3])[c(gA$type == "capsule", gB$type == "capsule")]
+  if (length(axes) == 2) {
+    n <- cross3(axes[[1]], axes[[2]])
+    if (vnorm(n) > 0) return(n / vnorm(n))
+  }
+  if (length(axes)) {
+    n <- cross3(axes[[1]], c(1, 0, 0))
+    if (vnorm(n) < 1e-8) n <- cross3(axes[[1]], c(0, 1, 0))
+    return(n / vnorm(n))
+  }
+  c(1, 0, 0)
 }
 
 geometry_pair <- function(gA, TA, gB, TB, depth = TRUE) {
@@ -268,9 +311,10 @@ geometry_pair <- function(gA, TA, gB, TB, depth = TRUE) {
           else epa_depth(gA, TA, gB, TB)
     if (is.null(ep)) {
       d <- -(rA + rB)
+      n <- touch_normal(gA, TA, gB, TB, core)
       return(list(distance = d, collision = TRUE, depth_known = depth,
                   depth_bounds = if (depth) c(d, d) else c(NA_real_, NA_real_),
-                  pa = core$pa, pb = core$pb))
+                  pa = core$pa + rA * n, pb = core$pb - rB * n))
     }
     return(list(distance = -(ep$depth + rA + rB), collision = TRUE,
                 depth_known = ep$converged,
@@ -485,8 +529,22 @@ robot_collision_objects <- function(robot, fk) {
 default_self_pairs <- function(robot, objs) {
   pairs <- list()
   if (length(objs) < 2) return(pairs)
+  # Links joined by fixed joints form one rigid body; bodies joined by a
+  # movable joint are adjacent. Pairs within a body or across a joint are
+  # excluded, so inserting fixed frames (as URDF export does) changes
+  # nothing.
+  body <- seq_along(robot$link_names)
+  for (k in seq_along(body)[-1]) {
+    if (!robot$movable[k - 1L]) body[k] <- body[robot$parent_index[k]]
+  }
+  parent_body <- vapply(body, function(b) {
+    p <- robot$parent_index[b]
+    if (p > 0) body[p] else 0L
+  }, integer(1))
   adjacent <- function(a, b) {
-    robot$parent_index[a] == b || robot$parent_index[b] == a
+    ba <- body[a]
+    bb <- body[b]
+    ba == bb || parent_body[ba] == bb || parent_body[bb] == ba
   }
   for (i in seq_len(length(objs) - 1)) {
     for (j in (i + 1):length(objs)) {
@@ -503,8 +561,9 @@ default_self_pairs <- function(robot, objs) {
 #'
 #' Checks the robot's collision geometry against the obstacles of an
 #' environment and, with `self = TRUE`, against itself. Self-collision
-#' skips geometry pairs on the same link and on links connected by a
-#' joint; further link pairs can be excluded with `ignore_pairs`. A cheap
+#' skips geometry pairs within one rigid body (links joined by fixed
+#' joints) and between bodies connected by a movable joint; further link
+#' pairs can be excluded with `ignore_pairs`. A cheap
 #' bounding-sphere test prunes pairs that are farther apart than `margin`.
 #' This checks one configuration only: a collision-free start and goal do
 #' not imply that the motion between them is collision-free; use
@@ -566,8 +625,14 @@ robot_check_collision <- function(robot, q, environment = NULL, self = TRUE,
     }
   }
   if (self) {
-    ign <- lapply(ignore_pairs %||% list(), function(p)
-      sort(match(p, robot$link_names)))
+    ign <- lapply(ignore_pairs %||% list(), function(p) {
+      m <- match(p, robot$link_names)
+      if (length(p) != 2L || anyNA(m)) {
+        stop("`ignore_pairs` must hold pairs of existing link names.",
+             call. = FALSE)
+      }
+      sort(m)
+    })
     for (pr in default_self_pairs(robot, objs)) {
       a <- objs[[pr[1]]]
       b <- objs[[pr[2]]]
@@ -644,7 +709,11 @@ in_collision_fast <- function(robot, q, environment, self, margin,
 interpolate_segment <- function(a, b, resolution) {
   n <- max(1, ceiling(max(abs(b - a)) / resolution))
   s <- seq(0, 1, length.out = n + 1)
-  outer(s, b - a) + matrix(a, n + 1, length(a), byrow = TRUE)
+  S <- outer(s, b - a) + matrix(a, n + 1, length(a), byrow = TRUE)
+  # The endpoints are the waypoints themselves, never a + (b - a).
+  S[1, ] <- a
+  S[n + 1, ] <- b
+  S
 }
 
 # Upper bounds on how far any point of each link's collision geometry can
@@ -696,7 +765,7 @@ segment_conservative <- function(robot, qa, qb, environment, self, margin,
   M <- as.numeric(crossprod(rho[jm, , drop = FALSE], dq[robot$q_index[jm]]))
   s <- 0
   for (step in seq_len(max_steps)) {
-    q <- qa + s * (qb - qa)
+    q <- if (s >= 1) qb else qa + s * (qb - qa)
     fk <- fk_internal(robot, q)
     objs <- robot_collision_objects(robot, fk)
     remaining <- 1 - s
@@ -797,26 +866,35 @@ robot_check_path <- function(robot, path, environment = NULL, self = TRUE,
   method <- match.arg(method)
   if (inherits(path, "robot_plan")) path <- path$path
   P <- check_matrix(path, NULL, robot$dof, "path")
+  if (!nrow(P)) stop("`path` must have at least one row.", call. = FALSE)
   resolution <- check_scalar(resolution, "resolution", positive = TRUE)
+  margin <- check_scalar(margin, "margin", nonnegative = TRUE)
+  if (!is.null(environment) && !inherits(environment, "robot_environment")) {
+    stop("`environment` must be a robot_environment (see robot_environment()).",
+         call. = FALSE)
+  }
   if (method == "continuous") {
-    margin <- check_scalar(margin, "margin", nonnegative = TRUE)
-    if (!is.null(environment)) stopifnot(inherits(environment, "robot_environment"))
     tol <- check_scalar(tol, "tol", nonnegative = TRUE)
     max_steps <- check_count(max_steps, "max_steps")
-    for (i in seq_len(nrow(P))) {
-      if (check_limits && !robot_within_limits(robot, P[i, ])) {
-        # Limits form a box, so a segment respects them iff its ends do.
-        return(list(valid = FALSE, first_invalid = max(1L, i - 1L), q = P[i, ],
-                    samples = i))
-      }
+    # Problems are reported in path order: limits form a box, so a segment
+    # respects them iff its ends do, and a collision inside segment i
+    # comes before a limit violation at its end.
+    off_limits <- function(i) check_limits && !robot_within_limits(robot, P[i, ])
+    if (off_limits(1)) {
+      return(list(valid = FALSE, first_invalid = 1L, q = P[1, ], samples = 1L))
     }
     if (nrow(P) == 1) P <- rbind(P, P)
     for (i in seq_len(nrow(P) - 1)) {
       s <- segment_conservative(robot, P[i, ], P[i + 1, ], environment, self,
                                 margin, tol, max_steps)
       if (!is.null(s)) {
-        return(list(valid = FALSE, first_invalid = i,
-                    q = P[i, ] + s * (P[i + 1, ] - P[i, ]), samples = NA_integer_))
+        q <- if (s >= 1) P[i + 1, ] else P[i, ] + s * (P[i + 1, ] - P[i, ])
+        return(list(valid = FALSE, first_invalid = i, q = q,
+                    samples = NA_integer_))
+      }
+      if (off_limits(i + 1)) {
+        return(list(valid = FALSE, first_invalid = i, q = P[i + 1, ],
+                    samples = NA_integer_))
       }
     }
     return(list(valid = TRUE, first_invalid = NA_integer_, q = NULL,

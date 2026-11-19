@@ -122,8 +122,13 @@ geometry_support <- function(g, T, d) {
                       else -g$params$length / 2),
     box = sign_nonzero(dl) * g$params$size / 2,
     cylinder = {
-      r <- sqrt(dl[1]^2 + dl[2]^2)
-      xy <- if (r > 1e-15) g$params$radius * dl[1:2] / r else c(0, 0)
+      # Scale before the norm so the support does not depend on the
+      # magnitude of the search direction.
+      m <- max(abs(dl[1:2]))
+      xy <- if (m > 0) {
+        u <- dl[1:2] / m
+        g$params$radius * u / sqrt(sum(u * u))
+      } else c(0, 0)
       c(xy, if (dl[3] >= 0) g$params$length / 2 else -g$params$length / 2)
     },
     convex = {

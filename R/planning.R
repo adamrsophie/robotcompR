@@ -87,6 +87,13 @@ robot_planner <- function(robot = NULL, algorithm = c("rrt_connect", "rrt",
   if (!is.null(validity) && !is.function(validity)) {
     stop("`validity` must be a function.", call. = FALSE)
   }
+  if (!is.null(environment) && !inherits(environment, "robot_environment")) {
+    stop("`environment` must be a robot_environment (see robot_environment()).",
+         call. = FALSE)
+  }
+  if (!is.logical(self) || length(self) != 1L || is.na(self)) {
+    stop("`self` must be TRUE or FALSE.", call. = FALSE)
+  }
   structure(list(
     robot = robot, algorithm = algorithm, environment = environment,
     validity = validity, bounds = bounds, self = self,
@@ -124,11 +131,15 @@ state_valid <- function(pl, q) {
   TRUE
 }
 
-# An edge whose check is cut short by the deadline is not valid.
+# An edge whose check is cut short by the deadline is not valid. The
+# clock is read again after each validity call, so an edge first
+# certified after the deadline is rejected too.
 edge_valid <- function(pl, a, b) {
   S <- interpolate_segment(a, b, pl$resolution)
   for (i in seq_len(nrow(S))[-1]) {
-    if (out_of_time(pl) || !state_valid(pl, S[i, ])) return(FALSE)
+    if (out_of_time(pl) || !state_valid(pl, S[i, ]) || out_of_time(pl)) {
+      return(FALSE)
+    }
   }
   TRUE
 }
@@ -171,8 +182,10 @@ grow_rrt <- function(pl, start, goal) {
   parent <- integer(N)
   nodes[1, ] <- start
   n <- 1L
+  done <- 0L
   for (it in seq_len(pl$max_iterations)) {
     if (out_of_time(pl)) break
+    done <- it
     target <- if (stats::runif(1) < pl$goal_bias) goal else sample_state(pl)
     i <- nearest_index(nodes, n, target)
     qn <- steer(nodes[i, ], target, pl$step_size)
@@ -190,7 +203,7 @@ grow_rrt <- function(pl, start, goal) {
                   nodes = n))
     }
   }
-  list(path = NULL, iterations = pl$max_iterations, nodes = n)
+  list(path = NULL, iterations = done, nodes = n)
 }
 
 grow_rrt_connect <- function(pl, start, goal) {
@@ -211,29 +224,37 @@ grow_rrt_connect <- function(pl, start, goal) {
     }
     i <- nearest_index(tr$nodes, tr$n, target)
     qn <- steer(tr$nodes[i, ], target, pl$step_size)
+    if (all(qn == tr$nodes[i, ])) {
+      # No representable progress: the target is this node or the step
+      # rounds away. Never append a duplicate node.
+      return(list(tree = tr, node = i,
+                  status = if (all(qn == target)) "reached" else "trapped"))
+    }
     if (!state_valid(pl, qn) || !edge_valid(pl, tr$nodes[i, ], qn)) {
-      return(list(tree = tr, status = "trapped"))
+      return(list(tree = tr, node = i, status = "trapped"))
     }
     tr$n <- tr$n + 1L
     tr$nodes[tr$n, ] <- qn
     tr$parent[tr$n] <- i
-    list(tree = tr, status = if (vnorm(qn - target) < 1e-12) "reached"
-                               else "advanced")
+    list(tree = tr, node = tr$n,
+         status = if (vnorm(qn - target) < 1e-12) "reached" else "advanced")
   }
+  done <- 0L
   for (it in seq_len(pl$max_iterations)) {
     if (out_of_time(pl)) break
+    done <- it
     r <- extend(ta, sample_state(pl))
     ta <- r$tree
     if (r$status != "trapped") {
-      qnew <- ta$nodes[ta$n, ]
+      qnew <- ta$nodes[r$node, ]
       repeat {
         r2 <- extend(tb, qnew)
         tb <- r2$tree
         if (r2$status != "advanced" || out_of_time(pl)) break
       }
       if (r2$status == "reached") {
-        pa <- path_from_tree(ta$nodes, ta$parent, ta$n)
-        pb <- path_from_tree(tb$nodes, tb$parent, tb$n)
+        pa <- path_from_tree(ta$nodes, ta$parent, r$node)
+        pb <- path_from_tree(tb$nodes, tb$parent, r2$node)
         pb <- pb[rev(seq_len(nrow(pb))), , drop = FALSE][-1, , drop = FALSE]
         path <- rbind(pa, pb)
         if (!a_is_start) path <- path[rev(seq_len(nrow(path))), , drop = FALSE]
@@ -245,7 +266,7 @@ grow_rrt_connect <- function(pl, start, goal) {
     tb <- tmp
     a_is_start <- !a_is_start
   }
-  list(path = NULL, iterations = pl$max_iterations, nodes = ta$n + tb$n)
+  list(path = NULL, iterations = done, nodes = ta$n + tb$n)
 }
 
 grow_rrt_star <- function(pl, start, goal) {
@@ -257,8 +278,10 @@ grow_rrt_star <- function(pl, start, goal) {
   nodes[1, ] <- start
   n <- 1L
   goal_nodes <- integer(0)
+  done <- 0L
   for (it in seq_len(pl$max_iterations)) {
     if (out_of_time(pl)) break
+    done <- it
     target <- if (stats::runif(1) < pl$goal_bias) goal else sample_state(pl)
     i <- nearest_index(nodes, n, target)
     qn <- steer(nodes[i, ], target, pl$step_size)
@@ -301,14 +324,14 @@ grow_rrt_star <- function(pl, start, goal) {
     }
   }
   if (!length(goal_nodes)) {
-    return(list(path = NULL, iterations = pl$max_iterations, nodes = n))
+    return(list(path = NULL, iterations = done, nodes = n))
   }
   total <- cost[goal_nodes] + sqrt(colSums((t(nodes[goal_nodes, , drop = FALSE]) -
                                               goal)^2))
   g <- goal_nodes[which.min(total)]
   path <- path_from_tree(nodes, parent, g)
   if (vnorm(path[nrow(path), ] - goal) > 0) path <- rbind(path, goal)
-  list(path = path, iterations = pl$max_iterations, nodes = n)
+  list(path = path, iterations = done, nodes = n)
 }
 
 dijkstra <- function(adj, w, from, to, pl) {
@@ -425,11 +448,16 @@ robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
   if (!state_valid(planner, goal)) {
     return(fail("goal configuration is invalid", "invalid_goal"))
   }
-  res <- with_seed_internal(seed, switch(planner$algorithm,
-    rrt = grow_rrt(planner, start, goal),
-    rrt_connect = grow_rrt_connect(planner, start, goal),
-    rrt_star = grow_rrt_star(planner, start, goal),
-    prm = grow_prm(planner, start, goal)))
+  res <- if (all(start == goal)) {
+    # Already there: the one-waypoint path is valid with length zero.
+    list(path = matrix(start, 1), iterations = 0L, nodes = 1L)
+  } else {
+    with_seed_internal(seed, switch(planner$algorithm,
+      rrt = grow_rrt(planner, start, goal),
+      rrt_connect = grow_rrt_connect(planner, start, goal),
+      rrt_star = grow_rrt_star(planner, start, goal),
+      prm = grow_prm(planner, start, goal)))
+  }
   ok <- !is.null(res$path)
   path <- res$path
   if (ok) {

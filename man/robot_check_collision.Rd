@@ -39,8 +39,9 @@ A \code{robot_collision_result} with \code{in_collision},
 \description{
 Checks the robot's collision geometry against the obstacles of an
 environment and, with \code{self = TRUE}, against itself. Self-collision
-skips geometry pairs on the same link and on links connected by a
-joint; further link pairs can be excluded with \code{ignore_pairs}. A cheap
+skips geometry pairs within one rigid body (links joined by fixed
+joints) and between bodies connected by a movable joint; further link
+pairs can be excluded with \code{ignore_pairs}. A cheap
 bounding-sphere test prunes pairs that are farther apart than \code{margin}.
 This checks one configuration only: a collision-free start and goal do
 not imply that the motion between them is collision-free; use
