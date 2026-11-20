@@ -283,17 +283,26 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
   # the absolute rotation matrices applied to the coordinatewise
   # magnitudes, so a large world offset along x never excuses an error
   # along y.
-  rot_of <- function(X, a) {
-    if (se3) X[[a]][1:3, 1:3] else rot2(X[a, 3])
+  # |R|' applied to a vector, for the rotation of node a (or a constant
+  # rotation); for SE(2) both entries of |R| are |cos|, |sin|.
+  abs_rot_t <- function(X, a, v) {
+    if (se3) return(as.numeric(crossprod(abs(X[[a]][1:3, 1:3]), v)))
+    c_ <- abs(cos(X[a, 3]))
+    s_ <- abs(sin(X[a, 3]))
+    c(c_ * v[1] + s_ * v[2], s_ * v[1] + c_ * v[2])
   }
   position <- function(X, a) if (se3) X[[a]][1:3, 4] else X[a, 1:2]
+  for (k in seq_along(graph$edges)) {
+    z <- graph$edges[[k]]$z
+    graph$edges[[k]]$absRz <- if (se3) abs(z[1:3, 1:3]) else
+      abs(matrix(c(cos(z[3]), sin(z[3]), -sin(z[3]), cos(z[3])), 2))
+    graph$edges[[k]]$abszt <- abs(if (se3) z[1:3, 4] else z[1:2])
+  }
+  nrot <- if (se3) 3 else 1
   roundoff_scale <- function(X, e) {
-    Rz <- if (se3) e$z[1:3, 1:3] else rot2(e$z[3])
-    zt <- if (se3) e$z[1:3, 4] else e$z[1:2]
-    mag <- abs(t(Rz)) %*% (abs(t(rot_of(X, e$i))) %*%
-                             (abs(position(X, e$i)) + abs(position(X, e$j))) +
-                           abs(zt)) + 1
-    1e3 * .Machine$double.eps * c(mag, rep(1, if (se3) 3 else 1))
+    m <- abs_rot_t(X, e$i, abs(position(X, e$i)) + abs(position(X, e$j))) + e$abszt
+    mag <- as.numeric(crossprod(e$absRz, m)) + 1
+    1e3 * .Machine$double.eps * c(mag, rep(1, nrot))
   }
   at_roundoff <- function(X) all(vapply(graph$edges, function(e) {
     all(abs(residual(X, e)) <= roundoff_scale(X, e))
