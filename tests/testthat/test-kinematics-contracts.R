@@ -93,3 +93,16 @@ test_that("limits, frames, adjoints and inertias are validated", {
   expect_equal(robot_fk(arm, c(joint2 = 0.5, joint1 = 0)), robot_fk(arm, c(0, 0.5)))
   expect_error(robot_fk(arm, c(joint2 = 0.5, other = 0)), "joint names")
 })
+
+test_that("roundoff-sized inertia violations are stored as physical tensors", {
+  l <- robot_link("tip", 1, inertia = diag(c(-5e-10, 1, 1)))
+  expect_gte(min(eigen(l$inertia, symmetric = TRUE, only.values = TRUE)$values), 0)
+  r <- robot_model(l, robot_joint("j", "continuous", "base", "tip", axis = c(1, 0, 0)))
+  expect_gte(robot_mass_matrix(r, 0)[1, 1], 0)
+  expect_gte(unname(robot_energy(r, 0, 1)["kinetic"]), 0)
+  expect_error(robot_link("tip", 1, inertia = diag(c(-1e-3, 1, 1))), "semidefinite")
+  tri <- robot_link("t", 1, inertia = diag(c(2 + 1e-10, 1, 1)))
+  ev <- sort(eigen(tri$inertia, only.values = TRUE)$values)
+  expect_lte(ev[3], ev[1] + ev[2])
+  expect_equal(robot_link("ok", 1, inertia = diag(c(1, 2, 3)))$inertia, diag(c(1, 2, 3)))
+})

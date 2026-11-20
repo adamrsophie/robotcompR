@@ -162,6 +162,17 @@ check_inertia <- function(I, name, tol = 1e-9) {
                         "inequality of principal moments."), name),
          call. = FALSE)
   }
+  # A roundoff-sized violation accepted above is projected onto the
+  # physical set before storage: negative moments become zero and the
+  # largest moment is capped at the sum of the other two, so no stored
+  # tensor yields negative kinetic energy.
+  fixed <- pmax(ev, 0)
+  fixed[1] <- min(fixed[1], fixed[2] + fixed[3])
+  if (any(fixed != ev)) {
+    V <- eigen(I, symmetric = TRUE)$vectors
+    I <- V %*% (fixed * t(V))
+    I <- (I + t(I)) / 2
+  }
   I
 }
 
@@ -172,7 +183,10 @@ check_inertia <- function(I, name, tol = 1e-9) {
 #' frame (meters), and `inertia` the 3 by 3 rotational inertia about the
 #' center of mass, expressed in axes parallel to the link frame (kg m^2).
 #' Inertia matrices must be symmetric positive semidefinite and satisfy
-#' the triangle inequality of principal moments.
+#' the triangle inequality of principal moments. Violations within a
+#' relative tolerance of `1e-9` are treated as roundoff and projected onto
+#' the physical set (negative principal moments set to zero, the largest
+#' capped at the sum of the other two); larger violations are an error.
 #'
 #' @param name Link name.
 #' @param mass Mass (nonnegative).

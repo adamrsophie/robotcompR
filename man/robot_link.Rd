@@ -24,7 +24,10 @@ optional: \code{mass} in kilograms, \code{com} the center of mass in the link
 frame (meters), and \code{inertia} the 3 by 3 rotational inertia about the
 center of mass, expressed in axes parallel to the link frame (kg m^2).
 Inertia matrices must be symmetric positive semidefinite and satisfy
-the triangle inequality of principal moments.
+the triangle inequality of principal moments. Violations within a
+relative tolerance of \code{1e-9} are treated as roundoff and projected onto
+the physical set (negative principal moments set to zero, the largest
+capped at the sum of the other two); larger violations are an error.
 }
 \examples{
 robot_link("upper_arm", mass = 2, com = c(0.25, 0, 0),
