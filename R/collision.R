@@ -83,7 +83,35 @@ gjk_distance <- function(gA, TA, gB, TB, max_iter = 64, rel_tol = 1e-10) {
   pa <- as.numeric(crossprod(A, lam))
   pb <- as.numeric(crossprod(B, lam))
   dist <- vnorm(v)
-  list(distance = dist, pa = pa, pb = pb, intersect = dist <= tol)
+  if (dist <= tol) {
+    return(list(distance = dist, pa = pa, pb = pb, intersect = TRUE,
+                lower = -Inf))
+  }
+  # |v| is only an upper bound: v is a point of A - B. Separation is
+  # certified by the support plane: every point of A - B lies on the far
+  # side of the plane through the support point along -v, so its offset
+  # bounds the distance from below whatever stopped the iteration
+  # (convergence, a repeated support point or the budget).
+  w <- geometry_support(gA, TA, -v) - geometry_support(gB, TB, v)
+  lower <- sum(v * w) / dist - 8 * .Machine$double.eps * (scale + vnorm(cA - cB))
+  list(distance = dist, pa = pa, pb = pb, intersect = FALSE, lower = lower)
+}
+
+# Support value h(n) = max over A - B of n . x for unit directions n (the
+# rows of N). For every n the signed distance between the cores is at
+# least -h(n), whether they overlap or not, so the smallest value over a
+# set of directions caps the penetration depth from above.
+depth_cap <- function(gA, TA, gB, TB, N = NULL) {
+  N <- rbind(diag(3), -diag(3), t(TA[1:3, 1:3]), -t(TA[1:3, 1:3]),
+             t(TB[1:3, 1:3]), -t(TB[1:3, 1:3]), N)
+  N <- N / sqrt(rowSums(N^2))
+  h <- vapply(seq_len(nrow(N)), function(i) {
+    n <- N[i, ]
+    sum(n * (geometry_support(gA, TA, n) - geometry_support(gB, TB, -n)))
+  }, 0)
+  scale <- max(geometry_extent(gA), geometry_extent(gB)) +
+    vnorm(TA[1:3, 4] - TB[1:3, 4])
+  min(h) + 8 * .Machine$double.eps * scale
 }
 
 # Expanding polytope algorithm (van den Bergen, 2001) for the penetration
@@ -129,12 +157,13 @@ epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
   off <- as.numeric(sweep(W, 2, W[i1, ]) %*% nrm)
   i4 <- which.max(abs(off))
   if (abs(off[i4]) < tol) {
-    # A - B is flat to tolerance: the depth lies between 0 and the
-    # smaller of its two half thicknesses along the normal.
-    up <- max(0, min(max(off), -min(off)))
+    # A - B is flat to tolerance. The depth lies between 0 and the support
+    # value of A - B (measured from the origin, not from a sampled point)
+    # along the flat normal or any other direction.
+    up <- max(0, depth_cap(gA, TA, gB, TB, rbind(nrm, -nrm, dirs)))
     return(list(depth = 0, n = nrm, pa = pts[[i1]]$a, pb = pts[[i1]]$b,
                 converged = up == 0, iterations = 0L, bounds = c(0, up),
-                flat = TRUE))
+                flat = TRUE, inside = FALSE))
   }
   V <- pts[c(i1, i2, i3, i4)]
   P <- t(vapply(V, `[[`, numeric(3), "w"))
@@ -193,8 +222,11 @@ epa_depth <- function(gA, TA, gB, TB, max_iter = 200, rel_tol = 1e-9) {
   lam <- lam / sum(lam)
   pa <- Reduce(`+`, Map(function(v, l) v$a * l, V[f$ids], lam))
   pb <- Reduce(`+`, Map(function(v, l) v$b * l, V[f$ids], lam))
+  # The polytope lies inside A - B, so a final nearest face in front of
+  # the origin proves that the cores overlap by at least that much.
   list(depth = depth, n = f$n, pa = pa, pb = pb, converged = converged,
-       iterations = it, bounds = c(depth, max(depth, upper)))
+       iterations = it, bounds = c(depth, max(depth, upper)),
+       inside = f$c > 0)
 }
 
 # Half the diameter of the core, independent of where its local origin is:
@@ -274,6 +306,7 @@ core_distance <- function(gA, TA, gB, TB) {
     sb <- core_segment(gB, TB)
     r <- segment_closest(sa$a, sa$b, sb$a, sb$b)
     r$intersect <- r$distance <= 1e-12 * max(geometry_extent(gA), geometry_extent(gB))
+    r$lower <- r$distance
     return(r)
   }
   gjk_distance(gA, TA, gB, TB)
@@ -323,9 +356,35 @@ geometry_pair <- function(gA, TA, gB, TB, depth = TRUE) {
   }
   n <- (core$pb - core$pa) / core$distance
   dist <- core$distance - rA - rB
+  if (core$lower <= 0) return(unresolved_pair(gA, TA, gB, TB, core, depth))
+  lo <- min(core$lower, core$distance) - rA - rB
   list(distance = dist, collision = dist <= 0, depth_known = TRUE,
-       depth_bounds = c(dist, dist), pa = core$pa + rA * n,
+       depth_bounds = c(lo, dist), pa = core$pa + rA * n,
        pb = core$pb - rB * n)
+}
+
+# GJK found a positive candidate distance but could not prove separation
+# (thin or extreme-aspect cores). EPA decides when it proves overlap;
+# otherwise the pair counts as colliding and the reported interval rests
+# only on support-function bounds, which hold whether the cores overlap or
+# not.
+unresolved_pair <- function(gA, TA, gB, TB, core, depth) {
+  rA <- geometry_radius(gA)
+  rB <- geometry_radius(gB)
+  ep <- if (depth) epa_depth(gA, TA, gB, TB) else NULL
+  if (!is.null(ep) && isTRUE(ep$inside)) {
+    return(list(distance = -(ep$depth + rA + rB), collision = TRUE,
+                depth_known = ep$converged,
+                depth_bounds = -(rev(ep$bounds) + rA + rB),
+                pa = ep$pa + rA * ep$n, pb = ep$pb - rB * ep$n))
+  }
+  v <- core$pa - core$pb
+  lo <- -depth_cap(gA, TA, gB, TB, rbind(v, -v)) - rA - rB
+  hi <- core$distance - rA - rB
+  n <- (core$pb - core$pa) / core$distance
+  list(distance = max(lo, min(hi, -(rA + rB))), collision = TRUE,
+       depth_known = FALSE, depth_bounds = c(lo, hi),
+       pa = core$pa + rA * n, pb = core$pb - rB * n)
 }
 
 #' Distance between two geometric primitives
@@ -334,20 +393,28 @@ geometry_pair <- function(gA, TA, gB, TB, depth = TRUE) {
 #' primitives placed in a common frame. Each primitive is a convex core
 #' plus a radius: GJK (Gilbert, Johnson and Keerthi, 1988) computes the
 #' distance between the cores, and the radii are subtracted. The result
-#' is exact (up to the GJK tolerance) for separated shapes. When shapes
+#' is accurate to the GJK tolerance for separated shapes. When shapes
 #' with a radius overlap but their cores do not, the negative distance is
 #' the exact penetration depth. When the cores themselves overlap, the
 #' expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
 #' penetration depth of the cores, and the negative distance is that depth
 #' plus both radii: the length of the shortest translation that separates
-#' the shapes. EPA stops when its lower and upper bounds on the depth
+#' the shapes.
+#' Separation is reported only when it is proved: GJK's distance is an
+#' upper bound, and a support plane gives a lower bound that must be
+#' positive. For extremely thin or high aspect ratio cores the lower bound
+#' can fail to be positive although the candidate distance is; if EPA
+#' then proves overlap its depth is used, and otherwise the pair is
+#' reported as colliding with `depth_known = FALSE` and an interval from
+#' support-function bounds. EPA stops when its lower and upper bounds on the depth
 #' agree to a relative tolerance of about \eqn{10^{-9}} of the object size,
 #' and `depth_known` is then `TRUE`. Curved cores in symmetric
 #' configurations (for example two identical coaxial cylinders) can exhaust
 #' the iteration budget first: `depth_known` is then `FALSE`, `distance`
 #' is the conservative (shallowest) estimate and `distance_bounds` brackets
-#' the true signed distance. The collision classification is exact either
-#' way. When the cores intersect, `point_a` and `point_b` are the extreme
+#' the true signed distance. A pair is never reported as separated unless
+#' separation is proved; unresolved contact counts as a collision. When the
+#' cores intersect, `point_a` and `point_b` are the extreme
 #' points of each shape along the separating direction; when only the
 #' radii overlap they are the deepest points of each shape. Meshes are not
 #' supported.
@@ -356,7 +423,8 @@ geometry_pair <- function(gA, TA, gB, TB, depth = TRUE) {
 #' @param pose_a,pose_b Poses of the frames the geometries are attached to.
 #' @return A list with `distance`, `collision`, `depth_known`,
 #'   `distance_bounds` (a length-2 interval containing the exact signed
-#'   distance; both ends equal `distance` when it is exact) and the closest
+#'   distance up to floating point roundoff; for separated shapes it runs
+#'   from the certified lower bound to `distance`) and the closest
 #'   points `point_a` and `point_b`.
 #' @examples
 #' geom_distance(geom_sphere(0.5), geom_box(c(1, 1, 1)),
@@ -793,7 +861,12 @@ segment_conservative <- function(robot, qa, qb, environment, self, margin,
         # within `tol` of contact before the end of the segment.
         if (lb > tol && lb / motion > remaining) return(lb / motion)
       }
-      d <- geometry_pair(ga, TA, gb, TB, FALSE)$distance - margin
+      # Advance only by the certified lower bound on the distance: the
+      # reported distance can exceed it, and an unresolved pair counts as
+      # contact.
+      pr <- geometry_pair(ga, TA, gb, TB, FALSE)
+      if (pr$collision) return(-1)
+      d <- pr$depth_bounds[1] - margin
       if (d <= tol) return(-1)
       if (motion <= 0) Inf else d / motion
     }

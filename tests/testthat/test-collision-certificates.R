@@ -127,3 +127,73 @@ test_that("a tool fixed to a link is still checked against the link before it", 
   # Folding the second joint back puts the tool on the first link.
   expect_true(robot_check_collision(r, c(0, pi, 0))$in_collision)
 })
+
+box_truth <- function(sa, sb, delta) max(abs(delta) - (sa + sb) / 2)
+
+test_that("thin overlapping boxes are never certified separated", {
+  sa <- c(4.6, 4.2, 1.7e-7)
+  sb <- c(4.4, 1.34, 4e-7)
+  delta <- c(2, 2.2, 1.28e-7)
+  truth <- box_truth(sa, sb, delta)
+  R <- rotz(0.7) %*% rotx(-0.3)
+  for (common in list(robot_pose(), robot_pose(R, c(1e3, -50, 7)))) {
+    Ta <- common
+    Tb <- common * transl(delta)
+    for (swap in c(FALSE, TRUE)) {
+      d <- if (swap) geom_distance(geom_box(sb), geom_box(sa), Tb, Ta)
+           else geom_distance(geom_box(sa), geom_box(sb), Ta, Tb)
+      expect_true(d$collision)
+      expect_lte(d$distance_bounds[1], truth + 1e-12)
+      expect_gte(d$distance_bounds[2], truth - 1e-12)
+    }
+  }
+  r <- robot_attach_geometry(robot_model(joints = robot_joint("j", "prismatic", "base",
+                                                              "tip", axis = c(1, 0, 0))),
+                             "tip", geom_box(sa))
+  e <- robot_environment(geom_box(sb, origin = transl(delta)))
+  expect_true(robot_check_collision(r, 0, e, self = FALSE)$in_collision)
+  for (m in c("discrete", "continuous")) {
+    expect_false(robot_check_path(r, matrix(0, 1), e, self = FALSE, method = m)$valid)
+  }
+})
+
+test_that("separation needs a positive certified lower bound", {
+  set.seed(11)
+  for (i in 1:30) {
+    sa <- c(runif(2, 0.1, 3), 1e-9 * runif(1, 0.2, 2))
+    sb <- c(runif(2, 0.1, 3), 1e-9 * runif(1, 0.2, 2))
+    delta <- runif(3, -0.8, 0.8) * (sa + sb) / 2
+    truth <- box_truth(sa, sb, delta)
+    d <- geom_distance(geom_box(sa), geom_box(sb), pose_b = transl(delta))
+    expect_lte(d$distance_bounds[1], truth + 1e-12)
+    expect_gte(d$distance_bounds[2], truth - 1e-12)
+    if (truth <= 0) expect_true(d$collision)
+  }
+  # Genuinely separated shapes keep an exact positive certificate.
+  d <- geom_distance(geom_box(c(1, 1, 1e-8)), geom_box(c(1, 1, 1e-8)),
+                     pose_b = transl(1.5, 0, 0))
+  expect_false(d$collision)
+  expect_true(d$depth_known)
+  expect_gt(d$distance_bounds[1], 0)
+  expect_equal(d$distance, 0.5, tolerance = 1e-9)
+  # A truncated GJK run still returns a valid lower bound.
+  a <- geom_cylinder(0.5, 1)
+  b <- geom_cylinder(0.5, 1)
+  g <- gjk_distance(a, diag(4), b, transl(1.3, 0.2, 0)$matrix, max_iter = 1)
+  expect_lte(g$lower, (sqrt(1.73) - 1) * (1 + 1e-9))
+  expect_lte(g$lower, g$distance)
+})
+
+test_that("flat penetration intervals are measured from the Minkowski origin", {
+  sa <- c(2, 2, 5e-11)
+  sb <- c(0.9, 3, 2e-10)
+  delta <- c(1, 0.1, 1e-11)
+  truth <- box_truth(sa, sb, delta)
+  for (swap in c(FALSE, TRUE)) {
+    d <- if (swap) geom_distance(geom_box(sb), geom_box(sa), transl(delta), robot_pose())
+         else geom_distance(geom_box(sa), geom_box(sb), pose_b = transl(delta))
+    expect_true(d$collision)
+    expect_lte(d$distance_bounds[1], truth + 1e-18)
+    expect_gte(d$distance_bounds[2], truth - 1e-18)
+  }
+})

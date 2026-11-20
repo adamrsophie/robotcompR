@@ -14,7 +14,8 @@ geom_distance(a, b, pose_a = robot_pose(), pose_b = robot_pose())
 \value{
 A list with \code{distance}, \code{collision}, \code{depth_known},
 \code{distance_bounds} (a length-2 interval containing the exact signed
-distance; both ends equal \code{distance} when it is exact) and the closest
+distance up to floating point roundoff; for separated shapes it runs
+from the certified lower bound to \code{distance}) and the closest
 points \code{point_a} and \code{point_b}.
 }
 \description{
@@ -22,20 +23,28 @@ Computes the separation distance and closest points between two convex
 primitives placed in a common frame. Each primitive is a convex core
 plus a radius: GJK (Gilbert, Johnson and Keerthi, 1988) computes the
 distance between the cores, and the radii are subtracted. The result
-is exact (up to the GJK tolerance) for separated shapes. When shapes
+is accurate to the GJK tolerance for separated shapes. When shapes
 with a radius overlap but their cores do not, the negative distance is
 the exact penetration depth. When the cores themselves overlap, the
 expanding polytope algorithm (EPA; van den Bergen, 2001) computes the
 penetration depth of the cores, and the negative distance is that depth
 plus both radii: the length of the shortest translation that separates
-the shapes. EPA stops when its lower and upper bounds on the depth
+the shapes.
+Separation is reported only when it is proved: GJK's distance is an
+upper bound, and a support plane gives a lower bound that must be
+positive. For extremely thin or high aspect ratio cores the lower bound
+can fail to be positive although the candidate distance is; if EPA
+then proves overlap its depth is used, and otherwise the pair is
+reported as colliding with \code{depth_known = FALSE} and an interval from
+support-function bounds. EPA stops when its lower and upper bounds on the depth
 agree to a relative tolerance of about \eqn{10^{-9}} of the object size,
 and \code{depth_known} is then \code{TRUE}. Curved cores in symmetric
 configurations (for example two identical coaxial cylinders) can exhaust
 the iteration budget first: \code{depth_known} is then \code{FALSE}, \code{distance}
 is the conservative (shallowest) estimate and \code{distance_bounds} brackets
-the true signed distance. The collision classification is exact either
-way. When the cores intersect, \code{point_a} and \code{point_b} are the extreme
+the true signed distance. A pair is never reported as separated unless
+separation is proved; unresolved contact counts as a collision. When the
+cores intersect, \code{point_a} and \code{point_b} are the extreme
 points of each shape along the separating direction; when only the
 radii overlap they are the deepest points of each shape. Meshes are not
 supported.
