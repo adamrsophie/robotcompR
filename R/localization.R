@@ -3,29 +3,33 @@
 # known identities. Bearing innovations are wrapped to [-pi, pi).
 
 # Covariance inputs: finite, symmetric up to roundoff and positive
-# semidefinite. Definiteness is judged on the correlation scale (each
-# coordinate divided by its own standard deviation), so a large variance
-# cannot excuse a negative or inconsistent one elsewhere. Singular
+# semidefinite. Symmetry and definiteness are judged on the correlation
+# scale (each coordinate divided by its own standard deviation), so a
+# large variance cannot excuse a negative or inconsistent one elsewhere. Singular
 # covariances are allowed (a known state or a noiseless input) unless
 # `definite = TRUE`, which measurement noise needs because the filters
 # invert it. Returns the exactly symmetric matrix.
 check_cov <- function(S, n, name, tol = 1e-9, definite = FALSE) {
   S <- check_matrix(S, n, n, name)
-  scale <- max(abs(S))
-  if (max(abs(S - t(S))) > tol * scale) {
-    stop(sprintf("`%s` must be a symmetric covariance matrix.", name),
-         call. = FALSE)
-  }
-  S <- (S + t(S)) / 2
   dg <- diag(S)
   if (any(dg < 0)) {
     stop(sprintf("`%s` must be positive semidefinite (negative variance).", name),
          call. = FALSE)
   }
+  # Symmetry and the zero-variance rule are local: entry (i, j) is
+  # compared with sqrt(S_ii S_jj), so a large variance elsewhere excuses
+  # nothing, and a coordinate with zero variance must have exactly zero
+  # covariance with every other one.
+  local <- tol * sqrt(outer(dg, dg))
+  if (any(abs(S - t(S)) > local)) {
+    stop(sprintf("`%s` must be a symmetric covariance matrix.", name),
+         call. = FALSE)
+  }
+  S <- (S + t(S)) / 2
   pos <- dg > 0
-  # A coordinate with zero variance must be uncorrelated with the rest.
-  if (any(!pos) && max(abs(S[!pos, ])) > tol * scale) {
-    stop(sprintf("`%s` must be positive semidefinite.", name), call. = FALSE)
+  if (any(!pos) && any(S[!pos, ] != 0)) {
+    stop(sprintf("`%s` must be positive semidefinite (a zero variance with nonzero covariance).",
+                 name), call. = FALSE)
   }
   ev <- if (any(pos)) {
     s <- sqrt(dg[pos])

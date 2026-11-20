@@ -270,3 +270,21 @@ test_that("a world offset never makes an unsolved graph look converged", {
     expect_equal(tail(r$cost, 1), 5e11, tolerance = 1e-6)
   }
 })
+
+test_that("covariance checks are local to each pair of coordinates", {
+  lm <- rbind(a = c(5, 0))
+  P <- diag(c(1e12, 0, 1))
+  P[2, 3] <- P[3, 2] <- 1
+  expect_error(robot_ekf(numeric(3), P, lm, matrix(0, 2, 2), diag(2)), "semidefinite")
+  P <- diag(c(1e12, 1, 1))
+  P[2, 3] <- 1
+  expect_error(robot_ekf(numeric(3), P, lm, matrix(0, 2, 2), diag(2)), "symmetric")
+  # Valid mixed-scale and rank-deficient covariances are accepted.
+  expect_s3_class(robot_ekf(numeric(3), diag(c(1e12, 1e-12, 1)), lm, matrix(0, 2, 2), diag(2)),
+                  "robot_ekf")
+  v <- c(1, 2, 0.5)
+  expect_s3_class(robot_ekf(numeric(3), tcrossprod(v), lm, matrix(0, 2, 2), diag(2)),
+                  "robot_ekf")
+  expect_s3_class(robot_ekf(numeric(3), diag(c(4, 0, 1)), lm, matrix(0, 2, 2), diag(2)),
+                  "robot_ekf")
+})
