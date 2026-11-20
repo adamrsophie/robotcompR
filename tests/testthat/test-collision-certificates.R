@@ -197,3 +197,50 @@ test_that("flat penetration intervals are measured from the Minkowski origin", {
     expect_gte(d$distance_bounds[2], truth - 1e-18)
   }
 })
+
+test_that("planner deadlines are checked after every validity call", {
+  calls <- 0L
+  p <- robot_planner(algorithm = "rrt", bounds = matrix(c(0, 1), 1), time_limit = 0.02,
+                     validity = function(q) {
+                       calls <<- calls + 1L
+                       Sys.sleep(0.04)
+                       TRUE
+                     })
+  z <- robot_plan(p, 0.5, 0.5)
+  expect_identical(z$termination, "time_limit")
+  expect_false(z$success)
+  expect_lte(calls, 1L)
+  calls <- 0L
+  p <- robot_planner(algorithm = "rrt_star", bounds = matrix(c(0, 1), 1), time_limit = 0.1,
+                     goal_bias = 1, step_size = 2, resolution = 2, max_iterations = 20,
+                     validity = function(q) {
+                       calls <<- calls + 1L
+                       if (calls == 6L) Sys.sleep(0.2)
+                       TRUE
+                     })
+  z <- robot_plan(p, 0, 1, seed = 1)
+  expect_identical(z$termination, "time_limit")
+  expect_true(z$success)
+  expect_equal(z$path[c(1, nrow(z$path)), 1], c(0, 1))
+  # Without a deadline problem RRT* still reports success.
+  q <- robot_planner(algorithm = "rrt_star", bounds = matrix(c(0, 1), 1), goal_bias = 1,
+                     step_size = 2, resolution = 2, max_iterations = 5,
+                     validity = function(q) TRUE)
+  expect_identical(robot_plan(q, 0, 1, seed = 1)$termination, "success")
+})
+
+test_that("RRT-Connect validates the edge that joins its trees", {
+  valid <- function(q) abs(q[1] - 5e-14) >= 1e-14
+  p <- robot_planner(validity = valid, bounds = matrix(c(0, 1e-13), 1),
+                     algorithm = "rrt_connect", step_size = 1e-14, resolution = 1e-15,
+                     max_iterations = 1)
+  expect_false(robot_plan(p, 0, 1e-13, seed = 1)$success)
+  # Ordinary scale: the same barrier shape cannot be crossed, a free line can.
+  wall <- robot_planner(validity = function(q) abs(q[1] - 0.5) >= 0.1,
+                        bounds = matrix(c(0, 1), 1), algorithm = "rrt_connect",
+                        max_iterations = 200)
+  expect_false(robot_plan(wall, 0, 1, seed = 2)$success)
+  free <- robot_planner(validity = function(q) TRUE, bounds = rbind(c(0, 1), c(0, 1)),
+                        algorithm = "rrt_connect")
+  expect_true(robot_plan(free, c(0, 0), c(1, 1), seed = 2)$success)
+})

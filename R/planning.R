@@ -237,7 +237,7 @@ grow_rrt_connect <- function(pl, start, goal) {
     tr$nodes[tr$n, ] <- qn
     tr$parent[tr$n] <- i
     list(tree = tr, node = tr$n,
-         status = if (vnorm(qn - target) < 1e-12) "reached" else "advanced")
+         status = if (all(qn == target)) "reached" else "advanced")
   }
   done <- 0L
   for (it in seq_len(pl$max_iterations)) {
@@ -279,8 +279,12 @@ grow_rrt_star <- function(pl, start, goal) {
   n <- 1L
   goal_nodes <- integer(0)
   done <- 0L
+  timed_out <- FALSE
   for (it in seq_len(pl$max_iterations)) {
-    if (out_of_time(pl)) break
+    if (out_of_time(pl)) {
+      timed_out <- TRUE
+      break
+    }
     done <- it
     target <- if (stats::runif(1) < pl$goal_bias) goal else sample_state(pl)
     i <- nearest_index(nodes, n, target)
@@ -323,15 +327,19 @@ grow_rrt_star <- function(pl, start, goal) {
       goal_nodes <- c(goal_nodes, n)
     }
   }
+  # The reason work stopped is kept apart from whether an incumbent
+  # exists: an anytime RRT* cut short by the deadline returns its best
+  # valid path but reports the time limit.
+  timed_out <- timed_out || out_of_time(pl)
   if (!length(goal_nodes)) {
-    return(list(path = NULL, iterations = done, nodes = n))
+    return(list(path = NULL, iterations = done, nodes = n, timed_out = timed_out))
   }
   total <- cost[goal_nodes] + sqrt(colSums((t(nodes[goal_nodes, , drop = FALSE]) -
                                               goal)^2))
   g <- goal_nodes[which.min(total)]
   path <- path_from_tree(nodes, parent, g)
   if (vnorm(path[nrow(path), ] - goal) > 0) path <- rbind(path, goal)
-  list(path = path, iterations = done, nodes = n)
+  list(path = path, iterations = done, nodes = n, timed_out = timed_out)
 }
 
 dijkstra <- function(adj, w, from, to, pl) {
@@ -415,7 +423,10 @@ grow_prm <- function(pl, start, goal) {
 #' @param smooth Apply [robot_shortcut()] to a successful path.
 #' @return A `robot_plan` with `path` (one waypoint per row, or `NULL`),
 #'   `success`, `termination` (one of `"success"`, `"invalid_start"`,
-#'   `"invalid_goal"`, `"iteration_limit"` or `"time_limit"`), `message`,
+#'   `"invalid_goal"`, `"iteration_limit"` or `"time_limit"`; the reason
+#'   work stopped, kept apart from `success`: RRT* stopped by the deadline
+#'   returns its best valid path with `success = TRUE` and
+#'   `termination = "time_limit"`), `message`,
 #'   `algorithm`, `iterations`, `nodes`, `length`, `seed` and `time`
 #'   (elapsed seconds, including smoothing). When smoothing is cut short by
 #'   the time limit the path found is kept (it is valid), `success` stays
@@ -447,12 +458,15 @@ robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
                    planner = utils::modifyList(planner, list(deadline = Inf))),
               class = "robot_plan")
   }
-  if (!state_valid(planner, start)) {
-    return(fail("start configuration is invalid", "invalid_start"))
-  }
-  if (!state_valid(planner, goal)) {
-    return(fail("goal configuration is invalid", "invalid_goal"))
-  }
+  # Every validity evaluation is followed by a deadline check, so a slow
+  # callback cannot let the planner report success after its budget.
+  late <- function() fail("time limit reached while checking the query", "time_limit")
+  start_ok <- state_valid(planner, start)
+  if (out_of_time(planner)) return(late())
+  if (!start_ok) return(fail("start configuration is invalid", "invalid_start"))
+  goal_ok <- state_valid(planner, goal)
+  if (out_of_time(planner)) return(late())
+  if (!goal_ok) return(fail("goal configuration is invalid", "invalid_goal"))
   res <- if (all(start == goal)) {
     # Already there: the one-waypoint path is valid with length zero.
     list(path = matrix(start, 1), iterations = 0L, nodes = 1L)
@@ -469,12 +483,13 @@ robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
     rownames(path) <- NULL
     if (!is.null(planner$robot)) colnames(path) <- robot_joint_names(planner$robot)
   }
-  why <- if (ok) "success" else if (out_of_time(planner)) "time_limit" else
-    "iteration_limit"
+  why <- if (isTRUE(res$timed_out)) "time_limit" else if (ok) "success" else
+    if (out_of_time(planner)) "time_limit" else "iteration_limit"
   plan <- structure(list(
     path = path, success = ok, termination = why,
     message = switch(why, success = "path found",
-      time_limit = "no path found within the time limit (this does not prove that none exists)",
+      time_limit = if (ok) "time limit reached; returning the best valid path found so far" else
+        "no path found within the time limit (this does not prove that none exists)",
       iteration_limit = "no path found within the iteration budget (this does not prove that none exists)"),
     algorithm = planner$algorithm, iterations = res$iterations,
     nodes = res$nodes, length = if (ok) path_length(path) else NA_real_,

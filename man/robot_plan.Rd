@@ -18,7 +18,10 @@ robot_plan(planner, start, goal, seed = NULL, smooth = FALSE)
 \value{
 A \code{robot_plan} with \code{path} (one waypoint per row, or \code{NULL}),
 \code{success}, \code{termination} (one of \code{"success"}, \code{"invalid_start"},
-\code{"invalid_goal"}, \code{"iteration_limit"} or \code{"time_limit"}), \code{message},
+\code{"invalid_goal"}, \code{"iteration_limit"} or \code{"time_limit"}; the reason
+work stopped, kept apart from \code{success}: RRT* stopped by the deadline
+returns its best valid path with \code{success = TRUE} and
+\code{termination = "time_limit"}), \code{message},
 \code{algorithm}, \code{iterations}, \code{nodes}, \code{length}, \code{seed} and \code{time}
 (elapsed seconds, including smoothing). When smoothing is cut short by
 the time limit the path found is kept (it is valid), \code{success} stays
