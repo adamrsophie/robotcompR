@@ -243,3 +243,30 @@ test_that("UKF spread survives a tiny alpha and SLAM stays semidefinite", {
   P <- ekf_slam_update(s, z)$cov
   expect_gte(min(eigen(P, symmetric = TRUE, only.values = TRUE)$values), -1e-30)
 })
+
+test_that("a world offset never makes an unsolved graph look converged", {
+  solve_y <- function(off) {
+    g <- robot_pose_graph(rbind(c(off, 0, 0), c(off, 1e-4, 0)))
+    g <- pose_graph_add_edge(g, 1, 2, c(0, 0, 0), information = diag(c(1, 1e12, 1)))
+    pose_graph_optimize(g)
+  }
+  for (off in c(0, 1e9, 1e12)) {
+    r <- solve_y(off)
+    expect_true(r$converged)
+    expect_lt(abs(r$graph$nodes[2, 2]), 1e-10)
+    expect_lt(tail(r$cost, 1), 1e-8)
+  }
+  # An inconsistent heavy x subproblem keeps a positive cost but the
+  # independent y direction is still solved.
+  for (off in c(0, 1e9)) {
+    g <- robot_pose_graph(rbind(c(off, 0, 0), c(off + 0.3, 1e-3, 0)))
+    info <- diag(c(1e12, 1e12, 1))
+    g <- pose_graph_add_edge(g, 1, 2, c(0.5, 0, 0), information = info)
+    g <- pose_graph_add_edge(g, 1, 2, c(-0.5, 0, 0), information = info)
+    r <- pose_graph_optimize(g)
+    expect_true(r$converged)
+    expect_lt(abs(r$graph$nodes[2, 2]), 1e-9)
+    expect_lt(abs(r$graph$nodes[2, 1] - off), 1e-6)
+    expect_equal(tail(r$cost, 1), 5e11, tolerance = 1e-6)
+  }
+})

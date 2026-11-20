@@ -182,10 +182,16 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 #'
 #' Convergence means stationarity, not merely a small change: the
 #' optimizer stops with `status = "converged"` when every residual
-#' component is at roundoff level for the magnitudes involved, or every
-#' gradient component is negligible on its own scale
-#' (\eqn{|g_k| \le 10^{-6} \sqrt{H_{kk}} \sqrt{c}}). A very precise
-#' coordinate therefore cannot hide an error in another. A graph with a
+#' component is at roundoff level (about 1000 machine epsilons of an
+#' arithmetic bound on that component's rounding error, computed
+#' coordinatewise so a large world offset along one axis does not excuse
+#' an error along another), or every gradient component is negligible on
+#' its own scale: with \eqn{\Omega = U^\top U}, each component
+#' \eqn{g_k = \sum_e (U J_e)_k^\top (U e)} must satisfy
+#' \eqn{|g_k| \le} `gradient_tol` \eqn{\sum_e |U J_e|_k^\top |U e|}, which
+#' holds only when its contributions cancel (contributions of residuals at
+#' roundoff level are discounted first). A large irreducible cost in
+#' one coordinate therefore cannot hide an error in another. A graph with a
 #' single node is returned unchanged as converged. Other outcomes are
 #' `"stalled"` (the relative decrease fell below `tol`, or no damped step
 #' decreased the cost, while the gradient is not negligible),
@@ -197,6 +203,7 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 #' @param fixed Index of the anchored node.
 #' @param max_iterations Maximum iterations (0 only evaluates the graph).
 #' @param tol Relative cost decrease treated as no progress.
+#' @param gradient_tol Componentwise stationarity tolerance (see Details).
 #' @return A list with the optimized `graph`, `cost` history, `iterations`,
 #'   `converged` (`TRUE` only for `status == "converged"`), `status` and
 #'   `gradient`, the largest scaled gradient component at the start of
@@ -209,7 +216,7 @@ edge_jacobians3 <- function(Xi, Xj, Z) {
 #' round(res$graph$nodes, 6)
 #' @export
 pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
-                                tol = 1e-12) {
+                                tol = 1e-12, gradient_tol = 1e-6) {
   stopifnot(inherits(graph, "robot_pose_graph"))
   se3 <- pose_graph_group(graph) == "SE3"
   bs <- if (se3) 6L else 3L
@@ -218,6 +225,7 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
   if (fixed > n) stop("`fixed` must be an existing node.", call. = FALSE)
   max_iterations <- check_count(max_iterations, "max_iterations", min = 0)
   tol <- check_scalar(tol, "tol", nonnegative = TRUE)
+  gradient_tol <- check_scalar(gradient_tol, "gradient_tol", nonnegative = TRUE)
   if (n == 1L) {
     return(list(graph = graph, cost = 0, iterations = 0L, converged = TRUE,
                 status = "converged", gradient = 0))
@@ -269,23 +277,43 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
                 gradient = NA_real_))
   }
   # Residuals at roundoff level: each component is compared with about
-  # 1000 machine epsilons times the magnitudes it was computed from, so a
-  # precise coordinate never sets the tolerance of another.
+  # 1000 machine epsilons times an arithmetic bound on the rounding error
+  # of that component alone. The translation residual is
+  # R_z' (R_i' (t_j - t_i) - t_z): its rounding error is bounded through
+  # the absolute rotation matrices applied to the coordinatewise
+  # magnitudes, so a large world offset along x never excuses an error
+  # along y.
+  rot_of <- function(X, a) {
+    if (se3) X[[a]][1:3, 1:3] else rot2(X[a, 3])
+  }
   position <- function(X, a) if (se3) X[[a]][1:3, 4] else X[a, 1:2]
-  at_roundoff <- function(X) all(vapply(graph$edges, function(e) {
-    r <- residual(X, e)
+  roundoff_scale <- function(X, e) {
+    Rz <- if (se3) e$z[1:3, 1:3] else rot2(e$z[3])
     zt <- if (se3) e$z[1:3, 4] else e$z[1:2]
-    mag <- 1 + vnorm(zt) + vnorm(position(X, e$i)) + vnorm(position(X, e$j))
-    scale <- 1e3 * .Machine$double.eps *
-      (if (se3) c(rep(mag, 3), rep(1, 3)) else c(mag, mag, 1))
-    all(abs(r) <= scale)
+    mag <- abs(t(Rz)) %*% (abs(t(rot_of(X, e$i))) %*%
+                             (abs(position(X, e$i)) + abs(position(X, e$j))) +
+                           abs(zt)) + 1
+    1e3 * .Machine$double.eps * c(mag, rep(1, if (se3) 3 else 1))
+  }
+  at_roundoff <- function(X) all(vapply(graph$edges, function(e) {
+    all(abs(residual(X, e)) <= roundoff_scale(X, e))
   }, logical(1)))
+  # Cholesky factors of the edge information, for the componentwise
+  # gradient test below.
+  for (k in seq_along(graph$edges)) {
+    graph$edges[[k]]$U <- tryCatch(chol(graph$edges[[k]]$omega),
+                                   error = function(err) {
+      ev <- eigen(graph$edges[[k]]$omega, symmetric = TRUE)
+      t(ev$vectors %*% diag(sqrt(pmax(ev$values, 0)), length(ev$values)))
+    })
+  }
   cost <- cost_of(X)
   hist <- cost
   lambda <- 1e-6
   status <- "max_iterations"
   grad <- NA_real_
   prev_small <- FALSE
+  last_check <- FALSE
   it <- 0L
   nb2 <- 4L * bs * bs
   keep <- setdiff(seq_len(bs * n), bs * (fixed - 1) + seq_len(bs))
@@ -295,6 +323,7 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     vv <- numeric(nb2 * length(graph$edges))
     pos <- 0L
     b <- numeric(bs * n)
+    gden <- gfloor <- numeric(bs * n)
     lin_failed <- FALSE
     for (e in graph$edges) {
       r <- residual(X, e)
@@ -304,9 +333,14 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
         break
       }
       blocks <- list(list(a = e$i, Ja = J$A), list(a = e$j, Ja = J$B))
+      Ur <- abs(as.numeric(e$U %*% r))
+      Uf <- as.numeric(abs(e$U) %*% roundoff_scale(X, e))
       for (p in blocks) {
         ia <- bs * (p$a - 1) + seq_len(bs)
         b[ia] <- b[ia] + as.numeric(t(p$Ja) %*% e$omega %*% r)
+        UJ <- abs(e$U %*% p$Ja)
+        gden[ia] <- gden[ia] + as.numeric(crossprod(UJ, Ur))
+        gfloor[ia] <- gfloor[ia] + as.numeric(crossprod(UJ, Uf))
         for (q in blocks) {
           ib <- bs * (q$a - 1) + seq_len(bs)
           idx <- pos + seq_len(bs * bs)
@@ -324,12 +358,20 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
     H <- Matrix::sparseMatrix(i = ii, j = jj, x = vv, dims = c(bs * n, bs * n))
     Hk <- H[keep, keep]
     hd <- Matrix::diag(Hk)
-    # Componentwise scaled gradient, formed without squaring so extreme
-    # information neither overflows nor underflows.
-    sc <- sqrt(pmax(hd, .Machine$double.xmin)) * sqrt(max(cost, .Machine$double.xmin))
-    grad <- max(abs(b[keep]) / sc)
-    if (at_roundoff(X) || grad <= 1e-6) {
+    # Componentwise stationarity: each gradient component
+    # g_k = sum_e (U J)_k' (U r) is compared with the same sum taken in
+    # absolute values. The ratio is at most one and is small only when the
+    # contributions to that component cancel, so a large irreducible cost
+    # in one coordinate cannot make another look stationary.
+    # Contributions from residuals at roundoff level are discounted.
+    gk <- pmax(abs(b[keep]) - gfloor[keep], 0)
+    grad <- max(ifelse(gk > 0, gk / pmax(gden[keep], .Machine$double.xmin), 0))
+    if (at_roundoff(X) || grad <= gradient_tol) {
       status <- "converged"
+      break
+    }
+    if (isTRUE(last_check)) {
+      status <- "stalled"
       break
     }
     improved <- FALSE
@@ -378,10 +420,9 @@ pose_graph_optimize <- function(graph, fixed = 1, max_iterations = 50,
       # Tiny progress is success only at a stationary point; the next
       # iteration's gradient test decides, otherwise the run has stalled.
       status <- if (it < max_iterations) "pending" else "max_iterations"
-      if (identical(prev_small, TRUE)) {
-        status <- "stalled"
-        break
-      }
+      # After two such steps the gradient at the new point decides once
+      # more between convergence and a stall.
+      if (identical(prev_small, TRUE)) last_check <- TRUE
       prev_small <- TRUE
     } else {
       prev_small <- FALSE

@@ -4,7 +4,13 @@
 \alias{pose_graph_optimize}
 \title{Optimize a pose graph}
 \usage{
-pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
+pose_graph_optimize(
+  graph,
+  fixed = 1,
+  max_iterations = 50,
+  tol = 1e-12,
+  gradient_tol = 1e-06
+)
 }
 \arguments{
 \item{graph}{A \code{robot_pose_graph}.}
@@ -14,6 +20,8 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 \item{max_iterations}{Maximum iterations (0 only evaluates the graph).}
 
 \item{tol}{Relative cost decrease treated as no progress.}
+
+\item{gradient_tol}{Componentwise stationarity tolerance (see Details).}
 }
 \value{
 A list with the optimized \code{graph}, \code{cost} history, \code{iterations},
@@ -41,10 +49,16 @@ connected to it through edges.
 \details{
 Convergence means stationarity, not merely a small change: the
 optimizer stops with \code{status = "converged"} when every residual
-component is at roundoff level for the magnitudes involved, or every
-gradient component is negligible on its own scale
-(\eqn{|g_k| \le 10^{-6} \sqrt{H_{kk}} \sqrt{c}}). A very precise
-coordinate therefore cannot hide an error in another. A graph with a
+component is at roundoff level (about 1000 machine epsilons of an
+arithmetic bound on that component's rounding error, computed
+coordinatewise so a large world offset along one axis does not excuse
+an error along another), or every gradient component is negligible on
+its own scale: with \eqn{\Omega = U^\top U}, each component
+\eqn{g_k = \sum_e (U J_e)_k^\top (U e)} must satisfy
+\eqn{|g_k| \le} \code{gradient_tol} \eqn{\sum_e |U J_e|_k^\top |U e|}, which
+holds only when its contributions cancel (contributions of residuals at
+roundoff level are discounted first). A large irreducible cost in
+one coordinate therefore cannot hide an error in another. A graph with a
 single node is returned unchanged as converged. Other outcomes are
 \code{"stalled"} (the relative decrease fell below \code{tol}, or no damped step
 decreased the cost, while the gradient is not negligible),
