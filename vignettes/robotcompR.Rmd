@@ -37,6 +37,8 @@ reference checks and limitations.
 | Composition | `T_a_c = T_a_b * T_b_c`, with frame names checked when present |
 | Twists and wrenches | Linear part first: `c(v, w)` and `c(f, tau)` |
 | Jacobian rows | Linear velocity rows 1 to 3, angular rows 4 to 6 |
+| Joint arrays | Unnamed: `robot_joint_names()` order. Named: exactly the joint names, any order, matched by name |
+| Collision results | Separation only when proved by a positive lower bound; unresolved pairs count as contact |
 | Points | One point per row in batch functions |
 | Planar poses | `c(x, y, theta)` with `theta` wrapped to `[-pi, pi)` |
 

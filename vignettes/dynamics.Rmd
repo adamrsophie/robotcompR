@@ -126,6 +126,21 @@ plot(pd, "q")
 abline(h = goal, lty = 2)
 ```
 
+Torques follow the joint name rule, both as a constant vector and as the
+return value of a callback, so `c(joint2 = 0, joint1 = 1)` applies 1 N m to
+`joint1`. The simulation must reach every requested time with finite
+values; if the solver stops early (for example because the state blows up
+in finite time) the call is an error that carries the solver's own
+message, rather than a silently truncated result:
+
+```{r}
+slider <- robot_model(list(robot_link("tip", mass = 1)),
+                      robot_joint("slide", "prismatic", "base", "tip"))
+try(suppressWarnings(robot_simulate(slider, 0, 1, c(0, 0.5, 2, 3),
+                                    torque = function(t, q, qd) qd^2,
+                                    gravity = c(0, 0, 0))))
+```
+
 ## Larger trees
 
 The algorithms run unchanged on branched trees:

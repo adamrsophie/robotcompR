@@ -34,6 +34,14 @@ rotz(pi / 2) %*% c(1, 0, 0)
 is_rotation_matrix(rotz(0.3) %*% rotx(0.2))
 ```
 
+Angles are radians everywhere; `deg2rad()` and `rad2deg()` convert at the
+boundary with human input:
+
+```{r}
+rotz(deg2rad(90)) %*% c(1, 0, 0)
+rad2deg(pi / 6)
+```
+
 Numerical drift accumulates when many rotations are multiplied.
 `orthonormalize()` projects back onto $SO(3)$ with the polar decomposition:
 
@@ -93,6 +101,12 @@ quaternion_distance(qa, qb)
 quaternion_slerp(qa, qb, c(0, 0.5, 1))
 ```
 
+The conjugate of a unit quaternion is its inverse rotation:
+
+```{r}
+qa * quaternion_conjugate(qa)
+```
+
 `quaternion_slerp()` follows the shortest arc and returns unit quaternions.
 
 ## Rigid transformations
@@ -113,6 +127,22 @@ T_world_tool <- T_world_base * T_base_tool
 T_world_tool
 robot_transform_point(T_world_tool, rbind(c(0, 0, 0), c(0.1, 0, 0)))
 try(T_base_tool * T_world_base)
+```
+
+Directions (free vectors) rotate but do not translate, and
+`robot_compose()` multiplies any number of poses left to right:
+
+```{r}
+robot_transform_direction(T_world_tool, c(1, 0, 0))
+pose_rotation(T_world_tool)
+pose_translation(robot_compose(T_world_base, T_base_tool))
+```
+
+The homogeneous elementary rotations `trotx()`, `troty()` and `trotz()`,
+and `transl()` for pure translations, build poses quickly:
+
+```{r}
+pose_translation(transl(1, 0, 0) * trotz(pi / 2) * transl(1, 0, 0))
 ```
 
 Inverse and relative poses:
@@ -138,16 +168,36 @@ xi <- c(0.5, 0.2, -0.1, 0.3, 0.2, -0.4)  # linear part first
 max(abs(se3_log(se3_exp(xi)) - xi))
 ```
 
+The hat and vee operators map tangent vectors to their matrix form and
+back. `*_vee()` checks that its input really is a Lie algebra element:
+
+```{r}
+so3_hat(c(1, 2, 3))
+so3_vee(so3_hat(c(1, 2, 3)))
+se3_vee(se3_hat(xi))
+so2_vee(so2_hat(0.4))
+se2_vee(se2_hat(c(1, 2, 0.3)))
+try(so3_vee(diag(3)))
+```
+
 The left Jacobian of $SO(3)$ relates small tangent perturbations to
 perturbations of the rotation: $\exp(\phi + \delta) \approx
-\exp(J_l(\phi)\delta)\exp(\phi)$.
+\exp(J_l(\phi)\delta)\exp(\phi)$. The right Jacobian does the same on
+the other side, $\exp(\phi + \delta) \approx \exp(\phi)\exp(J_r(\phi)\delta)$,
+and both have closed-form inverses.
 
 ```{r}
 phi <- c(0.4, -0.2, 0.7)
 d <- c(1e-6, 0, 0)
 lhs <- so3_exp(phi + d) %*% t(so3_exp(phi))
 max(abs(so3_log(lhs) - so3_jacobian_left(phi) %*% d))
+rhs <- t(so3_exp(phi)) %*% so3_exp(phi + d)
+max(abs(so3_log(rhs) - so3_jacobian_right(phi) %*% d))
+max(abs(so3_jacobian_left_inverse(phi) %*% so3_jacobian_left(phi) - diag(3)))
+max(abs(so3_jacobian_right_inverse(phi) %*% so3_jacobian_right(phi) - diag(3)))
 ```
+
+Pose graph optimization and inverse kinematics use exactly these maps.
 
 The adjoint maps twists between frames. With linear-first twists
 $\xi = (v, \omega)$:
@@ -159,6 +209,12 @@ $$
 ```{r}
 T <- robot_pose(rotz(0.3), c(1, 2, 0))
 round(se3_adjoint(T), 4)
+```
+
+The planar adjoint acts on planar twists $(v_x, v_y, \omega)$:
+
+```{r}
+round(se2_adjoint(se2_exp(c(1, 0, pi / 4))), 4)
 ```
 
 ## Interpolating poses
@@ -178,8 +234,23 @@ pose_translation(mid_screw)
 
 ## Planar rotations and poses
 
+`rot2()` is the planar rotation matrix (the same as `so2_exp()`), and the
+planar logarithms return the angle in $(-\pi, \pi]$ and the planar twist:
+
 ```{r}
-so2_exp(pi / 3)
+rot2(pi / 3)
+so2_log(rot2(pi / 3))
 se2_exp(c(1, 0, pi / 2))
+se2_log(se2_exp(c(1, 0, pi / 2)))
 wrap_angle(c(3 * pi, -3 * pi / 2))
+```
+
+Mobile robot velocities are often given in the body frame (forward and
+sideways speed). `body_to_world_velocity()` and `world_to_body_velocity()`
+rotate them by the heading:
+
+```{r}
+v_world <- body_to_world_velocity(c(1, 0), theta = pi / 2)
+v_world
+world_to_body_velocity(v_world, theta = pi / 2)
 ```

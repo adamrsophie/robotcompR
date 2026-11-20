@@ -56,6 +56,42 @@ robot_links(arm)
 robot_limits(arm)
 ```
 
+Queries report the structure. `robot_dof()` counts movable joints,
+`robot_joint_names()` gives their order (the order of every configuration
+vector), and `robot_frames()` lists every frame, including fixed ones such
+as the tool:
+
+```{r}
+robot_dof(arm)
+robot_joint_names(arm)
+robot_frames(arm)
+robot_home(arm)
+robot_random_configuration(arm, n = 3, seed = 1)
+```
+
+`robot_home()` is the zero configuration projected onto the limits, and
+`robot_random_configuration()` samples uniformly within them (without
+touching the caller's random state when `seed` is given).
+
+## Joint order and names
+
+Unnamed joint vectors are positional, in `robot_joint_names()` order.
+A vector or matrix whose names are exactly the joint names, each once, is
+matched by name in every function, whatever its order. Partial, duplicated
+or unknown names are an error instead of being used by position:
+
+```{r}
+q <- c(0.3, -0.8)
+qn <- c(elbow = -0.8, shoulder = 0.3)
+all.equal(robot_fk(arm, q), robot_fk(arm, qn))
+Q <- rbind(c(elbow = -0.8, shoulder = 0.3), c(elbow = 0, shoulder = 1))
+robot_fk_positions(arm, Q)
+try(robot_fk(arm, c(shoulder = 0.3, wrist = 1)))
+```
+
+The same rule covers velocities, accelerations, efforts, torque callbacks,
+path matrices, planner endpoints and trajectory columns.
+
 Inertia helpers return tensors about the center of mass:
 
 ```{r}
@@ -66,6 +102,14 @@ inertia_sphere(1, 0.1)
 
 `robot_link()` rejects inertia tensors that are not symmetric positive
 semidefinite or violate the triangle inequality on the principal moments.
+A violation within a relative tolerance of $10^{-9}$ is treated as roundoff
+and projected onto the physical set before it is stored, so the stored
+tensor never yields negative kinetic energy:
+
+```{r}
+robot_link("tip", 1, inertia = diag(c(-5e-10, 1, 1)))$inertia
+try(robot_link("tip", 1, inertia = diag(c(-1e-3, 1, 1))))
+```
 
 ## Denavit-Hartenberg parameters
 
@@ -148,6 +192,7 @@ max(abs(robot_fk(back, q)$matrix - robot_fk(robot_example("planar3"), q)$matrix)
 Models are immutable values; modifiers return a new model.
 
 ```{r}
+pose_translation(robot_fk(robot_set_end_effector(arm, "lower"), c(0, 0)))
 mounted <- robot_set_base(arm, robot_pose(rotz(pi / 2), c(0, 0, 1)))
 pose_translation(robot_fk(mounted, c(0, 0)))
 heavier <- robot_set_inertia(arm, "lower", mass = 3, com = c(0.2, 0, 0))
