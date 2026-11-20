@@ -46,8 +46,10 @@ known data association: each measurement carries a landmark id.
 \code{robot_ekf_slam()} starts with the pose only. \code{ekf_slam_predict()} moves
 the pose with the exact unicycle model and its analytic Jacobians,
 updating the pose block and the pose-landmark cross covariances.
-\code{ekf_slam_update()} initializes a landmark the first time its id is seen,
-from the inverse measurement model with the covariance
+\code{ekf_slam_update()} initializes a landmark the first time its id is seen
+with a positive range (a nonpositive first range is skipped with a
+warning, since the inverse model would place the landmark behind its
+bearing), from the inverse measurement model with the covariance
 \eqn{G_x P_{xx} G_x^\top + G_z R G_z^\top} and cross terms
 \eqn{G_x P_{x\cdot}}, and fuses later sightings with a Joseph-form EKF
 update (Thrun, Burgard and Fox, 2005, chapter 10). \code{ekf_slam_landmarks()}

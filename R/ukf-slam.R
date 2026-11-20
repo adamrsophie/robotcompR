@@ -200,8 +200,10 @@ print.robot_ukf <- function(x, ...) {
 #' `robot_ekf_slam()` starts with the pose only. `ekf_slam_predict()` moves
 #' the pose with the exact unicycle model and its analytic Jacobians,
 #' updating the pose block and the pose-landmark cross covariances.
-#' `ekf_slam_update()` initializes a landmark the first time its id is seen,
-#' from the inverse measurement model with the covariance
+#' `ekf_slam_update()` initializes a landmark the first time its id is seen
+#' with a positive range (a nonpositive first range is skipped with a
+#' warning, since the inverse model would place the landmark behind its
+#' bearing), from the inverse measurement model with the covariance
 #' \eqn{G_x P_{xx} G_x^\top + G_z R G_z^\top} and cross terms
 #' \eqn{G_x P_{x\cdot}}, and fuses later sightings with a Joseph-form EKF
 #' update (Thrun, Burgard and Fox, 2005, chapter 10). `ekf_slam_landmarks()`
@@ -273,6 +275,15 @@ ekf_slam_update <- function(filter, measurements) {
     n <- length(filter$mean)
     j <- match(id, filter$ids)
     if (is.na(j)) {
+      # The inverse measurement model needs a positive range: a noisy
+      # nonpositive first reading would place the landmark behind its
+      # bearing. Such a sighting is skipped, and the landmark is added at
+      # its next sighting with a positive range.
+      if (z[1] <= 0) {
+        warning(sprintf(paste0("Landmark '%s' not initialized: its first range ",
+                               "(%g) is not positive."), id, z[1]), call. = FALSE)
+        next
+      }
       a <- x[3] + z[2]
       lm <- x[1:2] + z[1] * c(cos(a), sin(a))
       Gx <- rbind(c(1, 0, -z[1] * sin(a)), c(0, 1, z[1] * cos(a)))

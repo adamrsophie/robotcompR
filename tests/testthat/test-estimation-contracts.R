@@ -310,3 +310,15 @@ test_that("UKF sigma deviations survive large world coordinates", {
   expect_equal(unname(a$cov), unname(b$cov), tolerance = 1e-6)
   expect_equal(unname(b$mean - c(1e7, -1e7, 0)), unname(a$mean), tolerance = 1e-6)
 })
+
+test_that("a nonpositive first range does not initialize a landmark", {
+  f <- robot_ekf_slam(numeric(3), matrix(0, 3, 3), matrix(0, 2, 2), diag(c(1, 0.01)))
+  expect_warning(g <- ekf_slam_update(f, data.frame(id = "a", range = -1, bearing = 0)),
+                 "not initialized")
+  expect_length(g$ids, 0)
+  g <- ekf_slam_update(g, data.frame(id = "a", range = 2, bearing = 0))
+  expect_equal(unname(ekf_slam_landmarks(g)[1, ]), c(2, 0))
+  # Once known, a landmark still takes negative range innovations.
+  h <- ekf_slam_update(g, data.frame(id = "a", range = -0.5, bearing = 0))
+  expect_lt(ekf_slam_landmarks(h)[1, 1], 2)
+})
