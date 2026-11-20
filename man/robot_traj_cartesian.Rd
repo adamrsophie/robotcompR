@@ -38,7 +38,8 @@ velocity solves (for example \code{c(1, 1, 0, 0, 0, 1)} for a planar arm).}
 A list with \code{time}, \code{s}, \code{poses} (a list of \code{robot_pose}),
 \code{velocity} and \code{acceleration} (one row per sample, columns
 \verb{vx, vy, vz, wx, wy, wz}), and, with \code{robot}, \code{joint} (a
-\code{robot_trajectory}) and \code{converged} (logical, one per sample).
+\code{robot_trajectory}), \code{converged} and \code{derivatives_ok} (logical, one
+per sample).
 }
 \description{
 Interpolates between two poses with a quintic time scaling
@@ -54,10 +55,18 @@ moving frame, in world coordinates and linear part first, is therefore
 When \code{robot} is given, the path is also converted to joints: inverse
 kinematics is solved at each sample, warm-started from the previous
 solution (from \code{initial} at the first sample), and joint velocities and
-accelerations follow from the weighted least-squares solutions of
-\eqn{J \dot q = V} and \eqn{J \ddot q = A - \dot J \dot q}, with the
-world Jacobian of \code{frame} and \eqn{\dot J \dot q} from a central
-difference of \eqn{J} along \eqn{\dot q}.
+accelerations describe the returned joint path. Their task part comes
+from the weighted least-squares solutions of \eqn{J \dot q = V} and
+\eqn{J \ddot q = A - \dot J \dot q} (world Jacobian of \code{frame},
+\eqn{\dot J \dot q} from a central difference of \eqn{J} along
+\eqn{\dot q}) over the free joints: a joint that inverse kinematics holds
+at a position limit while the unconstrained solution pushes it outward
+gets zero velocity and acceleration. The part in the null space of the
+task, which the task does not determine, is taken from the returned
+positions by second-order finite differences in time, so it is only as
+accurate as the sampling. \code{derivatives_ok} is \code{FALSE} at samples where
+inverse kinematics did not converge or the joint path jumps (a change
+of solution branch); the derivatives there do not describe the path.
 }
 \examples{
 ct <- robot_traj_cartesian(robot_pose(), robot_pose(rotz(1), c(1, 0, 0)),

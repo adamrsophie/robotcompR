@@ -16,17 +16,21 @@ test_that("Cartesian joint paths are continuous and consistent", {
   q0 <- c(0.3, -0.8, 1)
   a <- robot_fk(arm, q0)
   b <- robot_pose(translation = pose_translation(a) + c(-0.15, 0.12, 0))
-  u <- robot_traj_cartesian(a, b, 1, n = 3, robot = arm, initial = q0,
+  # Redundant arm: the task part of qd and qdd is exact and the whole
+  # derivative matches the returned positions differentiated independently.
+  u <- robot_traj_cartesian(a, b, 1, n = 201, robot = arm, initial = q0,
                             weights = c(1, 1, 0, 0, 0, 0), restarts = 0)
-  q <- u$joint$q[2, ]
-  qd <- u$joint$qd[2, ]
-  v <- u$velocity[2, 1:2]
-  F <- function(q) {
-    J <- robot_jacobian(arm, q)[1:2, ]
-    drop(t(J) %*% solve(tcrossprod(J), v))
+  expect_true(all(u$derivatives_ok))
+  tt <- u$time
+  for (i in c(50, 101, 150)) {
+    J <- robot_jacobian(arm, u$joint$q[i, ])[1:2, ]
+    expect_equal(unname(drop(J %*% u$joint$qd[i, ])), unname(u$velocity[i, 1:2]), tolerance = 1e-8)
+    h <- tt[i + 1] - tt[i]
+    fd1 <- (u$joint$q[i + 1, ] - u$joint$q[i - 1, ]) / (2 * h)
+    fd2 <- (u$joint$q[i + 1, ] - 2 * u$joint$q[i, ] + u$joint$q[i - 1, ]) / h^2
+    expect_lt(max(abs(u$joint$qd[i, ] - fd1)), 1e-3)
+    expect_lt(max(abs(u$joint$qdd[i, ] - fd2)), 1e-2)
   }
-  expect_equal(unname(u$joint$qdd[2, ]),
-               unname((F(q + 1e-6 * qd) - F(q - 1e-6 * qd)) / 2e-6), tolerance = 1e-5)
   fixed <- robot_model(joints = robot_joint("w", "fixed", "a", "b"))
   expect_identical(dim(robot_traj_cartesian(robot_pose(), robot_pose(), 1, 3,
                                             robot = fixed)$joint$q), c(3L, 0L))
@@ -105,4 +109,27 @@ test_that("roundoff-sized inertia violations are stored as physical tensors", {
   ev <- sort(eigen(tri$inertia, only.values = TRUE)$values)
   expect_lte(ev[3], ev[1] + ev[2])
   expect_equal(robot_link("ok", 1, inertia = diag(c(1, 2, 3)))$inertia, diag(c(1, 2, 3)))
+})
+
+test_that("Cartesian derivatives describe a path held at a joint limit", {
+  r <- robot_model(joints = list(
+    robot_joint("a", "prismatic", "base", "mid", axis = c(1, 0, 0), limits = c(0, 1)),
+    robot_joint("b", "prismatic", "mid", "tip", axis = c(1, 0, 0), limits = c(-2, 2))))
+  z <- robot_traj_cartesian(robot_pose(), transl(-1, 0, 0), 1, n = 21, robot = r,
+                            initial = c(0, 0), weights = c(1, 0, 0, 0, 0, 0), restarts = 0)
+  # Joint a rests on its lower limit, so b alone follows x(t) = -s(t).
+  expect_lt(max(abs(z$joint$q - cbind(0, -z$s))), 1e-7)
+  expect_lt(max(abs(z$joint$qd - cbind(0, z$velocity[, 1]))), 1e-6)
+  expect_lt(max(abs(z$joint$qdd - cbind(0, z$acceleration[, 1]))), 1e-5)
+  # Moving away from the limit the redundant pair shares the motion again.
+  away <- robot_traj_cartesian(robot_pose(), transl(1, 0, 0), 1, n = 21, robot = r,
+                               initial = c(0, 0), weights = c(1, 0, 0, 0, 0, 0),
+                               restarts = 0)
+  expect_equal(unname(rowSums(away$joint$qd)), unname(away$velocity[, 1]), tolerance = 1e-8)
+  # An unreachable target leaves derivatives flagged where IK fails.
+  far <- suppressWarnings(robot_traj_cartesian(robot_pose(), transl(-5, 0, 0), 1, n = 11,
+                                               robot = r, initial = c(0, 0),
+                                               weights = c(1, 0, 0, 0, 0, 0), restarts = 0))
+  expect_identical(far$derivatives_ok, far$derivatives_ok & far$converged)
+  expect_false(all(far$derivatives_ok))
 })

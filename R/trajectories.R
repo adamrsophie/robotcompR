@@ -299,10 +299,18 @@ robot_traj_path <- function(path, vmax, amax, dt = 0.01) {
 #' When `robot` is given, the path is also converted to joints: inverse
 #' kinematics is solved at each sample, warm-started from the previous
 #' solution (from `initial` at the first sample), and joint velocities and
-#' accelerations follow from the weighted least-squares solutions of
-#' \eqn{J \dot q = V} and \eqn{J \ddot q = A - \dot J \dot q}, with the
-#' world Jacobian of `frame` and \eqn{\dot J \dot q} from a central
-#' difference of \eqn{J} along \eqn{\dot q}.
+#' accelerations describe the returned joint path. Their task part comes
+#' from the weighted least-squares solutions of \eqn{J \dot q = V} and
+#' \eqn{J \ddot q = A - \dot J \dot q} (world Jacobian of `frame`,
+#' \eqn{\dot J \dot q} from a central difference of \eqn{J} along
+#' \eqn{\dot q}) over the free joints: a joint that inverse kinematics holds
+#' at a position limit while the unconstrained solution pushes it outward
+#' gets zero velocity and acceleration. The part in the null space of the
+#' task, which the task does not determine, is taken from the returned
+#' positions by second-order finite differences in time, so it is only as
+#' accurate as the sampling. `derivatives_ok` is `FALSE` at samples where
+#' inverse kinematics did not converge or the joint path jumps (a change
+#' of solution branch); the derivatives there do not describe the path.
 #'
 #' @param from,to Start and end `robot_pose` objects (SE(3)).
 #' @param duration Duration in seconds.
@@ -316,7 +324,8 @@ robot_traj_path <- function(path, vmax, amax, dt = 0.01) {
 #' @return A list with `time`, `s`, `poses` (a list of `robot_pose`),
 #'   `velocity` and `acceleration` (one row per sample, columns
 #'   `vx, vy, vz, wx, wy, wz`), and, with `robot`, `joint` (a
-#'   `robot_trajectory`) and `converged` (logical, one per sample).
+#'   `robot_trajectory`), `converged` and `derivatives_ok` (logical, one
+#'   per sample).
 #' @examples
 #' ct <- robot_traj_cartesian(robot_pose(), robot_pose(rotz(1), c(1, 0, 0)),
 #'                            duration = 1, n = 3)
@@ -353,7 +362,8 @@ robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
   w <- if (is.null(weights)) rep(1, 6) else check_numeric_vector(weights, 6, "weights")
   sw <- sqrt(w)
   m <- length(s)
-  Q <- Qd <- Qdd <- matrix(0, m, robot$dof)
+  n <- robot$dof
+  Q <- Qd <- Qdd <- matrix(0, m, n)
   ok <- logical(m)
   q <- initial
   # Continuous joints are lifted to the angle nearest the previous sample
@@ -361,10 +371,6 @@ robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
   # instead of jumping across the angle cut.
   types <- vapply(robot$joints[robot$movable], `[[`, "", "type")
   cont <- which(types == "continuous")
-  # The velocity law qd = F(q, v) = J(q)^+ v; its time derivative,
-  # including the change of the pseudoinverse along qd, is the
-  # acceleration, so qdd is consistent with qd for redundant arms too.
-  vel <- function(q, v) pinv_solve(sw * robot_jacobian(robot, q, frame), sw * v)
   for (i in seq_len(m)) {
     sol <- robot_ik(robot, out$poses[[i]], initial = q, frame = frame,
                     weights = weights, ...)
@@ -376,19 +382,109 @@ robot_traj_cartesian <- function(from, to, duration, n = 51, robot = NULL,
     q <- qn
     ok[i] <- sol$converged
     Q[i, ] <- q
-    if (!robot$dof) next
-    qd <- vel(q, V[i, ])
-    h <- 1e-6
-    dF <- if (any(qd != 0)) {
-      (vel(q + h * qd, V[i, ]) - vel(q - h * qd, V[i, ])) / (2 * h)
-    } else numeric(robot$dof)
-    Qd[i, ] <- qd
-    Qdd[i, ] <- vel(q, A[i, ]) + dF
+  }
+  deriv_ok <- ok
+  if (n) {
+    # Derivatives describe the returned positions. The task part solves
+    # the weighted equations J qd = V and J qdd = A - Jdot qd over the
+    # joints that are free: a joint held at a limit by inverse kinematics,
+    # with the unconstrained solution pushing it outward, is frozen (zero
+    # velocity and acceleration), as it is in the position path. Motion in
+    # the null space of the task, which the task cannot determine, is
+    # taken from the returned positions themselves by finite differences
+    # in time.
+    t <- sc$time
+    fd <- path_derivatives(t, Q)
+    L <- robot_limits(robot)
+    tl <- L
+    tl[] <- 1e-9 * pmax(1, abs(L))
+    for (i in seq_len(m)) {
+      q <- Q[i, ]
+      J <- sw * robot_jacobian(robot, q, frame)
+      at_lo <- is.finite(L[, 1]) & q <= L[, 1] + tl[, 1]
+      at_hi <- is.finite(L[, 2]) & q >= L[, 2] - tl[, 2]
+      # A joint that rests on a limit at this sample and its neighbors
+      # does not move on the returned path.
+      nb <- c(max(1, i - 1), min(m, i + 1))
+      rest <- vapply(seq_len(n), function(j) {
+        (at_lo[j] && all(Q[nb, j] <= L[j, 1] + tl[j, 1])) ||
+          (at_hi[j] && all(Q[nb, j] >= L[j, 2] - tl[j, 2]))
+      }, logical(1))
+      free <- !rest
+      repeat {
+        qd <- free_solve(J, sw * out$velocity[i, ], fd$d1[i, ], free)
+        push <- free & ((at_lo & qd < 0) | (at_hi & qd > 0)) &
+          abs(qd) > 1e-12 * max(1, abs(qd))
+        if (!any(push)) break
+        free[push] <- FALSE
+      }
+      h <- 1e-6
+      Jdq <- if (any(qd != 0)) {
+        as.numeric((robot_jacobian(robot, q + h * qd, frame) -
+                    robot_jacobian(robot, q - h * qd, frame)) %*% qd) / (2 * h)
+      } else numeric(6)
+      Qd[i, ] <- qd
+      Qdd[i, ] <- free_solve(J, sw * (out$acceleration[i, ] - Jdq),
+                             fd$d2[i, ], free)
+    }
+    # A jump between samples (a branch change of inverse kinematics) has
+    # no derivative on the returned path.
+    if (m > 1) {
+      dt <- diff(t)
+      step <- sqrt(rowSums((Q[-1, , drop = FALSE] - Q[-m, , drop = FALSE])^2))
+      speed <- pmax(sqrt(rowSums(Qd[-1, , drop = FALSE]^2)),
+                    sqrt(rowSums(Qd[-m, , drop = FALSE]^2)))
+      jump <- step > 10 * speed * dt + 1e-9 * (1 + step)
+      deriv_ok[-1] <- deriv_ok[-1] & !jump
+      deriv_ok[-m] <- deriv_ok[-m] & !jump
+    }
   }
   out$joint <- new_trajectory(sc$time, Q, Qd, Qdd, robot_joint_names(robot),
                               "cartesian")
   out$converged <- ok
+  out$derivatives_ok <- deriv_ok
   out
+}
+
+# Least-squares solution of A x = b over the free columns plus the null
+# space part of `fallback`; frozen columns get zero.
+free_solve <- function(A, b, fallback, free) {
+  x <- numeric(ncol(A))
+  if (!any(free)) return(x)
+  Af <- A[, free, drop = FALSE]
+  sv <- svd(Af)
+  keep <- sv$d > 1e-10 * max(sv$d, .Machine$double.eps)
+  U <- sv$u[, keep, drop = FALSE]
+  V <- sv$v[, keep, drop = FALSE]
+  task <- as.numeric(V %*% (crossprod(U, b) / sv$d[keep]))
+  f <- fallback[free]
+  x[free] <- task + f - as.numeric(V %*% crossprod(V, f))
+  x
+}
+
+# First and second time derivatives of sampled rows by second-order
+# finite differences on a possibly nonuniform grid.
+path_derivatives <- function(t, Q) {
+  m <- nrow(Q)
+  d1 <- d2 <- matrix(0, m, ncol(Q))
+  if (m < 2) return(list(d1 = d1, d2 = d2))
+  if (m == 2) {
+    d1[] <- rep((Q[2, ] - Q[1, ]) / (t[2] - t[1]), each = 2)
+    return(list(d1 = d1, d2 = d2))
+  }
+  for (i in 2:(m - 1)) {
+    h1 <- t[i] - t[i - 1]
+    h2 <- t[i + 1] - t[i]
+    a <- (Q[i, ] - Q[i - 1, ]) / h1
+    b <- (Q[i + 1, ] - Q[i, ]) / h2
+    d1[i, ] <- (a * h2 + b * h1) / (h1 + h2)
+    d2[i, ] <- 2 * (b - a) / (h1 + h2)
+  }
+  d1[1, ] <- 2 * (Q[2, ] - Q[1, ]) / (t[2] - t[1]) - d1[2, ]
+  d1[m, ] <- 2 * (Q[m, ] - Q[m - 1, ]) / (t[m] - t[m - 1]) - d1[m - 1, ]
+  d2[1, ] <- d2[2, ]
+  d2[m, ] <- d2[m - 1, ]
+  list(d1 = d1, d2 = d2)
 }
 
 #' Check a trajectory against robot limits
