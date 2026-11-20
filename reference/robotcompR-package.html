@@ -82,6 +82,13 @@ pose of frame b in frame a and maps b coordinates to a coordinates.</p></li>
 <li><p>Twists, Jacobian rows and spatial vectors are ordered linear first,
 <code>c(v, w)</code>.</p></li>
 <li><p>Euler angles are intrinsic; <code>"ZYX"</code> gives yaw, pitch, roll.</p></li>
+<li><p>Joint arrays (configurations, velocities, accelerations, efforts,
+torque callbacks and the columns of path or trajectory matrices) are
+in <code><a href="robot_introspection.html">robot_joint_names()</a></code> order when unnamed. Named values must carry
+exactly the movable joint names, each once, in any order, and are
+matched by name in every function; partial, duplicated or unknown
+names are an error. Robot-free trajectory builders take their order
+from the names of <code>q0</code>.</p></li>
 </ul><p>See <code><a href="../articles/robotcompR.html">vignette("robotcompR")</a></code> and <code><a href="../articles/spatial-math.html">vignette("spatial-math")</a></code> for details.</p>
 <p>The package is research and teaching software. It is not certified for
 industrial, medical, automotive or any other safety-critical use, and it

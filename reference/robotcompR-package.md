@@ -23,6 +23,16 @@ Conventions used throughout the package:
 
 - Euler angles are intrinsic; `"ZYX"` gives yaw, pitch, roll.
 
+- Joint arrays (configurations, velocities, accelerations, efforts,
+  torque callbacks and the columns of path or trajectory matrices) are
+  in
+  [`robot_joint_names()`](https://adamrsophie.github.io/robotcompR/reference/robot_introspection.md)
+  order when unnamed. Named values must carry exactly the movable joint
+  names, each once, in any order, and are matched by name in every
+  function; partial, duplicated or unknown names are an error.
+  Robot-free trajectory builders take their order from the names of
+  `q0`.
+
 See
 [`vignette("robotcompR")`](https://adamrsophie.github.io/robotcompR/articles/robotcompR.md)
 and

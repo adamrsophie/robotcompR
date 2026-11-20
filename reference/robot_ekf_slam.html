@@ -5,22 +5,34 @@ known data association: each measurement carries a landmark id.
 robot_ekf_slam() starts with the pose only. ekf_slam_predict() moves
 the pose with the exact unicycle model and its analytic Jacobians,
 updating the pose block and the pose-landmark cross covariances.
-ekf_slam_update() initializes a landmark the first time its id is seen,
-from the inverse measurement model with the covariance
+ekf_slam_update() initializes a landmark the first time its id is seen
+with a positive range (a nonpositive first range is skipped with a
+warning, since the inverse model would place the landmark behind its
+bearing), from the inverse measurement model with the covariance
 \(G_x P_{xx} G_x^\top + G_z R G_z^\top\) and cross terms
 \(G_x P_{x\cdot}\), and fuses later sightings with a Joseph-form EKF
-update (Thrun, Burgard and Fox, 2005, chapter 10). ekf_slam_landmarks()
+update (Thrun, Burgard and Fox, 2005, chapter 10). The update costs time
+quadratic in the state size; an update that removes almost all of some
+variance (posterior below \(10^{-6}\) of the prior) is redone in
+factored form, which costs cubic time but keeps the small posterior
+accurate. ekf_slam_landmarks()
 returns the current map."><meta property="og:description" content="Simultaneous localization and mapping with an extended Kalman filter
 over the joint state \((x, y, \theta, m_{1x}, m_{1y}, \dots)\), with
 known data association: each measurement carries a landmark id.
 robot_ekf_slam() starts with the pose only. ekf_slam_predict() moves
 the pose with the exact unicycle model and its analytic Jacobians,
 updating the pose block and the pose-landmark cross covariances.
-ekf_slam_update() initializes a landmark the first time its id is seen,
-from the inverse measurement model with the covariance
+ekf_slam_update() initializes a landmark the first time its id is seen
+with a positive range (a nonpositive first range is skipped with a
+warning, since the inverse model would place the landmark behind its
+bearing), from the inverse measurement model with the covariance
 \(G_x P_{xx} G_x^\top + G_z R G_z^\top\) and cross terms
 \(G_x P_{x\cdot}\), and fuses later sightings with a Joseph-form EKF
-update (Thrun, Burgard and Fox, 2005, chapter 10). ekf_slam_landmarks()
+update (Thrun, Burgard and Fox, 2005, chapter 10). The update costs time
+quadratic in the state size; an update that removes almost all of some
+variance (posterior below \(10^{-6}\) of the prior) is redone in
+factored form, which costs cubic time but keeps the small posterior
+accurate. ekf_slam_landmarks()
 returns the current map."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
@@ -85,11 +97,17 @@ known data association: each measurement carries a landmark id.
 <code>robot_ekf_slam()</code> starts with the pose only. <code>ekf_slam_predict()</code> moves
 the pose with the exact unicycle model and its analytic Jacobians,
 updating the pose block and the pose-landmark cross covariances.
-<code>ekf_slam_update()</code> initializes a landmark the first time its id is seen,
-from the inverse measurement model with the covariance
+<code>ekf_slam_update()</code> initializes a landmark the first time its id is seen
+with a positive range (a nonpositive first range is skipped with a
+warning, since the inverse model would place the landmark behind its
+bearing), from the inverse measurement model with the covariance
 \(G_x P_{xx} G_x^\top + G_z R G_z^\top\) and cross terms
 \(G_x P_{x\cdot}\), and fuses later sightings with a Joseph-form EKF
-update (Thrun, Burgard and Fox, 2005, chapter 10). <code>ekf_slam_landmarks()</code>
+update (Thrun, Burgard and Fox, 2005, chapter 10). The update costs time
+quadratic in the state size; an update that removes almost all of some
+variance (posterior below \(10^{-6}\) of the prior) is redone in
+factored form, which costs cubic time but keeps the small posterior
+accurate. <code>ekf_slam_landmarks()</code>
 returns the current map.</p>
     </div>
 

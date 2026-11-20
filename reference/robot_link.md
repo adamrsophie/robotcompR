@@ -5,7 +5,10 @@ optional: `mass` in kilograms, `com` the center of mass in the link
 frame (meters), and `inertia` the 3 by 3 rotational inertia about the
 center of mass, expressed in axes parallel to the link frame (kg m^2).
 Inertia matrices must be symmetric positive semidefinite and satisfy the
-triangle inequality of principal moments.
+triangle inequality of principal moments. Violations within a relative
+tolerance of `1e-9` are treated as roundoff and projected onto the
+physical set (negative principal moments set to zero, the largest capped
+at the sum of the other two); larger violations are an error.
 
 ## Usage
 

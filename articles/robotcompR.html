@@ -162,6 +162,16 @@ present</td>
 <td>Linear velocity rows 1 to 3, angular rows 4 to 6</td>
 </tr>
 <tr class="even">
+<td>Joint arrays</td>
+<td>Unnamed: <code><a href="../reference/robot_introspection.html">robot_joint_names()</a></code> order. Named: exactly the
+joint names, any order, matched by name</td>
+</tr>
+<tr class="odd">
+<td>Collision results</td>
+<td>Separation only when proved by a positive lower bound; unresolved
+pairs count as contact</td>
+</tr>
+<tr class="even">
 <td>Points</td>
 <td>One point per row in batch functions</td>
 </tr>
@@ -277,7 +287,7 @@ instead of silently returning the closest configuration it found:</p>
 <span><span class="va">plan</span></span>
 <span><span class="co">#&gt; &lt;robot_plan&gt; rrt_connect: success</span></span>
 <span><span class="co">#&gt; path found (shortcut smoothed) </span></span>
-<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.47 s</span></span>
+<span><span class="co">#&gt; 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.35 s</span></span>
 <span><span class="co">#&gt; seed: 1</span></span>
 <span><span class="va">traj</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_path.html">robot_traj_path</a></span><span class="op">(</span><span class="va">plan</span>, vmax <span class="op">=</span> <span class="fl">1</span>, amax <span class="op">=</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_traj_check.html">robot_traj_check</a></span><span class="op">(</span><span class="va">robot</span>, <span class="va">traj</span><span class="op">)</span><span class="op">$</span><span class="va">ok</span></span>

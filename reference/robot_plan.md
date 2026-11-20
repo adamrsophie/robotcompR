@@ -39,11 +39,13 @@ robot_plan(planner, start, goal, seed = NULL, smooth = FALSE)
 
 A `robot_plan` with `path` (one waypoint per row, or `NULL`), `success`,
 `termination` (one of `"success"`, `"invalid_start"`, `"invalid_goal"`,
-`"iteration_limit"` or `"time_limit"`), `message`, `algorithm`,
-`iterations`, `nodes`, `length`, `seed` and `time` (elapsed seconds,
-including smoothing). When smoothing is cut short by the time limit the
-path found is kept (it is valid), `success` stays `TRUE` and the message
-says so.
+`"iteration_limit"` or `"time_limit"`; the reason work stopped, kept
+apart from `success`: RRT\* stopped by the deadline returns its best
+valid path with `success = TRUE` and `termination = "time_limit"`),
+`message`, `algorithm`, `iterations`, `nodes`, `length`, `seed` and
+`time` (elapsed seconds, including smoothing). When smoothing is cut
+short by the time limit the path found is kept (it is valid), `success`
+stays `TRUE` and the message says so.
 
 ## Examples
 
@@ -54,6 +56,6 @@ plan <- robot_plan(planner, c(0.1, 0.1), c(0.9, 0.1), seed = 2)
 plan
 #> <robot_plan> rrt_connect: success
 #> path found 
-#> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.012 s
+#> 11 waypoints, length 2.315, 37 nodes, 81 iterations, 0.009 s
 #> seed: 2 
 ```

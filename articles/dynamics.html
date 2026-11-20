@@ -250,12 +250,86 @@ of the integrator tolerance and the dynamics:</p>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">pd</span>, <span class="st">"q"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/abline.html" class="external-link">abline</a></span><span class="op">(</span>h <span class="op">=</span> <span class="va">goal</span>, lty <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
 <p><img src="dynamics_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="576"></p>
+<p>Torques follow the joint name rule, both as a constant vector and as
+the return value of a callback, so
+<code>c(joint2 = 0, joint1 = 1)</code> applies 1 N m to
+<code>joint1</code>. The simulation must reach every requested time with
+finite values; if the solver stops early (for example because the state
+blows up in finite time) the call is an error that carries the solver’s
+own message, rather than a silently truncated result:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">slider</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_model.html">robot_model</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_link.html">robot_link</a></span><span class="op">(</span><span class="st">"tip"</span>, mass <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>                      <span class="fu"><a href="../reference/robot_joint.html">robot_joint</a></span><span class="op">(</span><span class="st">"slide"</span>, <span class="st">"prismatic"</span>, <span class="st">"base"</span>, <span class="st">"tip"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/warning.html" class="external-link">suppressWarnings</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_simulate.html">robot_simulate</a></span><span class="op">(</span><span class="va">slider</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.5</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>,</span>
+<span>                                    torque <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">t</span>, <span class="va">q</span>, <span class="va">qd</span><span class="op">)</span> <span class="va">qd</span><span class="op">^</span><span class="fl">2</span>,</span>
+<span>                                    gravity <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.89642e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.89642e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.89642e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.89642e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.89642e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.02389e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.02389e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.02389e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.02389e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Warning..Internal T (=R1) and H (=R2) are</span></span>
+<span><span class="co">#&gt;       such that in the machine, T + H = T on the next step  </span></span>
+<span><span class="co">#&gt;      (H = step size). Solver will continue anyway.</span></span>
+<span><span class="co">#&gt; In above message, R1 = 1, R2 = 4.02389e-17</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  Above warning has been issued I1 times.  </span></span>
+<span><span class="co">#&gt;      It will not be issued again for this problem.</span></span>
+<span><span class="co">#&gt; In above message, I1 = 10</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; DLSODA-  At current T (=R1), MXSTEP (=I1) steps   </span></span>
+<span><span class="co">#&gt;       taken on this call before reaching TOUT     </span></span>
+<span><span class="co">#&gt; In above message, I1 = 5000</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; In above message, R1 = 1</span></span>
+<span><span class="co">#&gt;  </span></span>
+<span><span class="co">#&gt; Error : The ODE solver stopped at t = 1 before reaching t = 3 (divergent or stiff dynamics, or too few steps; see `...`). Solver: an excessive amount of work (&gt; maxsteps ) was done, but integration was not successful - increase maxsteps Returning early. Results are accurate, as far as they go</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="larger-trees">Larger trees<a class="anchor" aria-label="anchor" href="#larger-trees"></a>
 </h2>
 <p>The algorithms run unchanged on branched trees:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tree</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_example.html">robot_example</a></span><span class="op">(</span><span class="st">"branched"</span><span class="op">)</span></span>
 <span><span class="va">qt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="op">-</span><span class="fl">0.5</span>, <span class="fl">0.4</span>, <span class="op">-</span><span class="fl">0.2</span><span class="op">)</span></span>
 <span><span class="va">Mt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_mass_matrix.html">robot_mass_matrix</a></span><span class="op">(</span><span class="va">tree</span>, <span class="va">qt</span><span class="op">)</span></span>

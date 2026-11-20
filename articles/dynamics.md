@@ -149,6 +149,83 @@ abline(h = goal, lty = 2)
 
 ![](dynamics_files/figure-html/unnamed-chunk-8-1.png)
 
+Torques follow the joint name rule, both as a constant vector and as the
+return value of a callback, so `c(joint2 = 0, joint1 = 1)` applies 1 N m
+to `joint1`. The simulation must reach every requested time with finite
+values; if the solver stops early (for example because the state blows
+up in finite time) the call is an error that carries the solver’s own
+message, rather than a silently truncated result:
+
+``` r
+
+slider <- robot_model(list(robot_link("tip", mass = 1)),
+                      robot_joint("slide", "prismatic", "base", "tip"))
+try(suppressWarnings(robot_simulate(slider, 0, 1, c(0, 0.5, 2, 3),
+                                    torque = function(t, q, qd) qd^2,
+                                    gravity = c(0, 0, 0))))
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.89642e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.89642e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.89642e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.89642e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.89642e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.02389e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.02389e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.02389e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.02389e-17
+#>  
+#> DLSODA-  Warning..Internal T (=R1) and H (=R2) are
+#>       such that in the machine, T + H = T on the next step  
+#>      (H = step size). Solver will continue anyway.
+#> In above message, R1 = 1, R2 = 4.02389e-17
+#>  
+#> DLSODA-  Above warning has been issued I1 times.  
+#>      It will not be issued again for this problem.
+#> In above message, I1 = 10
+#>  
+#> DLSODA-  At current T (=R1), MXSTEP (=I1) steps   
+#>       taken on this call before reaching TOUT     
+#> In above message, I1 = 5000
+#>  
+#> In above message, R1 = 1
+#>  
+#> Error : The ODE solver stopped at t = 1 before reaching t = 3 (divergent or stiff dynamics, or too few steps; see `...`). Solver: an excessive amount of work (> maxsteps ) was done, but integration was not successful - increase maxsteps Returning early. Results are accurate, as far as they go
+```
+
 ## Larger trees
 
 The algorithms run unchanged on branched trees:

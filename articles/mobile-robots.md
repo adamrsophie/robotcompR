@@ -197,8 +197,20 @@ has the same interface as the EKF but replaces linearization with the
 unscented transform: 2n + 1 sigma points of the state (augmented with
 the control noise for prediction) are pushed through the exact motion
 and measurement models and recombined, with headings and bearings
-averaged on the circle. It needs no Jacobians and captures some
-second-order effects.
+averaged on the circle. Sigma points are carried as deviations from the
+mean in a local tangent chart, so a heading near \pm\pi or a broad
+heading uncertainty is never folded across the angle cut. It needs no
+Jacobians and captures some second-order effects.
+
+Every filter checks its covariances: they must be symmetric (pair by
+pair, relative to \sqrt{P\_{ii} P\_{jj}}) and positive semidefinite, and
+a zero variance must have exactly zero cross terms.
+
+``` r
+
+try(robot_ekf(c(0, 0, 0), matrix(c(0, 0.1, 0, 0.1, 1, 0, 0, 0, 1), 3), L, Q, R))
+#> Error : `cov` must be positive semidefinite (a zero variance with nonzero covariance).
+```
 
 ``` r
 
@@ -258,7 +270,7 @@ plot(pf$particles[, 1:2], pch = 16, cex = 0.4, col = grDevices::adjustcolor("ste
 points(truth[1], truth[2], pch = 4, cex = 2, lwd = 2)
 ```
 
-![](mobile-robots_files/figure-html/unnamed-chunk-11-1.png)
+![](mobile-robots_files/figure-html/unnamed-chunk-12-1.png)
 
 Filters are values: each step returns a new object and leaves the old
 one unchanged, which makes it easy to compare runs.

@@ -60,6 +60,65 @@ robot_limits(arm)
 #> elbow    -2.500000 2.500000
 ```
 
+Queries report the structure.
+[`robot_dof()`](https://adamrsophie.github.io/robotcompR/reference/robot_introspection.md)
+counts movable joints,
+[`robot_joint_names()`](https://adamrsophie.github.io/robotcompR/reference/robot_introspection.md)
+gives their order (the order of every configuration vector), and
+[`robot_frames()`](https://adamrsophie.github.io/robotcompR/reference/robot_introspection.md)
+lists every frame, including fixed ones such as the tool:
+
+``` r
+
+robot_dof(arm)
+#> [1] 2
+robot_joint_names(arm)
+#> [1] "shoulder" "elbow"
+robot_frames(arm)
+#> [1] "base"  "upper" "lower" "tool"
+robot_home(arm)
+#> shoulder    elbow 
+#>        0        0
+robot_random_configuration(arm, n = 3, seed = 1)
+#>        shoulder      elbow
+#> [1,] -1.4733525 -0.6393805
+#> [2,]  0.4577512  2.0410389
+#> [3,] -1.8743877  1.9919484
+```
+
+[`robot_home()`](https://adamrsophie.github.io/robotcompR/reference/robot_configurations.md)
+is the zero configuration projected onto the limits, and
+[`robot_random_configuration()`](https://adamrsophie.github.io/robotcompR/reference/robot_configurations.md)
+samples uniformly within them (without touching the caller’s random
+state when `seed` is given).
+
+## Joint order and names
+
+Unnamed joint vectors are positional, in
+[`robot_joint_names()`](https://adamrsophie.github.io/robotcompR/reference/robot_introspection.md)
+order. A vector or matrix whose names are exactly the joint names, each
+once, is matched by name in every function, whatever its order. Partial,
+duplicated or unknown names are an error instead of being used by
+position:
+
+``` r
+
+q <- c(0.3, -0.8)
+qn <- c(elbow = -0.8, shoulder = 0.3)
+all.equal(robot_fk(arm, q), robot_fk(arm, qn))
+#> [1] TRUE
+Q <- rbind(c(elbow = -0.8, shoulder = 0.3), c(elbow = 0, shoulder = 1))
+robot_fk_positions(arm, Q)
+#>              x           y z
+#> [1,] 0.8287013 -0.04401011 0
+#> [2,] 0.4862721  0.75732389 0
+try(robot_fk(arm, c(shoulder = 0.3, wrist = 1)))
+#> Error : Names of `q` must be the joint names (shoulder, elbow), each once, in any order; or leave `q` unnamed.
+```
+
+The same rule covers velocities, accelerations, efforts, torque
+callbacks, path matrices, planner endpoints and trajectory columns.
+
 Inertia helpers return tensors about the center of mass:
 
 ``` r
@@ -83,7 +142,21 @@ inertia_sphere(1, 0.1)
 
 [`robot_link()`](https://adamrsophie.github.io/robotcompR/reference/robot_link.md)
 rejects inertia tensors that are not symmetric positive semidefinite or
-violate the triangle inequality on the principal moments.
+violate the triangle inequality on the principal moments. A violation
+within a relative tolerance of 10^{-9} is treated as roundoff and
+projected onto the physical set before it is stored, so the stored
+tensor never yields negative kinetic energy:
+
+``` r
+
+robot_link("tip", 1, inertia = diag(c(-5e-10, 1, 1)))$inertia
+#>      [,1] [,2] [,3]
+#> [1,]    0    0    0
+#> [2,]    0    1    0
+#> [3,]    0    0    1
+try(robot_link("tip", 1, inertia = diag(c(-1e-3, 1, 1))))
+#> Error : Inertia of link 'tip' is not positive semidefinite.
+```
 
 ## Denavit-Hartenberg parameters
 
@@ -226,6 +299,8 @@ Models are immutable values; modifiers return a new model.
 
 ``` r
 
+pose_translation(robot_fk(robot_set_end_effector(arm, "lower"), c(0, 0)))
+#> [1] 0.5 0.0 0.0
 mounted <- robot_set_base(arm, robot_pose(rotz(pi / 2), c(0, 0, 1)))
 pose_translation(robot_fk(mounted, c(0, 0)))
 #> [1] 5.510911e-17 9.000000e-01 1.000000e+00

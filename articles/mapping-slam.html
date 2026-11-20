@@ -161,6 +161,13 @@ clear space. Log-odds are clamped so the map can still change later.</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="../reference/grid_coordinates.html">grid_occupied</a></span><span class="op">(</span><span class="va">map</span><span class="op">)</span> <span class="op">==</span> <span class="va">occ</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0.9979167</span></span></code></pre></div>
+<p><code><a href="../reference/grid_coordinates.html">grid_probability()</a></code> converts the log-odds back to
+occupancy probabilities; unobserved cells stay at 0.5:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="fu"><a href="../reference/grid_coordinates.html">grid_probability</a></span><span class="op">(</span><span class="va">map</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.006692851 0.993307149</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/mean.html" class="external-link">mean</a></span><span class="op">(</span><span class="fu"><a href="../reference/grid_coordinates.html">grid_probability</a></span><span class="op">(</span><span class="va">map</span><span class="op">)</span> <span class="op">==</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.002083333</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="grid-planning-with-a">Grid planning with A*<a class="anchor" aria-label="anchor" href="#grid-planning-with-a"></a>
@@ -169,7 +176,7 @@ clear space. Log-odds are clamped so the map can still change later.</p>
 Euclidean costs and an admissible Euclidean heuristic, so the result is
 a shortest grid path. Diagonal moves may not cut obstacle corners. To
 plan for a disc-shaped robot, inflate obstacles by its radius first.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">inflated</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/grid_inflate.html">grid_inflate</a></span><span class="op">(</span><span class="va">world</span>, radius <span class="op">=</span> <span class="fl">0.2</span><span class="op">)</span></span>
 <span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/grid_astar.html">grid_astar</a></span><span class="op">(</span><span class="va">world</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.5</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5.5</span>, <span class="fl">3.5</span><span class="op">)</span>, occupied <span class="op">=</span> <span class="va">inflated</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">path</span><span class="op">)</span></span>
@@ -178,7 +185,7 @@ plan for a disc-shaped robot, inflate obstacles by its radius first.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/image.html" class="external-link">image</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">5.95</span>, <span class="fl">0.1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">3.95</span>, <span class="fl">0.1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="va">inflated</span> <span class="op">&amp;</span> <span class="op">!</span><span class="va">occ</span><span class="op">)</span>,</span>
 <span>      col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fu">grDevices</span><span class="fu">::</span><span class="fu"><a href="https://rdrr.io/r/grDevices/adjustcolor.html" class="external-link">adjustcolor</a></span><span class="op">(</span><span class="st">"orange"</span>, <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span>, add <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/lines.html" class="external-link">lines</a></span><span class="op">(</span><span class="va">path</span>, col <span class="op">=</span> <span class="st">"firebrick"</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></code></pre></div>
-<p><img src="mapping-slam_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="mapping-slam_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="576"></p>
 <p>When the goal is unreachable, <code><a href="../reference/grid_astar.html">grid_astar()</a></code> returns
 <code>NULL</code>.</p>
 </div>
@@ -200,7 +207,7 @@ e_{ij} = \begin{pmatrix} R_z^\top\left(R_i^\top (t_j - t_i) - t_z\right)
 <p>with Gauss-Newton steps, Levenberg-Marquardt damping, analytic
 Jacobians and a sparse normal-equation solve. The first node is fixed to
 remove the gauge freedom.</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># A robot drives around a square twice; odometry drifts in heading.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span></span>
 <span><span class="va">steps</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fl">3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span>, <span class="fl">8</span><span class="op">)</span></span>
@@ -239,11 +246,30 @@ remove the gauge freedom.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/lines.html" class="external-link">lines</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">graph</span><span class="op">$</span><span class="va">nodes</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>, col <span class="op">=</span> <span class="st">"firebrick"</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/legend.html" class="external-link">legend</a></span><span class="op">(</span><span class="st">"topleft"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"ground truth"</span>, <span class="st">"odometry"</span>, <span class="st">"optimized"</span><span class="op">)</span>,</span>
 <span>       col <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"grey80"</span>, <span class="st">"grey50"</span>, <span class="st">"firebrick"</span><span class="op">)</span>, lty <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, lwd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>, bty <span class="op">=</span> <span class="st">"n"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="mapping-slam_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="576"></p>
-<p>The plot method draws the graph, with loop closures dashed:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">graph</span><span class="op">)</span></span></code></pre></div>
 <p><img src="mapping-slam_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="576"></p>
+<p><code>converged</code> means the result is stationary, not just that
+the cost stopped moving. The optimizer stops with
+<code>status = "converged"</code> when every residual coordinate is at
+roundoff level, or when every gradient component is negligible relative
+to the size of the terms it sums (<code>gradient_tol</code>, default
+<span class="math inline">10^{-6}</span>). Both tests are
+coordinatewise, so a large irreducible cost in one coordinate cannot
+hide an error in another. Other outcomes are <code>"stalled"</code>,
+<code>"max_iterations"</code>, <code>"linear_solve_failed"</code> and
+<code>"invalid_graph"</code> (nodes not connected to the fixed
+node):</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">res</span><span class="op">$</span><span class="va">status</span></span>
+<span><span class="co">#&gt; [1] "converged"</span></span>
+<span><span class="va">res</span><span class="op">$</span><span class="va">gradient</span></span>
+<span><span class="co">#&gt; [1] 6.239549e-08</span></span>
+<span><span class="va">loose</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pose_graph_optimize.html">pose_graph_optimize</a></span><span class="op">(</span><span class="va">g</span>, max_iterations <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">loose</span><span class="op">$</span><span class="va">status</span>, <span class="va">loose</span><span class="op">$</span><span class="va">converged</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] "max_iterations" "FALSE"</span></span></code></pre></div>
+<p>The plot method draws the graph, with loop closures dashed:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">res</span><span class="op">$</span><span class="va">graph</span><span class="op">)</span></span></code></pre></div>
+<p><img src="mapping-slam_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="576"></p>
 <div class="section level3">
 <h3 id="se3-pose-graphs">SE(3) pose graphs<a class="anchor" aria-label="anchor" href="#se3-pose-graphs"></a>
 </h3>
@@ -253,7 +279,7 @@ a matrix and the same functions optimize a 3D graph. Edges are relative
 (translation first), the residual is <span class="math inline">e_{ij} =
 \log(Z_{ij}^{-1} X_i^{-1} X_j)</span>, and nodes are updated on the
 manifold as <span class="math inline">X \exp(\delta)</span>.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Random.html" class="external-link">set.seed</a></span><span class="op">(</span><span class="fl">4</span><span class="op">)</span></span>
 <span><span class="va">step</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/lie_exp_log.html">se3_exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0.1</span>, <span class="fl">0</span>, <span class="fl">0.15</span>, <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span> <span class="op">/</span> <span class="fl">12</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">truth3</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/funprog.html" class="external-link">Reduce</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">X</span>, <span class="va">k</span><span class="op">)</span> <span class="va">X</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">step</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">24</span>, accumulate <span class="op">=</span> <span class="cn">TRUE</span>, init <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
@@ -274,7 +300,7 @@ manifold as <span class="math inline">X \exp(\delta)</span>.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>odometry <span class="op">=</span> <span class="fu">err</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">lapply</a></span><span class="op">(</span><span class="va">odom3</span>, <span class="kw">function</span><span class="op">(</span><span class="va">M</span><span class="op">)</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span>matrix <span class="op">=</span> <span class="va">M</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  optimized <span class="op">=</span> <span class="fu">err</span><span class="op">(</span><span class="va">res3</span><span class="op">$</span><span class="va">graph</span><span class="op">$</span><span class="va">nodes</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;   odometry  optimized </span></span>
-<span><span class="co">#&gt; 0.41548311 0.07660564</span></span></code></pre></div>
+<span><span class="co">#&gt; 0.41548311 0.07660563</span></span></code></pre></div>
 </div>
 </div>
 <div class="section level2">
@@ -286,7 +312,7 @@ state grows by two entries each time a new landmark id is seen; the new
 landmark is initialized from the inverse measurement model with its
 covariance and its correlation with the pose. Later sightings correct
 both the pose and every correlated landmark.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">L</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>a <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">0</span><span class="op">)</span>, b <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">5</span><span class="op">)</span>, c <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">5</span><span class="op">)</span>, d <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>, e <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="op">-</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">Q</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.02</span>, <span class="fl">0.01</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">R</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.05</span>, <span class="fl">0.002</span><span class="op">)</span><span class="op">)</span></span>
@@ -321,9 +347,25 @@ both the pose and every correlated landmark.</p>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/lines.html" class="external-link">lines</a></span><span class="op">(</span><span class="va">est</span><span class="op">[</span>, <span class="fl">1</span><span class="op">:</span><span class="fl">2</span><span class="op">]</span>, col <span class="op">=</span> <span class="st">"firebrick"</span>, lwd <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/points.html" class="external-link">points</a></span><span class="op">(</span><span class="va">L</span>, pch <span class="op">=</span> <span class="fl">17</span>, col <span class="op">=</span> <span class="st">"navy"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/points.html" class="external-link">points</a></span><span class="op">(</span><span class="va">M</span>, pch <span class="op">=</span> <span class="fl">4</span>, cex <span class="op">=</span> <span class="fl">1.5</span>, col <span class="op">=</span> <span class="st">"firebrick"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="mapping-slam_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="mapping-slam_files/figure-html/unnamed-chunk-13-1.png" class="r-plt" alt="" width="576"></p>
 <p>The map is only defined up to the initial pose, which is why the
 initial covariance is nearly zero: it anchors the map frame.</p>
+<p>The update uses a sparse Joseph form that touches only the pose and
+the observed landmarks, so its cost grows with the square of the state
+size. When a measurement removes almost all of some variance (a
+posterior diagonal below <span class="math inline">10^{-6}</span> of its
+prior), subtracting two nearly equal numbers would lose the small
+posterior to cancellation; the update is then redone in factored form
+from a pivoted Cholesky factor of the prior, which keeps the covariance
+positive semidefinite. A first sighting with a nonpositive range cannot
+place a landmark; it is skipped with a warning instead of initializing
+the landmark on top of the robot:</p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_ekf_slam.html">robot_ekf_slam</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">1e-9</span>, <span class="fl">3</span><span class="op">)</span>, <span class="va">Q</span>, <span class="va">R</span><span class="op">)</span></span>
+<span><span class="va">f2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_ekf_slam.html">ekf_slam_update</a></span><span class="op">(</span><span class="va">f2</span>, <span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>id <span class="op">=</span> <span class="st">"z"</span>, range <span class="op">=</span> <span class="fl">0</span>, bearing <span class="op">=</span> <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: Landmark 'z' not initialized: its first range (0) is not positive.</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_ekf_slam.html">ekf_slam_landmarks</a></span><span class="op">(</span><span class="va">f2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="limitations">Limitations<a class="anchor" aria-label="anchor" href="#limitations"></a>

@@ -71,14 +71,20 @@
 <li>EKF-SLAM with known data association.</li>
 <li>SE(2) and SE(3) pose graph optimization with Jacobians that stay valid for residual rotations near pi and a termination <code>status</code>.</li>
 <li>The unscented Kalman filter works in a local tangent chart, so heading statistics stay consistent across the angle cut; every filter requires symmetric positive semidefinite covariances and validated measurements.</li>
-<li>Particle filter prediction, EKF-SLAM updates and rigid-body dynamics use faster kernels (vectorized motion, a factored sparse Joseph update that keeps the covariance semidefinite, and cached spatial inertias).</li>
-<li>EPA penetration depth for every convex pair, with certified bounds and a <code>depth_known</code> flag, and continuous path collision checking by conservative advancement.</li>
+<li>Particle filter prediction, EKF-SLAM updates and rigid-body dynamics use faster kernels (vectorized motion, a sparse Joseph update quadratic in the state size, and cached spatial inertias). A SLAM update that removes almost all of some variance is redone in factored form so the small posterior is not lost to cancellation.</li>
+<li>EPA penetration depth for every convex pair, with depth bounds and a <code>depth_known</code> flag, and continuous path collision checking by conservative advancement, which steps by the certified lower bound on the distance.</li>
 <li>Cartesian trajectories report spatial velocities and accelerations and can be converted to joint trajectories.</li>
-<li>Collision distances never report clearance that thin, nearly parallel or degenerate geometry cannot prove, and do not depend on scale, rotation or where a hull’s local origin lies.</li>
+<li>Separation is reported only when a positive lower bound proves it. Thin or high aspect ratio shapes that GJK cannot resolve are reported as colliding with <code>depth_known = FALSE</code> and an interval from support function bounds. The guarantees hold up to floating point roundoff; tolerances are relative to the object size, so results do not depend on scale, rotation or where a hull’s local origin lies.</li>
 <li>Self-collision skips joint neighbors even across geometry-free fixed frames, and still checks a tool fixed to a link against the link before that link’s joint.</li>
-<li>Pose graph optimization tests convergence per residual component with equilibrated damping, so graphs with mixed scales converge.</li>
+<li>Pose graph optimization tests convergence per coordinate, with an arithmetic roundoff bound and a componentwise gradient test (<code>gradient_tol</code>), so neither a large world offset nor a large irreducible cost in one coordinate hides an error in another.</li>
 <li>URDF export writes numbers that read back exactly in any locale and declares URDF 1.1 for capsules; import reads <code>quat_xyzw</code> origins.</li>
-<li>Planners honor their deadline after every validity call, and A* keeps its search on the map with a frontier list.</li>
+<li>Planners check their deadline after every validity call (a callback that runs long can still overrun once), report the reason work stopped apart from <code>success</code>, and RRT-Connect always validates the edge that joins its trees. A* keeps its search on the map with a frontier list.</li>
+<li>Joint arrays are matched by name in every function: unnamed values are positional, fully named values may come in any order, and partial, duplicated or unknown names are an error.</li>
+<li>
+<code><a href="../reference/robot_traj_cartesian.html">robot_traj_cartesian()</a></code> returns joint velocities and accelerations that describe the returned joint path, including joints held at a limit, and flags samples without a coherent derivative in <code>derivatives_ok</code>.</li>
+<li>
+<code><a href="../reference/robot_simulate.html">robot_simulate()</a></code> treats a run that stops before the last requested time as an error that carries the solver’s message.</li>
+<li>Inertia tensors accepted within roundoff are stored projected onto the physical set, and covariance symmetry is checked pair by pair.</li>
 <li>Nine vignettes and a pkgdown site.</li>
 </ul></div>
   </main></div>

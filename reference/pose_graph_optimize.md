@@ -18,7 +18,13 @@ through edges.
 ## Usage
 
 ``` r
-pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
+pose_graph_optimize(
+  graph,
+  fixed = 1,
+  max_iterations = 50,
+  tol = 1e-12,
+  gradient_tol = 1e-06
+)
 ```
 
 ## Arguments
@@ -39,6 +45,10 @@ pose_graph_optimize(graph, fixed = 1, max_iterations = 50, tol = 1e-12)
 
   Relative cost decrease treated as no progress.
 
+- gradient_tol:
+
+  Componentwise stationarity tolerance (see Details).
+
 ## Value
 
 A list with the optimized `graph`, `cost` history, `iterations`,
@@ -50,15 +60,21 @@ last iteration.
 
 Convergence means stationarity, not merely a small change: the optimizer
 stops with `status = "converged"` when every residual component is at
-roundoff level for the magnitudes involved, or every gradient component
-is negligible on its own scale (\\\|g_k\| \le 10^{-6} \sqrt{H\_{kk}}
-\sqrt{c}\\). A very precise coordinate therefore cannot hide an error in
-another. A graph with a single node is returned unchanged as converged.
-Other outcomes are `"stalled"` (the relative decrease fell below `tol`,
-or no damped step decreased the cost, while the gradient is not
-negligible), `"max_iterations"`, `"linear_solve_failed"` and
-`"invalid_graph"` (nodes not connected to `fixed`; the graph is returned
-unchanged with a warning). A noisy graph converges to a positive cost.
+roundoff level (about 1000 machine epsilons of an arithmetic bound on
+that component's rounding error, computed coordinatewise so a large
+world offset along one axis does not excuse an error along another), or
+every gradient component is negligible on its own scale: with \\\Omega =
+U^\top U\\, each component \\g_k = \sum_e (U J_e)\_k^\top (U e)\\ must
+satisfy \\\|g_k\| \le\\ `gradient_tol` \\\sum_e \|U J_e\|\_k^\top \|U
+e\|\\, which holds only when its contributions cancel (contributions of
+residuals at roundoff level are discounted first). A large irreducible
+cost in one coordinate therefore cannot hide an error in another. A
+graph with a single node is returned unchanged as converged. Other
+outcomes are `"stalled"` (the relative decrease fell below `tol`, or no
+damped step decreased the cost, while the gradient is not negligible),
+`"max_iterations"`, `"linear_solve_failed"` and `"invalid_graph"` (nodes
+not connected to `fixed`; the graph is returned unchanged with a
+warning). A noisy graph converges to a positive cost.
 
 ## Examples
 

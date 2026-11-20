@@ -128,6 +128,16 @@ the familiar <span class="math inline">s(\tau) = 10\tau^3 - 15\tau^4 +
 <p>The cubic option matches only position and velocity, so its
 acceleration jumps at the endpoints. Outside <span class="math inline">[0, T]</span> the trajectory is held at rest at its
 endpoint positions.</p>
+<p>Without a robot, the joint order comes from the names of
+<code>q0</code>. Named endpoints with the same names are matched by
+name:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">named</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_polynomial.html">robot_traj_polynomial</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>a <span class="op">=</span> <span class="fl">0</span>, b <span class="op">=</span> <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>b <span class="op">=</span> <span class="fl">3</span>, a <span class="op">=</span> <span class="fl">2</span><span class="op">)</span>, duration <span class="op">=</span> <span class="fl">1</span>, n <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="va">named</span><span class="op">$</span><span class="va">q</span></span>
+<span><span class="co">#&gt;      a b</span></span>
+<span><span class="co">#&gt; [1,] 0 1</span></span>
+<span><span class="co">#&gt; [2,] 1 2</span></span>
+<span><span class="co">#&gt; [3,] 2 3</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="trapezoidal-velocity-profiles">Trapezoidal velocity profiles<a class="anchor" aria-label="anchor" href="#trapezoidal-velocity-profiles"></a>
@@ -141,14 +151,14 @@ T = \frac{\Delta}{v_{\max}} + \frac{v_{\max}}{a_{\max}}
 \quad\text{when}\quad \Delta \ge \frac{v_{\max}^2}{a_{\max}},
 \qquad T = 2\sqrt{\Delta / a_{\max}} \quad\text{otherwise}.
 </span></p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tz</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_trapezoidal.html">robot_traj_trapezoidal</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span>, vmax <span class="op">=</span> <span class="fl">1</span>, amax <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">tz</span><span class="op">$</span><span class="va">duration</span></span>
 <span><span class="co">#&gt; [1] 2.5</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/apply.html" class="external-link">apply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">tz</span><span class="op">$</span><span class="va">qd</span><span class="op">)</span>, <span class="fl">2</span>, <span class="va">max</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0.5 1.0</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">tz</span>, <span class="st">"qd"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="trajectories_files/figure-html/unnamed-chunk-4-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="trajectories_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="multi-waypoint-paths">Multi-waypoint paths<a class="anchor" aria-label="anchor" href="#multi-waypoint-paths"></a>
@@ -157,19 +167,19 @@ T = \frac{\Delta}{v_{\max}} + \frac{v_{\max}}{a_{\max}}
 planner output) as a sequence of rest to rest trapezoidal segments. This
 is conservative but always respects the limits and never overshoots a
 waypoint.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">path</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.2</span>, <span class="fl">1.4</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">tp</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_path.html">robot_traj_path</a></span><span class="op">(</span><span class="va">path</span>, vmax <span class="op">=</span> <span class="fl">1</span>, amax <span class="op">=</span> <span class="fl">2</span>, dt <span class="op">=</span> <span class="fl">0.01</span><span class="op">)</span></span>
 <span><span class="va">tp</span><span class="op">$</span><span class="va">duration</span></span>
 <span><span class="co">#&gt; [1] 4.3</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">tp</span><span class="op">$</span><span class="va">q</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, <span class="va">tp</span><span class="op">$</span><span class="va">q</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"l"</span>, asp <span class="op">=</span> <span class="fl">1</span>, xlab <span class="op">=</span> <span class="st">"q1"</span>, ylab <span class="op">=</span> <span class="st">"q2"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/points.html" class="external-link">points</a></span><span class="op">(</span><span class="va">path</span>, pch <span class="op">=</span> <span class="fl">19</span>, col <span class="op">=</span> <span class="st">"firebrick"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="trajectories_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="trajectories_files/figure-html/unnamed-chunk-6-1.png" class="r-plt" alt="" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="checking-a-trajectory-against-a-robot">Checking a trajectory against a robot<a class="anchor" aria-label="anchor" href="#checking-a-trajectory-against-a-robot"></a>
 </h2>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">arm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_example.html">robot_example</a></span><span class="op">(</span><span class="st">"planar2"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/robot_traj_check.html">robot_traj_check</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">tp</span><span class="op">)</span><span class="op">$</span><span class="va">ok</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span>
@@ -197,7 +207,7 @@ and the acceleration <span class="math inline">\ddot s\,(p_1 - p_0,
 \phi)</span>, returned as <code>velocity</code> and
 <code>acceleration</code>. The conversion to joints can be done by hand,
 seeding each inverse kinematics solve with the previous solution:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">from</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span>translation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.5</span>, <span class="fl">0.3</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">to</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span>translation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.8</span>, <span class="fl">1.2</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">ct</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_cartesian.html">robot_traj_cartesian</a></span><span class="op">(</span><span class="va">from</span>, <span class="va">to</span>, duration <span class="op">=</span> <span class="fl">2</span>, n <span class="op">=</span> <span class="fl">21</span><span class="op">)</span></span>
@@ -209,13 +219,19 @@ seeding each inverse kinematics solve with the previous solution:</p>
 <span><span class="op">}</span></span>
 <span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_fk_positions.html">robot_fk_positions</a></span><span class="op">(</span><span class="va">arm</span>, <span class="va">Q</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">P</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, <span class="va">P</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, type <span class="op">=</span> <span class="st">"b"</span>, asp <span class="op">=</span> <span class="fl">1</span>, xlab <span class="op">=</span> <span class="st">"x (m)"</span>, ylab <span class="op">=</span> <span class="st">"y (m)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="trajectories_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="576"></p>
-<p>or by passing <code>robot</code>. Then joint velocities solve <span class="math inline">J\dot q = V</span> and joint accelerations solve
-<span class="math inline">J\ddot q = A - \dot J \dot q</span> at each
-sample, so the result is a full <code>robot_trajectory</code> that
+<p><img src="trajectories_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="576"></p>
+<p>or by passing <code>robot</code>. The joint velocities and
+accelerations then describe the joint path that is returned. Their task
+part solves <span class="math inline">J\dot q = V</span> and <span class="math inline">J\ddot q = A - \dot J \dot q</span> over the free
+joints: a joint held at a position limit by inverse kinematics (or
+pushed outward by the unconstrained solution) gets zero velocity and
+acceleration, as it has in the position path. For a redundant robot the
+motion in the null space of the task is not set by the task, so it is
+taken from the returned positions by finite differences in time. The
+result is a full <code>robot_trajectory</code> that
 <code><a href="../reference/robot_traj_check.html">robot_traj_check()</a></code> can test against velocity and
 acceleration limits:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">jt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_cartesian.html">robot_traj_cartesian</a></span><span class="op">(</span><span class="va">from</span>, <span class="va">to</span>, duration <span class="op">=</span> <span class="fl">2</span>, n <span class="op">=</span> <span class="fl">101</span>, robot <span class="op">=</span> <span class="va">arm</span>,</span>
 <span>                           initial <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="op">-</span><span class="fl">0.8</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">jt</span><span class="op">$</span><span class="va">converged</span><span class="op">)</span></span>
@@ -228,7 +244,25 @@ acceleration limits:</p>
 <span><span class="co">#&gt; commanded -0.4451455 0.5723299</span></span>
 <span><span class="co">#&gt; achieved  -0.4451455 0.5723299</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">jt</span><span class="op">$</span><span class="va">joint</span>, <span class="st">"qd"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="trajectories_files/figure-html/unnamed-chunk-8-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="trajectories_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="576"></p>
+<p><code>derivatives_ok</code> flags samples where the derivatives do
+not describe the path: inverse kinematics failed there, or the path
+jumps to another solution branch. Here two serial sliders reach for a
+point behind the first slider’s lower limit; that slider stays at its
+limit and the second one does all the work:</p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sliders</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_model.html">robot_model</a></span><span class="op">(</span>joints <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
+<span>  <span class="fu"><a href="../reference/robot_joint.html">robot_joint</a></span><span class="op">(</span><span class="st">"a"</span>, <span class="st">"prismatic"</span>, <span class="st">"base"</span>, <span class="st">"mid"</span>, axis <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, limits <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>  <span class="fu"><a href="../reference/robot_joint.html">robot_joint</a></span><span class="op">(</span><span class="st">"b"</span>, <span class="st">"prismatic"</span>, <span class="st">"mid"</span>, <span class="st">"tip"</span>, axis <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, limits <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">st</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_traj_cartesian.html">robot_traj_cartesian</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="op">)</span>, <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="op">-</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fl">1</span>, n <span class="op">=</span> <span class="fl">21</span>, robot <span class="op">=</span> <span class="va">sliders</span>,</span>
+<span>                           initial <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, weights <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="va">st</span><span class="op">$</span><span class="va">joint</span><span class="op">$</span><span class="va">qd</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">6</span>, <span class="fl">11</span>, <span class="fl">16</span><span class="op">)</span>, <span class="op">]</span>, commanded <span class="op">=</span> <span class="va">st</span><span class="op">$</span><span class="va">velocity</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">6</span>, <span class="fl">11</span>, <span class="fl">16</span><span class="op">)</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;      a         b commanded</span></span>
+<span><span class="co">#&gt; [1,] 0 -1.054688 -1.054688</span></span>
+<span><span class="co">#&gt; [2,] 0 -1.875000 -1.875000</span></span>
+<span><span class="co">#&gt; [3,] 0 -1.054688 -1.054688</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/all.html" class="external-link">all</a></span><span class="op">(</span><span class="va">st</span><span class="op">$</span><span class="va">derivatives_ok</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

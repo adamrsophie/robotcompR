@@ -104,7 +104,13 @@ connected to it through edges.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pose_graph_optimize</span><span class="op">(</span><span class="va">graph</span>, fixed <span class="op">=</span> <span class="fl">1</span>, max_iterations <span class="op">=</span> <span class="fl">50</span>, tol <span class="op">=</span> <span class="fl">1e-12</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">pose_graph_optimize</span><span class="op">(</span></span>
+<span>  <span class="va">graph</span>,</span>
+<span>  fixed <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>  max_iterations <span class="op">=</span> <span class="fl">50</span>,</span>
+<span>  tol <span class="op">=</span> <span class="fl">1e-12</span>,</span>
+<span>  gradient_tol <span class="op">=</span> <span class="fl">1e-06</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -126,6 +132,10 @@ connected to it through edges.</p>
 <dt id="arg-tol">tol<a class="anchor" aria-label="anchor" href="#arg-tol"></a></dt>
 <dd><p>Relative cost decrease treated as no progress.</p></dd>
 
+
+<dt id="arg-gradient-tol">gradient_tol<a class="anchor" aria-label="anchor" href="#arg-gradient-tol"></a></dt>
+<dd><p>Componentwise stationarity tolerance (see Details).</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -138,10 +148,16 @@ the last iteration.</p>
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Convergence means stationarity, not merely a small change: the
 optimizer stops with <code>status = "converged"</code> when every residual
-component is at roundoff level for the magnitudes involved, or every
-gradient component is negligible on its own scale
-(\(|g_k| \le 10^{-6} \sqrt{H_{kk}} \sqrt{c}\)). A very precise
-coordinate therefore cannot hide an error in another. A graph with a
+component is at roundoff level (about 1000 machine epsilons of an
+arithmetic bound on that component's rounding error, computed
+coordinatewise so a large world offset along one axis does not excuse
+an error along another), or every gradient component is negligible on
+its own scale: with \(\Omega = U^\top U\), each component
+\(g_k = \sum_e (U J_e)_k^\top (U e)\) must satisfy
+\(|g_k| \le\) <code>gradient_tol</code> \(\sum_e |U J_e|_k^\top |U e|\), which
+holds only when its contributions cancel (contributions of residuals at
+roundoff level are discounted first). A large irreducible cost in
+one coordinate therefore cannot hide an error in another. A graph with a
 single node is returned unchanged as converged. Other outcomes are
 <code>"stalled"</code> (the relative decrease fell below <code>tol</code>, or no damped step
 decreased the cost, while the gradient is not negligible),

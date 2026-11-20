@@ -28,6 +28,8 @@ reference checks and limitations.
 | Composition | `T_a_c = T_a_b * T_b_c`, with frame names checked when present |
 | Twists and wrenches | Linear part first: `c(v, w)` and `c(f, tau)` |
 | Jacobian rows | Linear velocity rows 1 to 3, angular rows 4 to 6 |
+| Joint arrays | Unnamed: [`robot_joint_names()`](https://adamrsophie.github.io/robotcompR/reference/robot_introspection.md) order. Named: exactly the joint names, any order, matched by name |
+| Collision results | Separation only when proved by a positive lower bound; unresolved pairs count as contact |
 | Points | One point per row in batch functions |
 | Planar poses | `c(x, y, theta)` with `theta` wrapped to `[-pi, pi)` |
 
@@ -149,7 +151,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1,
 plan
 #> <robot_plan> rrt_connect: success
 #> path found (shortcut smoothed) 
-#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.47 s
+#> 5 waypoints, length 4.919, 70 nodes, 97 iterations, 2.35 s
 #> seed: 1
 traj <- robot_traj_path(plan, vmax = 1, amax = 2, dt = 0.05)
 robot_traj_check(robot, traj)$ok

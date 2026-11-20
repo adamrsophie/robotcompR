@@ -69,17 +69,26 @@ robot_traj_cartesian(
 A list with `time`, `s`, `poses` (a list of `robot_pose`), `velocity`
 and `acceleration` (one row per sample, columns
 `vx, vy, vz, wx, wy, wz`), and, with `robot`, `joint` (a
-`robot_trajectory`) and `converged` (logical, one per sample).
+`robot_trajectory`), `converged` and `derivatives_ok` (logical, one per
+sample).
 
 ## Details
 
 When `robot` is given, the path is also converted to joints: inverse
 kinematics is solved at each sample, warm-started from the previous
 solution (from `initial` at the first sample), and joint velocities and
-accelerations follow from the weighted least-squares solutions of \\J
-\dot q = V\\ and \\J \ddot q = A - \dot J \dot q\\, with the world
-Jacobian of `frame` and \\\dot J \dot q\\ from a central difference of
-\\J\\ along \\\dot q\\.
+accelerations describe the returned joint path. Their task part comes
+from the weighted least-squares solutions of \\J \dot q = V\\ and \\J
+\ddot q = A - \dot J \dot q\\ (world Jacobian of `frame`, \\\dot J \dot
+q\\ from a central difference of \\J\\ along \\\dot q\\) over the free
+joints: a joint that inverse kinematics holds at a position limit while
+the unconstrained solution pushes it outward gets zero velocity and
+acceleration. The part in the null space of the task, which the task
+does not determine, is taken from the returned positions by second-order
+finite differences in time, so it is only as accurate as the sampling.
+`derivatives_ok` is `FALSE` at samples where inverse kinematics did not
+converge or the joint path jumps (a change of solution branch); the
+derivatives there do not describe the path.
 
 ## Examples
 

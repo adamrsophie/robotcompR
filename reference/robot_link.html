@@ -4,12 +4,18 @@ optional: mass in kilograms, com the center of mass in the link
 frame (meters), and inertia the 3 by 3 rotational inertia about the
 center of mass, expressed in axes parallel to the link frame (kg m^2).
 Inertia matrices must be symmetric positive semidefinite and satisfy
-the triangle inequality of principal moments."><meta property="og:description" content="A link is a rigid body with an attached frame. Inertial parameters are
+the triangle inequality of principal moments. Violations within a
+relative tolerance of 1e-9 are treated as roundoff and projected onto
+the physical set (negative principal moments set to zero, the largest
+capped at the sum of the other two); larger violations are an error."><meta property="og:description" content="A link is a rigid body with an attached frame. Inertial parameters are
 optional: mass in kilograms, com the center of mass in the link
 frame (meters), and inertia the 3 by 3 rotational inertia about the
 center of mass, expressed in axes parallel to the link frame (kg m^2).
 Inertia matrices must be symmetric positive semidefinite and satisfy
-the triangle inequality of principal moments."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
+the triangle inequality of principal moments. Violations within a
+relative tolerance of 1e-9 are treated as roundoff and projected onto
+the physical set (negative principal moments set to zero, the largest
+capped at the sum of the other two); larger violations are an error."><meta property="og:image" content="https://adamrsophie.github.io/robotcompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -72,7 +78,10 @@ optional: <code>mass</code> in kilograms, <code>com</code> the center of mass in
 frame (meters), and <code>inertia</code> the 3 by 3 rotational inertia about the
 center of mass, expressed in axes parallel to the link frame (kg m^2).
 Inertia matrices must be symmetric positive semidefinite and satisfy
-the triangle inequality of principal moments.</p>
+the triangle inequality of principal moments. Violations within a
+relative tolerance of <code>1e-9</code> are treated as roundoff and projected onto
+the physical set (negative principal moments set to zero, the largest
+capped at the sum of the other two); larger violations are an error.</p>
     </div>
 
     <div class="section level2">

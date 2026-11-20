@@ -48,6 +48,19 @@ The cubic option matches only position and velocity, so its acceleration
 jumps at the endpoints. Outside \[0, T\] the trajectory is held at rest
 at its endpoint positions.
 
+Without a robot, the joint order comes from the names of `q0`. Named
+endpoints with the same names are matched by name:
+
+``` r
+
+named <- robot_traj_polynomial(c(a = 0, b = 1), c(b = 3, a = 2), duration = 1, n = 3)
+named$q
+#>      a b
+#> [1,] 0 1
+#> [2,] 1 2
+#> [3,] 2 3
+```
+
 ## Trapezoidal velocity profiles
 
 [`robot_traj_trapezoidal()`](https://adamrsophie.github.io/robotcompR/reference/robot_traj_trapezoidal.md)
@@ -69,7 +82,7 @@ apply(abs(tz$qd), 2, max)
 plot(tz, "qd")
 ```
 
-![](trajectories_files/figure-html/unnamed-chunk-4-1.png)
+![](trajectories_files/figure-html/unnamed-chunk-5-1.png)
 
 ## Multi-waypoint paths
 
@@ -88,7 +101,7 @@ plot(tp$q[, 1], tp$q[, 2], type = "l", asp = 1, xlab = "q1", ylab = "q2")
 points(path, pch = 19, col = "firebrick")
 ```
 
-![](trajectories_files/figure-html/unnamed-chunk-5-1.png)
+![](trajectories_files/figure-html/unnamed-chunk-6-1.png)
 
 ## Checking a trajectory against a robot
 
@@ -136,11 +149,17 @@ P <- robot_fk_positions(arm, Q)
 plot(P[, 1], P[, 2], type = "b", asp = 1, xlab = "x (m)", ylab = "y (m)")
 ```
 
-![](trajectories_files/figure-html/unnamed-chunk-7-1.png)
+![](trajectories_files/figure-html/unnamed-chunk-8-1.png)
 
-or by passing `robot`. Then joint velocities solve J\dot q = V and joint
-accelerations solve J\ddot q = A - \dot J \dot q at each sample, so the
-result is a full `robot_trajectory` that
+or by passing `robot`. The joint velocities and accelerations then
+describe the joint path that is returned. Their task part solves J\dot q
+= V and J\ddot q = A - \dot J \dot q over the free joints: a joint held
+at a position limit by inverse kinematics (or pushed outward by the
+unconstrained solution) gets zero velocity and acceleration, as it has
+in the position path. For a redundant robot the motion in the null space
+of the task is not set by the task, so it is taken from the returned
+positions by finite differences in time. The result is a full
+`robot_trajectory` that
 [`robot_traj_check()`](https://adamrsophie.github.io/robotcompR/reference/robot_traj_check.md)
 can test against velocity and acceleration limits:
 
@@ -160,4 +179,26 @@ rbind(commanded = jt$velocity[i, 1:2], achieved = (J %*% jt$joint$qd[i, ])[1:2])
 plot(jt$joint, "qd")
 ```
 
-![](trajectories_files/figure-html/unnamed-chunk-8-1.png)
+![](trajectories_files/figure-html/unnamed-chunk-9-1.png)
+
+`derivatives_ok` flags samples where the derivatives do not describe the
+path: inverse kinematics failed there, or the path jumps to another
+solution branch. Here two serial sliders reach for a point behind the
+first slider’s lower limit; that slider stays at its limit and the
+second one does all the work:
+
+``` r
+
+sliders <- robot_model(joints = list(
+  robot_joint("a", "prismatic", "base", "mid", axis = c(1, 0, 0), limits = c(0, 1)),
+  robot_joint("b", "prismatic", "mid", "tip", axis = c(1, 0, 0), limits = c(-2, 2))))
+st <- robot_traj_cartesian(robot_pose(), transl(-1, 0, 0), 1, n = 21, robot = sliders,
+                           initial = c(0, 0), weights = c(1, 0, 0, 0, 0, 0))
+cbind(st$joint$qd[c(6, 11, 16), ], commanded = st$velocity[c(6, 11, 16), 1])
+#>      a         b commanded
+#> [1,] 0 -1.054688 -1.054688
+#> [2,] 0 -1.875000 -1.875000
+#> [3,] 0 -1.054688 -1.054688
+all(st$derivatives_ok)
+#> [1] TRUE
+```

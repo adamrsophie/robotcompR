@@ -138,17 +138,26 @@ velocity solves (for example <code>c(1, 1, 0, 0, 0, 1)</code> for a planar arm).
     <p>A list with <code>time</code>, <code>s</code>, <code>poses</code> (a list of <code>robot_pose</code>),
 <code>velocity</code> and <code>acceleration</code> (one row per sample, columns
 <code>vx, vy, vz, wx, wy, wz</code>), and, with <code>robot</code>, <code>joint</code> (a
-<code>robot_trajectory</code>) and <code>converged</code> (logical, one per sample).</p>
+<code>robot_trajectory</code>), <code>converged</code> and <code>derivatives_ok</code> (logical, one
+per sample).</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>When <code>robot</code> is given, the path is also converted to joints: inverse
 kinematics is solved at each sample, warm-started from the previous
 solution (from <code>initial</code> at the first sample), and joint velocities and
-accelerations follow from the weighted least-squares solutions of
-\(J \dot q = V\) and \(J \ddot q = A - \dot J \dot q\), with the
-world Jacobian of <code>frame</code> and \(\dot J \dot q\) from a central
-difference of \(J\) along \(\dot q\).</p>
+accelerations describe the returned joint path. Their task part comes
+from the weighted least-squares solutions of \(J \dot q = V\) and
+\(J \ddot q = A - \dot J \dot q\) (world Jacobian of <code>frame</code>,
+\(\dot J \dot q\) from a central difference of \(J\) along
+\(\dot q\)) over the free joints: a joint that inverse kinematics holds
+at a position limit while the unconstrained solution pushes it outward
+gets zero velocity and acceleration. The part in the null space of the
+task, which the task does not determine, is taken from the returned
+positions by second-order finite differences in time, so it is only as
+accurate as the sampling. <code>derivatives_ok</code> is <code>FALSE</code> at samples where
+inverse kinematics did not converge or the joint path jumps (a change
+of solution branch); the derivatives there do not describe the path.</p>
     </div>
 
     <div class="section level2">

@@ -78,18 +78,24 @@ motion between samples.
 
 With `method = "continuous"` each segment is checked by conservative
 advancement: at the current configuration the clearance \\d\\ of every
-geometry pair is computed, together with an upper bound \\M\\ on how far
-any point of the pair can move per unit of the segment parameter (from
-the joint displacements and fixed bounds on the lever arms of the
-kinematic chain). Advancing by \\d / M\\ cannot create a contact, so the
-motion is collision-free when the steps reach the end of the segment and
-in collision as soon as a clearance drops to `margin`. Both ends of
-every segment are checked with the same contact rule as
+geometry pair is bounded from below (the certified lower bound of
+[`geom_distance()`](https://adamrsophie.github.io/robotcompR/reference/geom_distance.md);
+a pair whose separation cannot be proved counts as contact), together
+with an upper bound \\M\\ on how far any point of the pair can move per
+unit of the segment parameter (from the joint displacements and fixed
+bounds on the lever arms of the kinematic chain). Advancing by \\d / M\\
+cannot create a contact, so the motion is collision-free when the steps
+reach the end of the segment and in collision as soon as a clearance
+drops to `margin`. Both ends of every segment are checked with the same
+contact rule as
 [`robot_check_collision()`](https://adamrsophie.github.io/robotcompR/reference/robot_check_collision.md),
 so a path ending in contact is invalid. The lever-arm bounds use the
 prismatic extensions actually reached on each segment, so they hold with
 `check_limits = FALSE` and for joints without finite limits. The test is
-exact for the continuous straight-line motion, up to `tol`.
+conservative for the continuous straight-line motion, up to `tol` and
+floating point roundoff: it can report contact that a finer analysis
+would rule out, but it does not accept a motion through a contact it can
+detect.
 
 ## Examples
 

@@ -114,9 +114,19 @@ R_z(\theta) = \begin{pmatrix} \cos\theta &amp; -\sin\theta &amp; 0 \\
 <span><span class="co">#&gt; [3,] 0.000000e+00</span></span>
 <span><span class="fu"><a href="../reference/is_rotation_matrix.html">is_rotation_matrix</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_rotations.html">rotz</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="../reference/elementary_rotations.html">rotx</a></span><span class="op">(</span><span class="fl">0.2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] TRUE</span></span></code></pre></div>
+<p>Angles are radians everywhere; <code><a href="../reference/angle_units.html">deg2rad()</a></code> and
+<code><a href="../reference/angle_units.html">rad2deg()</a></code> convert at the boundary with human input:</p>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/elementary_rotations.html">rotz</a></span><span class="op">(</span><span class="fu"><a href="../reference/angle_units.html">deg2rad</a></span><span class="op">(</span><span class="fl">90</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span></span>
+<span><span class="co">#&gt;              [,1]</span></span>
+<span><span class="co">#&gt; [1,] 6.123234e-17</span></span>
+<span><span class="co">#&gt; [2,] 1.000000e+00</span></span>
+<span><span class="co">#&gt; [3,] 0.000000e+00</span></span>
+<span><span class="fu"><a href="../reference/angle_units.html">rad2deg</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">6</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 30</span></span></code></pre></div>
 <p>Numerical drift accumulates when many rotations are multiplied.
 <code><a href="../reference/orthonormalize.html">orthonormalize()</a></code> projects back onto <span class="math inline">SO(3)</span> with the polar decomposition:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">R</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">1000</span><span class="op">)</span> <span class="va">R</span> <span class="op">&lt;-</span> <span class="va">R</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="../reference/elementary_rotations.html">rotx</a></span><span class="op">(</span><span class="fl">0.001</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="../reference/elementary_rotations.html">roty</a></span><span class="op">(</span><span class="fl">0.002</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/crossprod.html" class="external-link">crossprod</a></span><span class="op">(</span><span class="va">R</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -131,7 +141,7 @@ R_z(\theta) = \begin{pmatrix} \cos\theta &amp; -\sin\theta &amp; 0 \\
 <p>Sequences are <em>intrinsic</em>: <code>"ZYX"</code> means rotate
 about z, then about the new y, then about the newest x, so <span class="math inline">R = R_z(\alpha) R_y(\beta) R_x(\gamma)</span>. All
 twelve proper Euler and Tait-Bryan sequences are supported.</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">r</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_rotation.html">robot_rotation</a></span><span class="op">(</span>euler <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="op">-</span><span class="fl">0.2</span>, <span class="fl">0.1</span><span class="op">)</span>, sequence <span class="op">=</span> <span class="st">"ZYX"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/rotation_conversions.html">as_euler</a></span><span class="op">(</span><span class="va">r</span>, <span class="st">"ZYX"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1]  0.3 -0.2  0.1</span></span>
@@ -142,7 +152,7 @@ twelve proper Euler and Tait-Bryan sequences are supported.</p>
 <p>At gimbal lock (pitch <span class="math inline">\pm\pi/2</span> for
 <code>"ZYX"</code>), the decomposition is not unique. The returned
 angles still reproduce the matrix:</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">r</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_rotation.html">robot_rotation</a></span><span class="op">(</span>euler <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.4</span>, <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span>, <span class="fl">0.1</span><span class="op">)</span>, sequence <span class="op">=</span> <span class="st">"ZYX"</span><span class="op">)</span></span>
 <span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/rotation_conversions.html">as_euler</a></span><span class="op">(</span><span class="va">r</span>, <span class="st">"ZYX"</span><span class="op">)</span></span>
 <span><span class="va">a</span></span>
@@ -156,7 +166,7 @@ order.</p>
 <div class="section level2">
 <h2 id="axis-angle-rotation-vectors-and-quaternions">Axis-angle, rotation vectors and quaternions<a class="anchor" aria-label="anchor" href="#axis-angle-rotation-vectors-and-quaternions"></a>
 </h2>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">r</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_rotation.html">robot_rotation</a></span><span class="op">(</span>axis <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, angle <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/rotation_conversions.html">as_axis_angle</a></span><span class="op">(</span><span class="va">r</span><span class="op">)</span></span>
 <span><span class="co">#&gt; $axis</span></span>
@@ -172,7 +182,7 @@ order.</p>
 <p>Quaternions are scalar first and use the Hamilton product. Since
 <span class="math inline">q</span> and <span class="math inline">-q</span> represent the same rotation, the canonical
 form has <span class="math inline">w \ge 0</span>.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">qa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_quaternion.html">robot_quaternion</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_rotation.html">robot_rotation</a></span><span class="op">(</span>axis <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, angle <span class="op">=</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">qb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_quaternion.html">robot_quaternion</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_rotation.html">robot_rotation</a></span><span class="op">(</span>axis <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, angle <span class="op">=</span> <span class="fl">0.8</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">qa</span> <span class="op">*</span> <span class="va">qb</span></span>
@@ -190,6 +200,10 @@ form has <span class="math inline">w \ge 0</span>.</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; [[3]]</span></span>
 <span><span class="co">#&gt; &lt;robot_quaternion&gt; w = 0.921061, (x, y, z) = (0, 0.389418, 0)</span></span></code></pre></div>
+<p>The conjugate of a unit quaternion is its inverse rotation:</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">qa</span> <span class="op">*</span> <span class="fu"><a href="../reference/quaternion_ops.html">quaternion_conjugate</a></span><span class="op">(</span><span class="va">qa</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;robot_quaternion&gt; w = 1, (x, y, z) = (0, 0, 0)</span></span></code></pre></div>
 <p><code><a href="../reference/quaternion_slerp.html">quaternion_slerp()</a></code> follows the shortest arc and returns
 unit quaternions.</p>
 </div>
@@ -204,7 +218,7 @@ T_{ab} = \begin{pmatrix} R_{ab} &amp; p_{ab} \\ 0 &amp; 1 \end{pmatrix},
 p_a = R_{ab} p_b + p_{ab}.
 </span></p>
 <p>Frames can be named so that mismatched compositions fail loudly:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">T_world_base</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_rotations.html">rotz</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, parent <span class="op">=</span> <span class="st">"world"</span>, child <span class="op">=</span> <span class="st">"base"</span><span class="op">)</span></span>
 <span><span class="va">T_base_tool</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span>translation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">0.5</span><span class="op">)</span>, parent <span class="op">=</span> <span class="st">"base"</span>, child <span class="op">=</span> <span class="st">"tool"</span><span class="op">)</span></span>
 <span><span class="va">T_world_tool</span> <span class="op">&lt;-</span> <span class="va">T_world_base</span> <span class="op">*</span> <span class="va">T_base_tool</span></span>
@@ -221,8 +235,29 @@ p_a = R_{ab} p_b + p_{ab}.
 <span><span class="co">#&gt; [2,]    1  0.1  0.5</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="va">T_base_tool</span> <span class="op">*</span> <span class="va">T_world_base</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Error : Frame mismatch: left pose ends in 'tool' but right pose starts in 'world'.</span></span></code></pre></div>
+<p>Directions (free vectors) rotate but do not translate, and
+<code><a href="../reference/robot_compose.html">robot_compose()</a></code> multiplies any number of poses left to
+right:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/robot_transform_point.html">robot_transform_direction</a></span><span class="op">(</span><span class="va">T_world_tool</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 6.123234e-17 1.000000e+00 0.000000e+00</span></span>
+<span><span class="fu"><a href="../reference/pose_components.html">pose_rotation</a></span><span class="op">(</span><span class="va">T_world_tool</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;robot_rotation&gt; SO(3)</span></span>
+<span><span class="co">#&gt; angle 1.5708 rad about axis (0, 0, 1)</span></span>
+<span><span class="co">#&gt;      [,1] [,2] [,3]</span></span>
+<span><span class="co">#&gt; [1,]    0   -1    0</span></span>
+<span><span class="co">#&gt; [2,]    1    0    0</span></span>
+<span><span class="co">#&gt; [3,]    0    0    1</span></span>
+<span><span class="fu"><a href="../reference/pose_components.html">pose_translation</a></span><span class="op">(</span><span class="fu"><a href="../reference/robot_compose.html">robot_compose</a></span><span class="op">(</span><span class="va">T_world_base</span>, <span class="va">T_base_tool</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 1.0 0.0 0.5</span></span></code></pre></div>
+<p>The homogeneous elementary rotations <code><a href="../reference/elementary_transforms.html">trotx()</a></code>,
+<code><a href="../reference/elementary_transforms.html">troty()</a></code> and <code><a href="../reference/elementary_transforms.html">trotz()</a></code>, and <code><a href="../reference/elementary_transforms.html">transl()</a></code>
+for pure translations, build poses quickly:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/pose_components.html">pose_translation</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="../reference/elementary_transforms.html">trotz</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="../reference/elementary_transforms.html">transl</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 1 1 0</span></span></code></pre></div>
 <p>Inverse and relative poses:</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/robot_inverse.html">robot_inverse</a></span><span class="op">(</span><span class="va">T_world_base</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;robot_pose&gt; SE(3) base &lt;- world</span></span>
 <span><span class="co">#&gt;      [,1] [,2] [,3] [,4]</span></span>
@@ -248,7 +283,7 @@ p_a = R_{ab} p_b + p_{ab}.
 their tangent spaces. robotcompR uses series expansions near zero and
 dedicated branches near <span class="math inline">\pi</span>, so round
 trips stay accurate in both regimes.</p>
-<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">w</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="op">-</span><span class="fl">0.4</span>, <span class="fl">0.3</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">so3_log</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">so3_exp</a></span><span class="op">(</span><span class="va">w</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="va">w</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 0</span></span>
@@ -258,22 +293,53 @@ trips stay accurate in both regimes.</p>
 <span><span class="va">xi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.2</span>, <span class="op">-</span><span class="fl">0.1</span>, <span class="fl">0.3</span>, <span class="fl">0.2</span>, <span class="op">-</span><span class="fl">0.4</span><span class="op">)</span>  <span class="co"># linear part first</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">se3_log</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">se3_exp</a></span><span class="op">(</span><span class="va">xi</span><span class="op">)</span><span class="op">)</span> <span class="op">-</span> <span class="va">xi</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1.110223e-16</span></span></code></pre></div>
+<p>The hat and vee operators map tangent vectors to their matrix form
+and back. <code>*_vee()</code> checks that its input really is a Lie
+algebra element:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/hat_vee.html">so3_hat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;      [,1] [,2] [,3]</span></span>
+<span><span class="co">#&gt; [1,]    0   -3    2</span></span>
+<span><span class="co">#&gt; [2,]    3    0   -1</span></span>
+<span><span class="co">#&gt; [3,]   -2    1    0</span></span>
+<span><span class="fu"><a href="../reference/hat_vee.html">so3_vee</a></span><span class="op">(</span><span class="fu"><a href="../reference/hat_vee.html">so3_hat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 1 2 3</span></span>
+<span><span class="fu"><a href="../reference/hat_vee.html">se3_vee</a></span><span class="op">(</span><span class="fu"><a href="../reference/hat_vee.html">se3_hat</a></span><span class="op">(</span><span class="va">xi</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1]  0.5  0.2 -0.1  0.3  0.2 -0.4</span></span>
+<span><span class="fu"><a href="../reference/hat_vee.html">so2_vee</a></span><span class="op">(</span><span class="fu"><a href="../reference/hat_vee.html">so2_hat</a></span><span class="op">(</span><span class="fl">0.4</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.4</span></span>
+<span><span class="fu"><a href="../reference/hat_vee.html">se2_vee</a></span><span class="op">(</span><span class="fu"><a href="../reference/hat_vee.html">se2_hat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 1.0 2.0 0.3</span></span>
+<span><span class="kw"><a href="https://rdrr.io/r/base/try.html" class="external-link">try</a></span><span class="op">(</span><span class="fu"><a href="../reference/hat_vee.html">so3_vee</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Error : `x` is not skew-symmetric.</span></span></code></pre></div>
 <p>The left Jacobian of <span class="math inline">SO(3)</span> relates
 small tangent perturbations to perturbations of the rotation: <span class="math inline">\exp(\phi + \delta) \approx
-\exp(J_l(\phi)\delta)\exp(\phi)</span>.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+\exp(J_l(\phi)\delta)\exp(\phi)</span>. The right Jacobian does the same
+on the other side, <span class="math inline">\exp(\phi + \delta) \approx
+\exp(\phi)\exp(J_r(\phi)\delta)</span>, and both have closed-form
+inverses.</p>
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">phi</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.4</span>, <span class="op">-</span><span class="fl">0.2</span>, <span class="fl">0.7</span><span class="op">)</span></span>
 <span><span class="va">d</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1e-6</span>, <span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span></span>
 <span><span class="va">lhs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/lie_exp_log.html">so3_exp</a></span><span class="op">(</span><span class="va">phi</span> <span class="op">+</span> <span class="va">d</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">so3_exp</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">so3_log</a></span><span class="op">(</span><span class="va">lhs</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="../reference/so3_jacobians.html">so3_jacobian_left</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">d</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 5.223193e-14</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 5.223193e-14</span></span>
+<span><span class="va">rhs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/t.html" class="external-link">t</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">so3_exp</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="../reference/lie_exp_log.html">so3_exp</a></span><span class="op">(</span><span class="va">phi</span> <span class="op">+</span> <span class="va">d</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log.html">so3_log</a></span><span class="op">(</span><span class="va">rhs</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="../reference/so3_jacobians.html">so3_jacobian_right</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="va">d</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 5.861263e-14</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="../reference/so3_jacobians.html">so3_jacobian_left_inverse</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="../reference/so3_jacobians.html">so3_jacobian_left</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 4.82014e-17</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="fu"><a href="../reference/so3_jacobians.html">so3_jacobian_right_inverse</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span> <span class="op"><a href="https://rdrr.io/r/base/matmult.html" class="external-link">%*%</a></span> <span class="fu"><a href="../reference/so3_jacobians.html">so3_jacobian_right</a></span><span class="op">(</span><span class="va">phi</span><span class="op">)</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/diag.html" class="external-link">diag</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 4.405759e-17</span></span></code></pre></div>
+<p>Pose graph optimization and inverse kinematics use exactly these
+maps.</p>
 <p>The adjoint maps twists between frames. With linear-first twists
 <span class="math inline">\xi = (v, \omega)</span>:</p>
 <p><span class="math display">
 \mathrm{Ad}_T = \begin{pmatrix} R &amp; [p]_\times R \\ 0 &amp; R
 \end{pmatrix}.
 </span></p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="cn">T</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_rotations.html">rotz</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="../reference/se3_adjoint.html">se3_adjoint</a></span><span class="op">(</span><span class="cn">T</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="co">#&gt;        [,1]    [,2] [,3]    [,4]    [,5] [,6]</span></span>
@@ -283,6 +349,13 @@ small tangent perturbations to perturbations of the rotation: <span class="math 
 <span><span class="co">#&gt; [4,] 0.0000  0.0000    0  0.9553 -0.2955    0</span></span>
 <span><span class="co">#&gt; [5,] 0.0000  0.0000    0  0.2955  0.9553    0</span></span>
 <span><span class="co">#&gt; [6,] 0.0000  0.0000    0  0.0000  0.0000    1</span></span></code></pre></div>
+<p>The planar adjoint acts on planar twists <span class="math inline">(v_x, v_y, \omega)</span>:</p>
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Round.html" class="external-link">round</a></span><span class="op">(</span><span class="fu"><a href="../reference/se3_adjoint.html">se2_adjoint</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log_2d.html">se2_exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="va">pi</span> <span class="op">/</span> <span class="fl">4</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>, <span class="fl">4</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        [,1]    [,2]    [,3]</span></span>
+<span><span class="co">#&gt; [1,] 0.7071 -0.7071  0.3729</span></span>
+<span><span class="co">#&gt; [2,] 0.7071  0.7071 -0.9003</span></span>
+<span><span class="co">#&gt; [3,] 0.0000  0.0000  1.0000</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="interpolating-poses">Interpolating poses<a class="anchor" aria-label="anchor" href="#interpolating-poses"></a>
@@ -291,7 +364,7 @@ small tangent perturbations to perturbations of the rotation: <span class="math 
 linearly and rotation by slerp (<code>"decoupled"</code>), or moves
 along the constant twist joining the poses (<code>"screw"</code>). Both
 agree at the endpoints.</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="va">b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose.html">robot_pose</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_rotations.html">rotz</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">mid</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/robot_pose_interp.html">robot_pose_interp</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">b</span>, <span class="fl">0.5</span>, method <span class="op">=</span> <span class="st">"decoupled"</span><span class="op">)</span></span>
@@ -304,18 +377,34 @@ agree at the endpoints.</p>
 <div class="section level2">
 <h2 id="planar-rotations-and-poses">Planar rotations and poses<a class="anchor" aria-label="anchor" href="#planar-rotations-and-poses"></a>
 </h2>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="../reference/lie_exp_log_2d.html">so2_exp</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">3</span><span class="op">)</span></span>
+<p><code><a href="../reference/elementary_rotations.html">rot2()</a></code> is the planar rotation matrix (the same as
+<code><a href="../reference/lie_exp_log_2d.html">so2_exp()</a></code>), and the planar logarithms return the angle in
+<span class="math inline">(-\pi, \pi]</span> and the planar twist:</p>
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/elementary_rotations.html">rot2</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">3</span><span class="op">)</span></span>
 <span><span class="co">#&gt;           [,1]       [,2]</span></span>
 <span><span class="co">#&gt; [1,] 0.5000000 -0.8660254</span></span>
 <span><span class="co">#&gt; [2,] 0.8660254  0.5000000</span></span>
+<span><span class="fu"><a href="../reference/lie_exp_log_2d.html">so2_log</a></span><span class="op">(</span><span class="fu"><a href="../reference/elementary_rotations.html">rot2</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">/</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 1.047198</span></span>
 <span><span class="fu"><a href="../reference/lie_exp_log_2d.html">se2_exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;              [,1]          [,2]      [,3]</span></span>
 <span><span class="co">#&gt; [1,] 6.123234e-17 -1.000000e+00 0.6366198</span></span>
 <span><span class="co">#&gt; [2,] 1.000000e+00  6.123234e-17 0.6366198</span></span>
 <span><span class="co">#&gt; [3,] 0.000000e+00  0.000000e+00 1.0000000</span></span>
+<span><span class="fu"><a href="../reference/lie_exp_log_2d.html">se2_log</a></span><span class="op">(</span><span class="fu"><a href="../reference/lie_exp_log_2d.html">se2_exp</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span>, <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1]  1.000000e+00 -3.168556e-17  1.570796e+00</span></span>
 <span><span class="fu"><a href="../reference/wrap_angle.html">wrap_angle</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span> <span class="op">*</span> <span class="va">pi</span>, <span class="op">-</span><span class="fl">3</span> <span class="op">*</span> <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] -3.141593  1.570796</span></span></code></pre></div>
+<p>Mobile robot velocities are often given in the body frame (forward
+and sideways speed). <code><a href="../reference/planar_velocity.html">body_to_world_velocity()</a></code> and
+<code><a href="../reference/planar_velocity.html">world_to_body_velocity()</a></code> rotate them by the heading:</p>
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">v_world</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/planar_velocity.html">body_to_world_velocity</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, theta <span class="op">=</span> <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">v_world</span></span>
+<span><span class="co">#&gt; [1] 6.123234e-17 1.000000e+00</span></span>
+<span><span class="fu"><a href="../reference/planar_velocity.html">world_to_body_velocity</a></span><span class="op">(</span><span class="va">v_world</span>, theta <span class="op">=</span> <span class="va">pi</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 1 0</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

@@ -28,13 +28,18 @@ size, and `depth_known` is then `TRUE`. Curved cores in symmetric
 positions can exhaust the iteration budget first. Two identical coaxial
 cylinders are the classic case, because every radial direction is
 equally deep. `depth_known` is then `FALSE`, `distance` is the shallower
-estimate and `distance_bounds` brackets the true value. The yes/no
-collision answer is exact in both cases.
+estimate and `distance_bounds` brackets the true value.
 
 ``` r
 
 geom_distance(geom_sphere(0.5), geom_sphere(0.3), robot_pose(), transl(2, 0, 0))$distance
 #> [1] 1.2
+cap <- geom_capsule(0.1, 1)
+geom_distance(cap, cap, robot_pose(), transl(0.5, 0, 0))$distance
+#> [1] 0.3
+tet <- geom_convex(rbind(c(0, 0, 0), c(1, 0, 0), c(0, 1, 0), c(0, 0, 1)))
+geom_distance(tet, geom_sphere(0.1), robot_pose(), transl(1, 1, 1))$distance
+#> [1] 1.054701
 d <- geom_distance(geom_box(c(1, 1, 1)), geom_sphere(0.2), robot_pose(), transl(1.5, 1.5, 0))
 c(d$distance, sqrt(2) - 0.2)
 #> [1] 1.214214 1.214214
@@ -60,8 +65,73 @@ cyl[c("depth_known", "distance", "distance_bounds")]
 #> [1] -1.0000000 -0.9995293
 ```
 
-Mesh geometry from URDF files is kept for reference but is not
-collidable.
+### Proved separation
+
+GJK’s distance is the length of a point of A - B, so it bounds the true
+distance from above. Separation also needs a lower bound: every point of
+A - B lies beyond the support plane through the last support point, and
+its offset bounds the distance from below whatever stopped the
+iteration. A pair is reported as separated only when that lower bound is
+positive, and `distance_bounds` runs from it to `distance`:
+
+``` r
+
+d <- geom_distance(geom_box(c(1, 1, 1)), geom_cylinder(0.3, 1), robot_pose(),
+                   transl(1.2, 0.3, 0.1))
+d[c("collision", "distance", "distance_bounds")]
+#> $collision
+#> [1] FALSE
+#> 
+#> $distance
+#> [1] 0.4
+#> 
+#> $distance_bounds
+#> [1] 0.4 0.4
+```
+
+For extremely thin or high aspect ratio shapes the lower bound can stay
+nonpositive although the candidate distance is positive. EPA then
+decides if it can prove the overlap; otherwise the pair counts as
+colliding, with `depth_known = FALSE` and an interval built only from
+support function values, which bound the signed distance whether the
+shapes overlap or not. These two boxes overlap by 1.57 \times 10^{-7},
+yet GJK alone stops at a positive candidate distance of about 10^{-9}.
+Its lower bound is negative, so the pair goes to EPA, which proves the
+overlap and recovers the depth:
+
+``` r
+
+thin <- geom_distance(geom_box(c(4.6, 4.2, 1.7e-7)), geom_box(c(4.4, 1.34, 4e-7)),
+                      robot_pose(), transl(2, 2.2, 1.28e-7))
+thin[c("collision", "depth_known", "distance", "distance_bounds")]
+#> $collision
+#> [1] TRUE
+#> 
+#> $depth_known
+#> [1] TRUE
+#> 
+#> $distance
+#> [1] -1.57e-07
+#> 
+#> $distance_bounds
+#> [1] -1.57e-07 -1.57e-07
+```
+
+All of this holds up to floating point roundoff; the tolerances are
+relative to the object size.
+
+Mesh geometry from URDF files (or
+[`geom_mesh()`](https://adamrsophie.github.io/robotcompR/reference/geometry.md))
+is kept for reference and plotting but is not collidable:
+
+``` r
+
+m <- geom_mesh("link.stl")
+m
+#> <robot_geometry> mesh: file 'link.stl' (not collidable), at (0, 0, 0)
+try(geom_distance(m, geom_sphere(1)))
+#> Error : Mesh geometry is not supported by distance queries.
+```
 
 ## Robots in an environment
 
@@ -148,7 +218,7 @@ cc$valid
 cc$q
 #> [1] 0.5362514 0.0000000
 robot_check_collision(arm, cc$q, post)$min_distance
-#> [1] 8.367652e-10
+#> [1] 8.367678e-10
 ```
 
 The configuration returned is the first contact along the motion, up to
@@ -168,6 +238,10 @@ runs it.
 | `"rrt_star"` | RRT with rewiring in a shrinking radius | Improves cost as samples increase |
 | `"prm"` | Roadmap of random free samples, queried with Dijkstra | Reusable for many queries |
 
+Start and goal follow the joint name rule: a fully named vector is
+matched by name, so `c(joint2 = 0, joint1 = -0.8)` means the same start
+as `c(-0.8, 0)`.
+
 ``` r
 
 planner <- robot_planner(arm, "rrt_connect", env, step_size = 0.3)
@@ -175,7 +249,7 @@ plan <- robot_plan(planner, start = c(-0.8, 0), goal = c(0.8, 0), seed = 1)
 plan
 #> <robot_plan> rrt_connect: success
 #> path found 
-#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 1.13 s
+#> 24 waypoints, length 6.671, 67 nodes, 97 iterations, 1.05 s
 #> seed: 1
 robot_check_path(arm, plan$path, env, resolution = 0.01)$valid
 #> [1] TRUE
@@ -193,6 +267,26 @@ blocked <- robot_planner(validity = function(q) abs(q[1] - 0.5) > 0.05,
                          bounds = rbind(c(0, 1), c(0, 1)), max_iterations = 200)
 robot_plan(blocked, c(0.1, 0.1), c(0.9, 0.1), seed = 1)$message
 #> [1] "no path found within the iteration budget (this does not prove that none exists)"
+```
+
+`termination` records why work stopped, separately from `success`. The
+deadline (`time_limit`, in seconds) is checked after every validity
+call, including the start and goal checks; a single slow callback can
+still run past it once. RRT\* is an anytime planner: stopped by the
+deadline, it returns its best valid path so far with `success = TRUE`
+and `termination = "time_limit"`.
+
+``` r
+
+slow <- robot_planner(validity = function(q) {
+  Sys.sleep(0.002)
+  TRUE
+}, bounds = rbind(c(0, 1), c(0, 1)), algorithm = "rrt_star", goal_bias = 0.3,
+time_limit = 0.2, max_iterations = 10000)
+sp <- robot_plan(slow, c(0.1, 0.1), c(0.9, 0.9), seed = 1)
+c(success = sp$success, termination = sp$termination)
+#>      success  termination 
+#>       "TRUE" "time_limit"
 ```
 
 ### Planning without a robot model
@@ -220,7 +314,7 @@ for (alg in c("rrt", "rrt_connect", "rrt_star", "prm")) {
 }
 ```
 
-![](collision-planning_files/figure-html/unnamed-chunk-10-1.png)![](collision-planning_files/figure-html/unnamed-chunk-10-2.png)![](collision-planning_files/figure-html/unnamed-chunk-10-3.png)![](collision-planning_files/figure-html/unnamed-chunk-10-4.png)
+![](collision-planning_files/figure-html/unnamed-chunk-14-1.png)![](collision-planning_files/figure-html/unnamed-chunk-14-2.png)![](collision-planning_files/figure-html/unnamed-chunk-14-3.png)![](collision-planning_files/figure-html/unnamed-chunk-14-4.png)
 
 ### Practical advice
 

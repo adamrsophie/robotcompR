@@ -91,6 +91,18 @@ mean(grid_occupied(map) == occ)
 #> [1] 0.9979167
 ```
 
+[`grid_probability()`](https://adamrsophie.github.io/robotcompR/reference/grid_coordinates.md)
+converts the log-odds back to occupancy probabilities; unobserved cells
+stay at 0.5:
+
+``` r
+
+range(grid_probability(map))
+#> [1] 0.006692851 0.993307149
+mean(grid_probability(map) == 0.5)
+#> [1] 0.002083333
+```
+
 ## Grid planning with A\*
 
 [`grid_astar()`](https://adamrsophie.github.io/robotcompR/reference/grid_astar.md)
@@ -111,7 +123,7 @@ image(seq(0.05, 5.95, 0.1), seq(0.05, 3.95, 0.1), t(inflated & !occ),
 lines(path, col = "firebrick", lwd = 2)
 ```
 
-![](mapping-slam_files/figure-html/unnamed-chunk-7-1.png)
+![](mapping-slam_files/figure-html/unnamed-chunk-8-1.png)
 
 When the goal is unreachable,
 [`grid_astar()`](https://adamrsophie.github.io/robotcompR/reference/grid_astar.md)
@@ -175,7 +187,28 @@ legend("topleft", c("ground truth", "odometry", "optimized"),
        col = c("grey80", "grey50", "firebrick"), lty = c(1, 2, 1), lwd = c(3, 1, 2), bty = "n")
 ```
 
-![](mapping-slam_files/figure-html/unnamed-chunk-8-1.png)
+![](mapping-slam_files/figure-html/unnamed-chunk-9-1.png)
+
+`converged` means the result is stationary, not just that the cost
+stopped moving. The optimizer stops with `status = "converged"` when
+every residual coordinate is at roundoff level, or when every gradient
+component is negligible relative to the size of the terms it sums
+(`gradient_tol`, default 10^{-6}). Both tests are coordinatewise, so a
+large irreducible cost in one coordinate cannot hide an error in
+another. Other outcomes are `"stalled"`, `"max_iterations"`,
+`"linear_solve_failed"` and `"invalid_graph"` (nodes not connected to
+the fixed node):
+
+``` r
+
+res$status
+#> [1] "converged"
+res$gradient
+#> [1] 6.239549e-08
+loose <- pose_graph_optimize(g, max_iterations = 2)
+c(loose$status, loose$converged)
+#> [1] "max_iterations" "FALSE"
+```
 
 The plot method draws the graph, with loop closures dashed:
 
@@ -184,7 +217,7 @@ The plot method draws the graph, with loop closures dashed:
 plot(res$graph)
 ```
 
-![](mapping-slam_files/figure-html/unnamed-chunk-9-1.png)
+![](mapping-slam_files/figure-html/unnamed-chunk-11-1.png)
 
 ### SE(3) pose graphs
 
@@ -218,7 +251,7 @@ err <- function(nodes) max(vapply(seq_along(nodes), function(k)
 c(odometry = err(lapply(odom3, function(M) robot_pose(matrix = M))),
   optimized = err(res3$graph$nodes))
 #>   odometry  optimized 
-#> 0.41548311 0.07660564
+#> 0.41548311 0.07660563
 ```
 
 ## EKF-SLAM
@@ -269,10 +302,29 @@ points(L, pch = 17, col = "navy")
 points(M, pch = 4, cex = 1.5, col = "firebrick")
 ```
 
-![](mapping-slam_files/figure-html/unnamed-chunk-11-1.png)
+![](mapping-slam_files/figure-html/unnamed-chunk-13-1.png)
 
 The map is only defined up to the initial pose, which is why the initial
 covariance is nearly zero: it anchors the map frame.
+
+The update uses a sparse Joseph form that touches only the pose and the
+observed landmarks, so its cost grows with the square of the state size.
+When a measurement removes almost all of some variance (a posterior
+diagonal below 10^{-6} of its prior), subtracting two nearly equal
+numbers would lose the small posterior to cancellation; the update is
+then redone in factored form from a pivoted Cholesky factor of the
+prior, which keeps the covariance positive semidefinite. A first
+sighting with a nonpositive range cannot place a landmark; it is skipped
+with a warning instead of initializing the landmark on top of the robot:
+
+``` r
+
+f2 <- robot_ekf_slam(c(0, 0, 0), diag(1e-9, 3), Q, R)
+f2 <- ekf_slam_update(f2, data.frame(id = "z", range = 0, bearing = 0))
+#> Warning: Landmark 'z' not initialized: its first range (0) is not positive.
+nrow(ekf_slam_landmarks(f2))
+#> [1] 0
+```
 
 ## Limitations
 
