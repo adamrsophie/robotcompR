@@ -288,3 +288,25 @@ test_that("covariance checks are local to each pair of coordinates", {
   expect_s3_class(robot_ekf(numeric(3), diag(c(4, 0, 1)), lm, matrix(0, 2, 2), diag(2)),
                   "robot_ekf")
 })
+
+test_that("UKF sigma deviations survive large world coordinates", {
+  P <- diag(c(0.01, 0.01, 0.1))
+  for (alpha in c(1e-9, 1)) {
+    for (dt in c(0, 1)) {
+      f <- robot_ukf(c(1e7, 1e7, 0), P, rbind(a = c(1e7 + 5, 1e7)), matrix(0, 2, 2),
+                     diag(2), alpha = alpha)
+      p <- ukf_predict(f, c(0, 0), dt)
+      expect_equal(unname(p$cov), P, tolerance = 1e-10)
+      expect_equal(unname(p$mean), c(1e7, 1e7, 0))
+    }
+  }
+  # The same filter near the origin and far from it gives the same update.
+  near <- robot_ukf(c(0, 0, 0.1), P, rbind(a = c(5, 1)), matrix(0, 2, 2), diag(c(0.01, 0.001)))
+  far <- robot_ukf(c(1e7, -1e7, 0.1), P, rbind(a = c(1e7 + 5, -1e7 + 1)), matrix(0, 2, 2),
+                   diag(c(0.01, 0.001)))
+  z <- data.frame(id = "a", range = 5.2, bearing = 0.05)
+  a <- ukf_update(ukf_predict(near, c(1, 0.1), 0.5), z)
+  b <- ukf_update(ukf_predict(far, c(1, 0.1), 0.5), z)
+  expect_equal(unname(a$cov), unname(b$cov), tolerance = 1e-6)
+  expect_equal(unname(b$mean - c(1e7, -1e7, 0)), unname(a$mean), tolerance = 1e-6)
+})

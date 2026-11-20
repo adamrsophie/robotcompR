@@ -121,14 +121,20 @@ ukf_predict <- function(filter, control, dt) {
   sp <- sigma_points(c(filter$mean, 0, 0), Pa, filter$alpha, filter$beta,
                      filter$kappa)
   dt <- check_scalar(dt, "dt", nonnegative = TRUE)
-  Y <- apply(sp$X, 2, function(z) unicycle_step(z[1:3], u[1] + z[4],
-                                               u[2] + z[5], dt))
-  # Heading in the tangent chart: the sigma deviation plus its exact,
-  # unwrapped change over the step.
-  Y[3, ] <- sp$D[3, ] + (u[2] + sp$X[5, ]) * dt
+  # Images are formed as deviations from the mean position: the motion
+  # displacement does not depend on position, so position deviations are
+  # carried exactly instead of being added to (and lost in) large world
+  # coordinates. The heading is in the tangent chart: the sigma deviation
+  # plus its exact, unwrapped change over the step.
+  Y <- vapply(seq_len(ncol(sp$X)), function(i) {
+    z <- sp$X[, i]
+    d <- unicycle_motion(c(0, 0, z[3]), u[1] + z[4], u[2] + z[5], dt)$delta
+    c(sp$D[1:2, i] + d, sp$D[3, i] + (u[2] + z[5]) * dt)
+  }, numeric(3))
   st <- sigma_mean(Y, sp$wm)
   P <- st$dev %*% (sp$wc * t(st$dev))
   m <- st$mean
+  m[1:2] <- filter$mean[1:2] + m[1:2]
   m[3] <- wrap_angle_internal(filter$mean[3] + m[3])
   filter$mean <- stats::setNames(m, c("x", "y", "theta"))
   filter$cov <- check_ukf_cov(P, "prediction")
@@ -153,7 +159,13 @@ ukf_update <- function(filter, measurements) {
     }
     sp <- sigma_points(filter$mean, filter$cov, filter$alpha, filter$beta,
                        filter$kappa)
-    Z <- apply(sp$X, 2, function(x) range_bearing(x, lm))
+    # Landmark offsets are formed from the mean first, so small sigma
+    # deviations survive large world coordinates.
+    rel <- lm - filter$mean[1:2]
+    Z <- apply(sp$D, 2, function(d) {
+      o <- rel - d[1:2]
+      c(sqrt(sum(o^2)), wrap_angle_internal(atan2(o[2], o[1]) - filter$mean[3] - d[3]))
+    })
     zs <- sigma_mean(Z, sp$wm, 2)
     # State deviations in the tangent chart, consistent with filter$cov.
     xdev <- sp$D - as.numeric(sp$D %*% sp$wm)
