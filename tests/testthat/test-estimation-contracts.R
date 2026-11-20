@@ -322,3 +322,34 @@ test_that("a nonpositive first range does not initialize a landmark", {
   h <- ekf_slam_update(g, data.frame(id = "a", range = -0.5, bearing = 0))
   expect_lt(ekf_slam_landmarks(h)[1, 1], 2)
 })
+
+test_that("SLAM updates keep a tiny posterior from a singular prior", {
+  A <- rbind(c(0, 2), c(0, -2), c(-2, 2), c(1, 1), c(2, 2))
+  H <- rbind(c(-1, 0, 0, 1, 0), c(0, -1, -1, 0, 1))
+  B <- H %*% A
+  z <- data.frame(id = "a", range = 1, bearing = 0)
+  for (eps in 10^-(seq(4, 20, by = 4))) {
+    f <- robot_ekf_slam(numeric(3), diag(3), matrix(0, 2, 2), diag(eps, 2))
+    f <- ekf_slam_update(f, z)
+    f$cov <- tcrossprod(A)
+    g <- ekf_slam_update(f, z)
+    ref <- A %*% (eps * solve(crossprod(B) + diag(eps, 2))) %*% t(A)
+    expect_gte(min(diag(g$cov)), 0)
+    expect_lt(max(abs(g$cov - ref)) / max(abs(ref)), 1e-6)
+  }
+  # An ordinary update matches the dense Joseph form.
+  f <- robot_ekf_slam(c(0, 0, 0.1), diag(c(0.1, 0.2, 0.05)), diag(0.01, 2), diag(c(0.04, 0.01)))
+  f <- ekf_slam_update(f, data.frame(id = c("a", "b"), range = c(3, 4), bearing = c(0.2, -0.5)))
+  P <- f$cov
+  g <- ekf_slam_update(f, data.frame(id = "a", range = 3.1, bearing = 0.25))
+  x <- f$mean
+  d <- x[4:5] - x[1:2]
+  q <- sum(d^2)
+  r <- sqrt(q)
+  Hx <- rbind(c(-d[1] / r, -d[2] / r, 0), c(d[2] / q, -d[1] / q, -1))
+  Hf <- cbind(Hx, -Hx[, 1:2], 0, 0)
+  K <- P %*% t(Hf) %*% solve(Hf %*% P %*% t(Hf) + f$R)
+  IKH <- diag(7) - K %*% Hf
+  expect_equal(unname(g$cov), unname(IKH %*% P %*% t(IKH) + K %*% f$R %*% t(K)),
+               tolerance = 1e-10)
+})

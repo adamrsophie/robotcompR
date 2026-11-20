@@ -206,7 +206,11 @@ print.robot_ukf <- function(x, ...) {
 #' bearing), from the inverse measurement model with the covariance
 #' \eqn{G_x P_{xx} G_x^\top + G_z R G_z^\top} and cross terms
 #' \eqn{G_x P_{x\cdot}}, and fuses later sightings with a Joseph-form EKF
-#' update (Thrun, Burgard and Fox, 2005, chapter 10). `ekf_slam_landmarks()`
+#' update (Thrun, Burgard and Fox, 2005, chapter 10). The update costs time
+#' quadratic in the state size; an update that removes almost all of some
+#' variance (posterior below \eqn{10^{-6}} of the prior) is redone in
+#' factored form, which costs cubic time but keeps the small posterior
+#' accurate. `ekf_slam_landmarks()`
 #' returns the current map.
 #'
 #' @param mean Initial pose estimate.
@@ -322,13 +326,39 @@ ekf_slam_update <- function(filter, measurements) {
     # Factored Joseph form, evaluated in two sparse stages:
     # M = (I - K H) P, then M (I - K H)' + K R K'.
     M <- P - tcrossprod(K, U)
-    P <- M - tcrossprod(M[, active, drop = FALSE] %*% t(Ha), K) +
+    Pn <- M - tcrossprod(M[, active, drop = FALSE] %*% t(Ha), K) +
       K %*% tcrossprod(filter$R, K)
-    filter$cov <- (P + t(P)) / 2
+    # When the update removes almost all of a variance, the subtraction
+    # above cancels and loses the small posterior. Those (rare) updates are
+    # redone in factored form: with P = L L', the posterior is
+    # L (I + B' R^-1 B)^-1 L' with B = H L, evaluated through an SVD so no
+    # difference of nearly equal numbers is formed.
+    pd <- diag(P)
+    if (any(diag(Pn) < 1e-6 * pd)) Pn <- factored_update(P, active, Ha, filter$R)
+    filter$cov <- (Pn + t(Pn)) / 2
     nis <- nis + sum(innov * solve(S, innov))
   }
   filter$nis <- nis
   filter
+}
+
+# Posterior covariance of a linear Gaussian update in factored form. The
+# prior factor comes from a pivoted Cholesky decomposition, which finds the
+# exact rank of a singular prior instead of adding roundoff directions.
+factored_update <- function(P, active, Ha, R) {
+  n <- nrow(P)
+  ch <- suppressWarnings(chol(P, pivot = TRUE, tol = -1))
+  rk <- attr(ch, "rank")
+  piv <- attr(ch, "pivot")
+  L <- matrix(0, n, rk)
+  L[piv, ] <- t(ch[seq_len(rk), , drop = FALSE])
+  if (!rk) return(P)
+  Ri <- chol(R)
+  Bt <- backsolve(Ri, Ha %*% L[active, , drop = FALSE], transpose = TRUE)
+  sv <- svd(Bt, nu = 0, nv = rk)
+  d <- c(sv$d, numeric(rk - length(sv$d)))
+  Mi <- sv$v %*% (t(sv$v) / (1 + d^2))
+  L %*% Mi %*% t(L)
 }
 
 #' @rdname robot_ekf_slam

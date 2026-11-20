@@ -52,7 +52,11 @@ warning, since the inverse model would place the landmark behind its
 bearing), from the inverse measurement model with the covariance
 \eqn{G_x P_{xx} G_x^\top + G_z R G_z^\top} and cross terms
 \eqn{G_x P_{x\cdot}}, and fuses later sightings with a Joseph-form EKF
-update (Thrun, Burgard and Fox, 2005, chapter 10). \code{ekf_slam_landmarks()}
+update (Thrun, Burgard and Fox, 2005, chapter 10). The update costs time
+quadratic in the state size; an update that removes almost all of some
+variance (posterior below \eqn{10^{-6}} of the prior) is redone in
+factored form, which costs cubic time but keeps the small posterior
+accurate. \code{ekf_slam_landmarks()}
 returns the current map.
 }
 \examples{
