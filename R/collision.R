@@ -910,7 +910,9 @@ segment_conservative <- function(robot, qa, qb, environment, self, margin,
 #'
 #' With `method = "continuous"` each segment is checked by conservative
 #' advancement: at the current configuration the clearance \eqn{d} of
-#' every geometry pair is computed, together with an upper bound \eqn{M}
+#' every geometry pair is bounded from below (the certified lower bound
+#' of [geom_distance()]; a pair whose separation cannot be proved counts
+#' as contact), together with an upper bound \eqn{M}
 #' on how far any point of the pair can move per unit of the segment
 #' parameter (from the joint displacements and fixed bounds on the lever
 #' arms of the kinematic chain). Advancing by \eqn{d / M} cannot create a
@@ -920,8 +922,10 @@ segment_conservative <- function(robot, qa, qb, environment, self, margin,
 #' rule as [robot_check_collision()], so a path ending in contact is
 #' invalid. The lever-arm bounds use the prismatic extensions actually
 #' reached on each segment, so they hold with `check_limits = FALSE` and
-#' for joints without finite limits. The test is exact for the continuous
-#' straight-line motion, up to `tol`.
+#' for joints without finite limits. The test is conservative for the
+#' continuous straight-line motion, up to `tol` and floating point
+#' roundoff: it can report contact that a finer analysis would rule out,
+#' but it does not accept a motion through a contact it can detect.
 #'
 #' @inheritParams robot_check_collision
 #' @param path Matrix of waypoints (one per row) or a `robot_plan`.
