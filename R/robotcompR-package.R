@@ -15,6 +15,13 @@
 #' * Twists, Jacobian rows and spatial vectors are ordered linear first,
 #'   `c(v, w)`.
 #' * Euler angles are intrinsic; `"ZYX"` gives yaw, pitch, roll.
+#' * Joint arrays (configurations, velocities, accelerations, efforts,
+#'   torque callbacks and the columns of path or trajectory matrices) are
+#'   in [robot_joint_names()] order when unnamed. Named values must carry
+#'   exactly the movable joint names, each once, in any order, and are
+#'   matched by name in every function; partial, duplicated or unknown
+#'   names are an error. Robot-free trajectory builders take their order
+#'   from the names of `q0`.
 #'
 #' See `vignette("robotcompR")` and `vignette("spatial-math")` for details.
 #'

@@ -429,8 +429,13 @@ grow_prm <- function(pl, start, goal) {
 robot_plan <- function(planner, start, goal, seed = NULL, smooth = FALSE) {
   stopifnot(inherits(planner, "robot_planner"))
   d <- nrow(planner$bounds)
-  start <- check_numeric_vector(start, d, "start")
-  goal <- check_numeric_vector(goal, d, "goal")
+  if (is.null(planner$robot)) {
+    start <- check_numeric_vector(start, d, "start")
+    goal <- check_numeric_vector(goal, d, "goal")
+  } else {
+    start <- check_q(planner$robot, start, "start")
+    goal <- check_q(planner$robot, goal, "goal")
+  }
   t0 <- proc.time()[["elapsed"]]
   planner$deadline <- t0 + planner$time_limit
   fail <- function(msg, why) {

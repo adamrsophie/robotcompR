@@ -22,6 +22,13 @@ pose of frame b in frame a and maps b coordinates to a coordinates.
 \item Twists, Jacobian rows and spatial vectors are ordered linear first,
 \code{c(v, w)}.
 \item Euler angles are intrinsic; \code{"ZYX"} gives yaw, pitch, roll.
+\item Joint arrays (configurations, velocities, accelerations, efforts,
+torque callbacks and the columns of path or trajectory matrices) are
+in \code{\link[=robot_joint_names]{robot_joint_names()}} order when unnamed. Named values must carry
+exactly the movable joint names, each once, in any order, and are
+matched by name in every function; partial, duplicated or unknown
+names are an error. Robot-free trajectory builders take their order
+from the names of \code{q0}.
 }
 
 See \code{vignette("robotcompR")} and \code{vignette("spatial-math")} for details.

@@ -1,6 +1,23 @@
 # Time-parameterized trajectories. A geometric path (a sequence of
 # configurations) becomes a trajectory only after time parameterization.
 
+# Robot-free trajectory builders take their joint order from `q0`. Another
+# named endpoint must carry the same names (permuted into that order); an
+# unnamed one is positional.
+align_to_q0 <- function(x, q0, name) {
+  if (is.null(x)) return(NULL)
+  nx <- names(x)
+  x <- check_numeric_vector(x, length(q0), name)
+  n0 <- names(q0)
+  if (is.null(nx) || all(!nzchar(nx))) return(unname(x))
+  if (is.null(n0) || length(nx) != length(n0) || anyDuplicated(nx) ||
+      !setequal(nx, n0)) {
+    stop(sprintf("Names of `%s` must match the names of `q0`.", name),
+         call. = FALSE)
+  }
+  unname(x[match(n0, nx)])
+}
+
 new_trajectory <- function(time, q, qd, qdd, names = NULL, type = "",
                            evaluate = NULL) {
   q <- as.matrix(q)
@@ -95,14 +112,17 @@ robot_traj_polynomial <- function(q0, q1, duration, times = NULL, n = 101,
                                   qdd1 = NULL,
                                   order = c("quintic", "cubic")) {
   order <- match.arg(order)
-  q0 <- check_numeric_vector(q0, name = "q0")
+  q0 <- stats::setNames(check_numeric_vector(q0, name = "q0"), names(q0))
   m <- length(q0)
-  q1 <- check_numeric_vector(q1, m, "q1")
+  q1 <- align_to_q0(q1, q0, "q1")
   z <- rep(0, m)
-  qd0 <- if (is.null(qd0)) z else check_numeric_vector(qd0, m, "qd0")
-  qd1 <- if (is.null(qd1)) z else check_numeric_vector(qd1, m, "qd1")
-  qdd0 <- if (is.null(qdd0)) z else check_numeric_vector(qdd0, m, "qdd0")
-  qdd1 <- if (is.null(qdd1)) z else check_numeric_vector(qdd1, m, "qdd1")
+  side <- function(x, nm) {
+    if (is.null(x)) z else align_to_q0(x, q0, nm)
+  }
+  qd0 <- side(qd0, "qd0")
+  qd1 <- side(qd1, "qd1")
+  qdd0 <- side(qdd0, "qdd0")
+  qdd1 <- side(qdd1, "qdd1")
   T <- check_scalar(duration, "duration", positive = TRUE)
   cf <- lapply(seq_len(m), function(i)
     poly_coefficients(q0[i], q1[i], T, qd0[i], qd1[i], qdd0[i], qdd1[i], order))
@@ -174,9 +194,9 @@ trapezoid_eval <- function(pr, t) {
 #' @export
 robot_traj_trapezoidal <- function(q0, q1, vmax, amax, times = NULL,
                                    n = 101) {
-  q0 <- check_numeric_vector(q0, name = "q0")
+  q0 <- stats::setNames(check_numeric_vector(q0, name = "q0"), names(q0))
   m <- length(q0)
-  q1 <- check_numeric_vector(q1, m, "q1")
+  q1 <- align_to_q0(q1, q0, "q1")
   vmax <- check_per_item(vmax, m, "vmax")
   amax <- check_per_item(amax, m, "amax")
   if (any(vmax <= 0) || any(amax <= 0)) {
@@ -390,6 +410,9 @@ robot_traj_check <- function(robot, trajectory, tol = 1e-9) {
   check_robot(robot)
   stopifnot(inherits(trajectory, "robot_trajectory"))
   check_trajectory_structure(trajectory, robot$dof)
+  for (f in c("q", "qd", "qdd")) {
+    trajectory[[f]] <- check_q_matrix(robot, trajectory[[f]], f)
+  }
   L <- robot_limits(robot)
   mv <- robot$joints[robot$movable]
   vl <- vapply(mv, function(j) j$velocity %||% Inf, 0)

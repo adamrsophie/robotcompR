@@ -878,7 +878,7 @@ robot_check_path <- function(robot, path, environment = NULL, self = TRUE,
   check_robot(robot)
   method <- match.arg(method)
   if (inherits(path, "robot_plan")) path <- path$path
-  P <- check_matrix(path, NULL, robot$dof, "path")
+  P <- check_q_matrix(robot, path, "path")
   if (!nrow(P)) stop("`path` must have at least one row.", call. = FALSE)
   resolution <- check_scalar(resolution, "resolution", positive = TRUE)
   margin <- check_scalar(margin, "margin", nonnegative = TRUE)

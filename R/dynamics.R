@@ -444,31 +444,48 @@ robot_simulate <- function(robot, q0, qd0 = NULL, times, torque = NULL,
   } else if (is.function(torque)) {
     torque
   } else {
-    tau_const <- check_numeric_vector(torque, n, "torque")
+    tau_const <- check_q(robot, torque, "torque")
     function(t, q, qd) tau_const
   }
   rhs <- function(t, y, parms) {
-    q <- y[seq_len(n)]
-    qd <- y[n + seq_len(n)]
-    tau <- check_numeric_vector(tau_fun(t, q, qd), n, "torque(t, q, qd)")
+    q <- unname(y[seq_len(n)])
+    qd <- unname(y[n + seq_len(n)])
+    tau <- check_q(robot, tau_fun(t, q, qd), "torque(t, q, qd)")
     qdd <- aba_internal(robot, q, qd, tau, g,
                         external_forces(robot, f_ext, q))
     list(c(qd, qdd))
   }
-  out <- deSolve::ode(c(q0, qd0), times, rhs, NULL, method = method,
-                      rtol = rtol, atol = atol, ...)
-  if (nrow(out) < length(times)) {
+  solver_notes <- character(0)
+  out <- withCallingHandlers(
+    deSolve::ode(c(q0, qd0), times, rhs, NULL, method = method,
+                 rtol = rtol, atol = atol, ...),
+    warning = function(w) {
+      solver_notes <<- c(solver_notes, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    })
+  # Completion is judged by the solver status and by every requested time
+  # being present with finite values, not by the row count alone.
+  istate <- attr(out, "istate")
+  reached <- nrow(out) == length(times) && isTRUE(all(out[, 1] == times)) &&
+    all(is.finite(unclass(out)))
+  if (!reached || (!is.null(istate) && !is.na(istate[1]) && istate[1] < 0)) {
+    last <- out[, 1][is.finite(out[, 1])]
     stop(sprintf(paste0("The ODE solver stopped at t = %g before reaching ",
                         "t = %g (divergent or stiff dynamics, or too few ",
                         "steps; see `...`)."),
-                 out[nrow(out), 1], times[length(times)]), call. = FALSE)
+                 if (length(last)) max(last) else times[1],
+                 times[length(times)]),
+         if (length(solver_notes)) paste0(" Solver: ",
+           paste(unique(trimws(solver_notes)), collapse = " ")) else "",
+         call. = FALSE)
   }
+  for (w in unique(solver_notes)) warning(w, call. = FALSE)
   times <- as.numeric(out[, 1])
-  Y <- unclass(out)[, -1, drop = FALSE]
+  Y <- unname(unclass(out)[, -1, drop = FALSE])
   Q <- Y[, seq_len(n), drop = FALSE]
   Qd <- Y[, n + seq_len(n), drop = FALSE]
   Qdd <- matrix(vapply(seq_len(nrow(Q)), function(i) {
-    tau <- tau_fun(times[i], Q[i, ], Qd[i, ])
+    tau <- check_q(robot, tau_fun(times[i], Q[i, ], Qd[i, ]), "torque(t, q, qd)")
     aba_internal(robot, Q[i, ], Qd[i, ], tau, g,
                  external_forces(robot, f_ext, Q[i, ]))
   }, numeric(n)), nrow = nrow(Q), byrow = TRUE)

@@ -252,23 +252,44 @@ check_robot <- function(robot) {
   invisible(robot)
 }
 
+# Joint arrays (configurations, velocities, accelerations, efforts) enter
+# every public function through these two checks. Unnamed values are
+# positional, in robot_joint_names() order. Named values must carry exactly
+# the joint names, each once, in any order, and are permuted into joint
+# order; partial, duplicated or unknown names are an error. Names are
+# dropped only after the permutation.
+joint_order <- function(robot, nms, name) {
+  if (is.null(nms) || all(!nzchar(nms))) return(NULL)
+  jn <- robot_joint_names(robot)
+  if (length(nms) != length(jn) || anyDuplicated(nms) || !setequal(nms, jn)) {
+    stop(sprintf(paste0("Names of `%s` must be the joint names (%s), each ",
+                        "once, in any order; or leave `%s` unnamed."),
+                 name, paste(jn, collapse = ", "), name), call. = FALSE)
+  }
+  match(jn, nms)
+}
+
 check_q <- function(robot, q, name = "q") {
-  nms <- names(q)
+  nms <- if (is.matrix(q) && nrow(q) == 1L) colnames(q) else names(q)
   q <- check_numeric_vector(q, name = name)
   if (length(q) != robot$dof) {
     stop(sprintf("`%s` must have length %d (the number of degrees of freedom).",
                  name, robot$dof), call. = FALSE)
   }
-  # A named configuration is matched to the joints by name, never used by
-  # position in a different order.
-  jn <- robot_joint_names(robot)
-  if (!is.null(nms) && all(nzchar(nms)) && setequal(nms, jn) && !anyDuplicated(nms)) {
-    q <- q[match(jn, nms)]
-  } else if (!is.null(nms) && any(nms %in% jn) && !identical(nms, jn)) {
-    stop(sprintf("Names of `%s` must be exactly the joint names (%s).", name,
-                 paste(jn, collapse = ", ")), call. = FALSE)
-  }
+  idx <- joint_order(robot, nms, name)
+  if (!is.null(idx)) q <- q[idx]
   unname(q)
+}
+
+check_q_matrix <- function(robot, Q, name = "Q") {
+  if (!is.matrix(Q)) {
+    nms <- names(Q)
+    Q <- matrix(Q, 1, dimnames = list(NULL, nms))
+  }
+  Q <- check_matrix(Q, NULL, robot$dof, name)
+  idx <- joint_order(robot, colnames(Q), name)
+  if (!is.null(idx)) Q <- Q[, idx, drop = FALSE]
+  unname(Q)
 }
 
 frame_index <- function(robot, frame) {
@@ -462,7 +483,7 @@ robot_fk <- function(robot, q, frame = NULL) {
 #' @export
 robot_fk_positions <- function(robot, Q, frame = NULL) {
   check_robot(robot)
-  Q <- check_matrix(if (is.matrix(Q)) Q else matrix(Q, 1), NULL, robot$dof, "Q")
+  Q <- check_q_matrix(robot, Q, "Q")
   k <- frame_index(robot, frame)
   out <- t(vapply(seq_len(nrow(Q)), function(i)
     fk_internal(robot, Q[i, ])$link[[k]][1:3, 4], numeric(3)))
